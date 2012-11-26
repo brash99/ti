@@ -490,6 +490,9 @@ void  tiSetFiberDelay(unsigned int delay, unsigned int offset);
 int  tiAddSlave(unsigned int fiber);
 int  tiSetTriggerHoldoff(int rule, unsigned int value, int timestep);
 int  tiGetTriggerHoldoff(int rule);
+
+int  tiDisableDataReadout();
+int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
 int  tiLoadTriggerTable();

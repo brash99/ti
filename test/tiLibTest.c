@@ -20,7 +20,7 @@ DMA_MEM_ID vmeIN,vmeOUT;
 extern DMANODE *the_event;
 extern unsigned int *dma_dabufp;
 
-#define DO_READOUT
+/* #define DO_READOUT */
 
 /* Interrupt Service routine */
 void
@@ -32,8 +32,6 @@ mytiISR(int arg)
   int tibready=0, timeout=0;
 
   unsigned int tiIntCount = tiGetIntCount();
-
-  printf(" tiIntCount = %d\n", tiIntCount);
 
 #ifdef DO_READOUT
   GETEVENT(vmeIN,tiIntCount);
@@ -78,7 +76,7 @@ mytiISR(int arg)
   outEvent = dmaPGetItem(vmeOUT);
 #define READOUT
 #ifdef READOUT
-  if(tiIntCount%1==0)
+  if(tiIntCount%100==0)
     {
       printf("Received %d triggers...\n",
 	     tiIntCount);
@@ -95,10 +93,11 @@ mytiISR(int arg)
 #endif
   dmaPFreeItem(outEvent);
 #else /* DO_READOUT */
-  tiResetBlockReadout();
+/*   tiResetBlockReadout(); */
 
 #endif /* DO_READOUT */
-  tiStatus();
+  if(tiIntCount%100==0)
+    tiStatus();
 /*   sleep(1); */
 }
 
@@ -135,7 +134,7 @@ main(int argc, char *argv[]) {
 
 /*     gefVmeSetDebugFlags(vmeHdl,0x0); */
     /* Set the TI structure pointer */
-    tiInit((3<<19),TI_READOUT_EXT_POLL,0);
+    tiInit((21<<19),TI_READOUT_EXT_POLL,0);
     tiCheckAddresses();
 
     char mySN[20];
@@ -143,6 +142,7 @@ main(int argc, char *argv[]) {
     printf("mySN = %s\n",mySN);
 
 #ifndef DO_READOUT
+    tiDisableDataReadout();
     tiDisableA32();
 #endif
 

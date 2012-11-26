@@ -73,6 +73,7 @@ static unsigned int tiIntLevel    = TI_INT_LEVEL;       /* VME Interrupt level *
 static unsigned int tiIntVec      = TI_INT_VEC;  /* default interrupt vector */
 static VOIDFUNCPTR  tiAckRoutine  = NULL;    /* user trigger acknowledge routine */
 static int          tiAckArg      = 0;       /* arg to user trigger ack routine */
+static int          tiReadoutEnabled = 1;    /* Readout enabled, by default */
 int                 tiFiberLatencyOffset = 0xbf; /* Default offset for fiber latency */
 
 /* Interrupt/Polling routine prototypes (static) */
@@ -2673,6 +2674,55 @@ tiGetTriggerHoldoff(int rule)
 
 /*******************************************************************************
  *
+ * tiDisableDataReadout()/ tiEnableDataReadout()
+ *    - Disable/Enable the necessity to readout the TI for every block..
+ *      For instances when the TI data is not required for analysis
+ *
+ */
+
+int
+tiDisableDataReadout()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  tiReadoutEnabled = 0;
+  TILOCK;
+  vmeWrite32(&TIp->vmeControl,
+	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_BUFFER_DISABLE);
+  TIUNLOCK;
+  
+  printf("%s: Readout disabled.\n",__FUNCTION__);
+
+  return OK;
+}
+
+int
+tiEnableDataReadout()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  tiReadoutEnabled = 1;
+  TILOCK;
+  vmeWrite32(&TIp->vmeControl,
+	     vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_BUFFER_DISABLE);
+  TIUNLOCK;
+
+  printf("%s: Readout enabled.\n",__FUNCTION__);
+
+  return OK;
+}
+
+
+/*******************************************************************************
+ *
  * tiResetBlockReadout
  *    - Decrement the hardware counter for blocks available, effectively
  *      simulating a readout from the data fifo.
@@ -3303,7 +3353,16 @@ tiIntAck()
       TILOCK;
       tiDoAck = 1;
       tiAckCount++;
-      vmeWrite32(&TIp->reset,TI_RESET_BUSYACK);
+      if(tiReadoutEnabled)
+	{
+	  /* Normal Readout Acknowledge */
+	  vmeWrite32(&TIp->reset,TI_RESET_BUSYACK);
+	}
+      else
+	{
+	  /* Readout Acknowledge and decrease the number of available blocks by 1 */
+	  vmeWrite32(&TIp->reset,TI_RESET_BUSYACK | TI_RESET_BLOCK_READOUT);
+	}
       TIUNLOCK;
     }
 
