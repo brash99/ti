@@ -1,0 +1,8 @@
+
+Changelog for the TI (pipeline) Library.
+
+r10913:
+ - Provide capability to use the TI, without needing to readout its data.
+
+r556: 
+ - Initial push to /site/coda/3.0/linuxvme/ti/

@@ -15,6 +15,10 @@
 #define TI_READOUT TI_READOUT_EXT_POLL  /* Poll for available data, external triggers */
 #define TI_ADDR    (3<<19)          /* GEO slot 3 */
 
+/* Decision on whether or not to readout the TI for each block 
+   - Comment out to disable readout 
+*/
+#define TI_DATA_READOUT
 
 #include "dmaBankTools.h"
 #include "tiprimary_list.c" /* source required for CODA */
@@ -59,6 +63,14 @@ rocDownload()
    *   TI SETUP
    *****************/
   int overall_offset=0x80;
+
+#ifndef TI_DATA_READOUT
+  /* Disable data readout */
+  tiDisableDataReadout();
+  /* Disable A32... where that data would have been stored on the TI */
+  tiDisableA32();
+#endif
+
   /* Set crate ID */
   tiSetCrateID(0x01); /* ROC 1 */
 
@@ -156,6 +168,7 @@ rocTrigger(int arg)
   *dma_dabufp++ = LSWAP(0xcebaf111);
   BANKCLOSE;
 
+#ifdef TI_DATA_READOUT
   BANKOPEN(4,BT_UI4,0);
 
   vmeDmaConfig(2,5,1); 
@@ -170,6 +183,7 @@ rocTrigger(int arg)
     }
 
   BANKCLOSE;
+#endif
 
   tiSetOutputPort(0,0,0,0);
 
