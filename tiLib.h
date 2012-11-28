@@ -442,6 +442,7 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
 
 /* Function prototypes */
 int  tiInit(unsigned int tAddr, unsigned int mode, int force);
+unsigned int tiFind();
 int  tiCheckAddresses();
 void tiStatus();
 int  tiGetFirmwareVersion();

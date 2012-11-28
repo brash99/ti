@@ -134,7 +134,8 @@ main(int argc, char *argv[]) {
 
 /*     gefVmeSetDebugFlags(vmeHdl,0x0); */
     /* Set the TI structure pointer */
-    tiInit((21<<19),TI_READOUT_EXT_POLL,0);
+/*     tiInit((2<<19),TI_READOUT_EXT_POLL,0); */
+    tiInit(0,TI_READOUT_EXT_POLL,0);
     tiCheckAddresses();
 
     char mySN[20];

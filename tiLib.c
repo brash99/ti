@@ -145,13 +145,19 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     }
   if(tAddr==0)
     {
-      /* Assume 0 means to use default from GEO (slot 20 or 21, whichever = MAX_VME_SLOTS) */
-      tAddr=(MAX_VME_SLOTS)<<19;
+      printf("%s: Scanning for TI...\n",__FUNCTION__);
+      tAddr=tiFind();
+
+      if(tAddr==0)
+	{
+	  printf("%s: ERROR: Unable to find TI\n",__FUNCTION__);
+	  return ERROR;
+	}
+      
     }
 
   noBoardInit = iFlag&(0x1);
 
-  /* Form VME base address from slot number */
 #ifdef VXWORKS
   stat = sysBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
   if (stat != 0) 
@@ -202,7 +208,8 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  printf("%s: ERROR: Invalid Board ID: 0x%x (rval = 0x%08x)\n",
 		 __FUNCTION__,
 		 (rval&TI_BOARDID_TYPE_MASK)>>16,rval);
-	  TIp=NULL;
+	  /*  Not setting the TIp to NULL here... just in case we're
+	      re-programming the firmware */
 	  return(ERROR);
 	}
       /* Check if this is board has a valid slot number */
@@ -357,6 +364,67 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 /*   vmeWrite32(&TIp->runningMode,0x71); */
 
   return OK;
+}
+
+/*******************************************************************************
+ *  
+ *  tiFind - Find the TI within the prescribed "GEO Slot to A24 VME Address"
+ *           range from slot 3 to 21.
+ *           
+ *  RETURNS: A24 VME address if found.  Otherwise, 0
+ */
+
+unsigned int
+tiFind()
+{
+  int islot, stat, tiFound=0;;
+  unsigned int tAddr, laddr, rval;
+
+  for(islot = 2; islot<22; islot++)
+    {
+      /* Form VME base address from slot number */
+      tAddr = (islot<<19);
+      
+#ifdef VXWORKS
+      stat = sysBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
+#else
+      stat = vmeBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
+#endif
+      if(stat != 0)
+	continue;
+
+      /* Check if this address is readable */
+#ifdef VXWORKS
+      stat = vxMemProbe((char *)(laddr),0,4,(char *)&rval);
+#else
+      stat = vmeMemProbe((char *)(laddr),4,(char *)&rval);
+#endif
+
+      if (stat != 0) 
+	{
+	  continue;
+	}
+      else
+	{
+	  /* Check that it is a TI */
+	  if(((rval&TI_BOARDID_TYPE_MASK)>>16) != TI_BOARDID_TYPE_TI) 
+	    {
+	      continue;
+	    }
+	  else
+	    {
+	      printf("%s: Found TI at 0x%08x\n",__FUNCTION__,tAddr);
+	      tiFound=1;
+	      break;
+	    }
+	}
+    }
+
+  if(tiFound)
+    return tAddr;
+  else
+    return 0;
+
 }
 
 int
