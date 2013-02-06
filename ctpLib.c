@@ -630,7 +630,9 @@ ctpReadEvent(volatile unsigned int *data, int nwrds)
     {
       data[ii] = (vmeRead32(&CTPp->history_buffer_lsb) 
 		  | (vmeRead32(&CTPp->history_buffer_msb)<<16)) & CTP_DATA_MASK;
+#ifndef VXWORKS
       data[ii] = LSWAP(data[ii]);
+#endif
       ii++;
     }
   ii++;

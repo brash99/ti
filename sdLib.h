@@ -49,12 +49,18 @@ struct SDStruct
   /* 0x3C80 */ volatile unsigned int csrTest;            /* Address 32 */
   /* 0x3C84 */ volatile unsigned int clkACounterTest;    /* Address 33 */
   /* 0x3C88 */ volatile unsigned int clkBCounterTest;    /* Address 34 */
-  /* 0x3C8C */          unsigned int blankSD1[(0x10000-0x3C8C)/4];
+  /* 0x3C8C */          unsigned int blankSD1[(0x3D14-0x3C8C)/4];
 #else
   /* 0x3C60 */          unsigned int RFU[7];             /* Address 24-30 */
   /* 0x3C7C */ volatile unsigned int version;            /* Address 31 */
-  /* 0x3C80 */          unsigned int blankSD1[(0x10000-0x3C80)/4];
+  /* 0x3C80 */          unsigned int blankSD1[(0x3D14-0x3C80)/4];
 #endif
+  /* 0x3D14 */          unsigned int memAddrLSB;         /* Address 69 (0x45) */
+  /* 0x3D18 */          unsigned int memAddrMSB;         /* Address 70 (0x46) */
+  /* 0x3D1C */          unsigned int memWriteCtrl;       /* Address 71 (0x47) */
+  /* 0x3D20 */          unsigned int memReadCtrl;        /* Address 72 (0x48) */
+  /* 0x3D24 */          unsigned int memCheckStatus;     /* Address 73 */
+  /* 0x3D28 */          unsigned int blankSD2[(0x10000-0x3D28)/4];
 };
 
 /* SD status bits and masks - not meaningful at the moment? */
@@ -93,6 +99,22 @@ struct SDStruct
 #define SD_CSRTEST_TEST_RESET           (1<<15)
 #endif
 
+/* Bits and Masks used for Remote Programming */
+#define SD_MEMADDR_LSB_MASK             0xFFFF
+#define SD_MEMADDR_MSB_MASK             0x00FF
+#define SD_MEMWRITECTRL_DATA_MASK       0x00FF
+#define SD_MEMWRITECTRL_WRITE           (1<<8)
+#define SD_MEMWRITECTRL_WREN            (1<<9)
+#define SD_MEMWRITECTRL_SHIFT_BYTES     (1<<10)
+#define SD_MEMWRITECTRL_SECTOR_ERASE    (1<<12)
+#define SD_MEMWRITECTRL_SECTOR_PROTECT  (1<<13)
+#define SD_MEMREADCTRL_DATA_MASK        0x00FF
+#define SD_MEMREADCTRL_READ             (1<<8)
+#define SD_MEMREADCTRL_RDEN             (1<<9)
+#define SD_MEMREADCTRL_READ_STATUS      (1<<10)
+#define SD_MEMREADCTRL_NEGATE_BUSY      (1<<11)
+
+
 /* SD routine prototypes */
 int  sdInit();
 int  sdStatus();
@@ -106,6 +128,8 @@ int  sdSetActivePayloadPorts(unsigned int imask);
 int  sdSetActiveVmeSlots(unsigned int vmemask);
 int  sdGetActivePayloadPorts();
 int  sdGetBusyoutCounter(int ipayload);
+
+unsigned int sdGetSerialNumber(char *rSN);
 
 #ifdef TEST
 int  sdTestGetBusyout();

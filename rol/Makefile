@@ -15,10 +15,10 @@ DEBUG=1
 #
 
 # Plug in your primary readout lists here..
-VMEROL			= vme_list.so
+VMEROL			= vme_list.so vme_slave_list.so fadc_list.so
 # Add shared library dependencies here.  (jvme, ti, are already included)
-ROLLIBS			= 
-#ROLLIBS			= -lfadc
+#ROLLIBS			= 
+ROLLIBS			= -lfadc -lremex
 
 ifndef LINUXVME_LIB
 	LINUXVME_LIB	= $CODA/extensions/linuxvme/libs

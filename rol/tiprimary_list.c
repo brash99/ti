@@ -348,7 +348,7 @@ void usrtrig(unsigned long EVTYPE,unsigned long EVSOURCE)
   if(outEvent != NULL) 
     {
       len = outEvent->length;
-      data = outEvent->type;
+      type = outEvent->type;
       event_number = outEvent->nevent;
 #ifdef NEEDTHIS?
       tiDecodeTrigData(data, &type, &syncFlag, &lateFail);

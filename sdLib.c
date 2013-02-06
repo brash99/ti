@@ -23,6 +23,8 @@
  *
  *----------------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 #define DEVEL
 
 /* This is the SD base relative to the TI base VME address */
@@ -30,6 +32,13 @@
 
 /* Global Variables */
 volatile struct SDStruct  *SDp=NULL;    /* pointer to SD memory map */
+
+/* Firmware updating variables */
+static unsigned char *progFirmware=NULL;
+static size_t progFirmwareSize=0;
+/* Maximum firmware size = 1 MB */
+#define SD_MAX_FIRMWARE_SIZE 1024*1024
+
 
 /*
   sdInit
@@ -98,7 +107,7 @@ sdStatus()
 
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -242,7 +251,7 @@ sdSetClockFrequency(int iclk, int ifreq)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
   if(iclk<0 || iclk>2)
@@ -291,7 +300,7 @@ sdGetClockFrequency(int iclk)
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
   if(iclk<0 || iclk>1)
@@ -326,7 +335,7 @@ sdSetClockMode(int iclk, int imode)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
   if(iclk<0 || iclk>1)
@@ -372,7 +381,7 @@ sdGetClockMode(int iclk)
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
   if(iclk<0 || iclk>1)
@@ -401,7 +410,7 @@ sdResetPLL(int iclk)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
   if(iclk<0 || iclk>1)
@@ -434,7 +443,7 @@ sdReset()
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -456,7 +465,7 @@ sdSetActivePayloadPorts(unsigned int imask)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -501,7 +510,7 @@ sdSetActiveVmeSlots(unsigned int vmemask)
 
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
   
@@ -544,7 +553,7 @@ sdGetActivePayloadPorts()
   unsigned int payloadPorts, tokenPorts, busyoutPorts, trigoutPorts;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -585,7 +594,7 @@ sdGetBusyoutCounter(int ipayload)
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -604,6 +613,623 @@ sdGetBusyoutCounter(int ipayload)
 
 }
 
+/*************************************************************
+ *  SD FIRMWARE UPDATING ROUTINES
+ ************************************************************/
+
+static int
+sdFirmwareWaitCmdDone(int wait)
+{
+  int i;
+  unsigned int data_out;
+		
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  for(i = 0; i < wait*75; i++)
+    {
+      if((i%100)==0)
+	{
+	  printf(".");
+	  fflush(stdout);
+	}
+
+      TILOCK;
+/*       vmeWrite32(&SDp->memReadCtrl,0x400); // FIXME: define */
+      data_out = vmeRead32(&SDp->memCheckStatus);
+      TIUNLOCK;
+
+      fflush(stdout);
+      if (!(data_out & 0x100)) // FIXME: define  BUSY FLAG
+	{
+	  return data_out & 0xFF;
+	}
+    }
+
+  printf("%s: ERROR: Timeout\n",__FUNCTION__);
+
+  return 0;
+
+}
+
+int
+sdFirmwareFlushFifo()
+{
+  int i;
+  unsigned int data_out;
+
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  for(i = 0; i < 100; i++)
+    {
+      data_out = vmeRead32(&SDp->memReadCtrl);
+
+      if(data_out & 0x200) // FIXME: define macro
+	break;
+    }
+  TIUNLOCK;
+
+  if(i == 100)
+    {
+      printf("%s: ERROR: config read init buffer error\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  else
+    printf("%s: INFO: i = %d   data_out = 0x%0x\n",__FUNCTION__,i, data_out);
+
+  return OK;
+}
+
+int
+sdFirmwareLoadFile(char *filename)
+{
+  FILE *progFile;
+/* #define DEBUGFILE */
+#ifdef DEBUGFILE
+  int ibyte=0;
+#endif
+
+  if(filename==NULL)
+    {
+      printf("%s: Error: Invalid filename\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  /* Open the file containing the firmware */
+  progFile=fopen(filename,"r");
+  if(progFile==NULL)
+    {
+      printf("%s: ERROR opening file (%s) for reading\n",
+	     __FUNCTION__,filename);
+      return ERROR;
+    }
+
+  /* Allocate memory to store in locally */
+  progFirmware = (unsigned char *)malloc(SD_MAX_FIRMWARE_SIZE*sizeof(unsigned char));
+  if(progFirmware==NULL)
+    {
+      printf("%s: ERROR: Unable to allocate memory for firmware\n",__FUNCTION__);
+      fclose(progFile);
+      return ERROR;
+    }
+  
+  /* Initialize this local memory with 0xff's */
+  memset(progFirmware, 0xff, SD_MAX_FIRMWARE_SIZE);
+  
+  /* Read the file into memory */
+  progFirmwareSize = fread(progFirmware, 1, SD_MAX_FIRMWARE_SIZE, progFile);
+  printf("%s: Firmware Size = %d (0x%x)\n",
+	 __FUNCTION__, progFirmwareSize, progFirmwareSize);
+
+/*   progFirmwareSize=0x20000; */
+
+  fclose(progFile);
+
+#ifdef DEBUGFILE
+  for(ibyte = 0; ibyte<progFirmwareSize; ibyte++)
+    {
+      printf("%02x ",progFirmware[ibyte]);
+      if((ibyte+1)%64==0) printf("\n");
+    }
+  printf("\n");
+#endif
+
+  return OK;
+}
+
+void
+sdFirmwareFreeMemory()
+{
+  if(progFirmware!=NULL)
+    {
+      free(progFirmware);
+    }
+}
+
+int
+sdFirmwareVerifyPage(unsigned int mem_addr)
+{
+  unsigned int data;
+  unsigned int ibyte;
+  int n_err=0;
+
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+/*   printf("%s: Verifying loaded firmware with current firmware\n", */
+/* 	 __FUNCTION__); */
+
+  /* Loop over each byte in the firmware */
+  for(ibyte = mem_addr; ibyte<mem_addr+256; ibyte++)
+    {
+      if((ibyte%0x10000) == 0) printf("Verifying firmware to memory address 0x%06x\n",ibyte);
+      /* Write to set the memory address we're accessing */
+      vmeWrite32(&SDp->memAddrLSB, (ibyte & 0xFFFF) );
+      vmeWrite32(&SDp->memAddrMSB, (ibyte & 0xFF0000)>>16 );
+
+      vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+
+      data = vmeRead32(&SDp->memReadCtrl); 
+      if(data < 0)
+	{
+	  printf("%s: ERROR: page program timeout error\n", __FUNCTION__);
+	  TIUNLOCK;
+	  return ERROR;
+	}
+      else
+	{
+	  if(progFirmware[ibyte] != (data & 0xFF))
+	    {
+	      n_err++;
+	      if(n_err<400)
+		{
+		  printf("0x%06x (%8d): 0x%02x != 0x%02x    ***** \n",
+			 ibyte, ibyte, progFirmware[ibyte], (data & 0xFF));
+		}
+	      
+	    }
+	}
+
+    }
+
+  if(n_err)
+    {
+      printf("%s: Total errors: %d\n",__FUNCTION__,n_err);
+      return ERROR;
+    }
+
+  return OK;
+
+
+}
+
+int
+sdFirmwareVerifyPageZero(unsigned int mem_addr)
+{
+  unsigned int data;
+  unsigned int ibyte;
+  int n_err=0;
+
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+/*   printf("%s: Verifying loaded firmware with current firmware\n", */
+/* 	 __FUNCTION__); */
+
+  /* Loop over each byte in the firmware */
+/* #define DEBUGERASE */
+#ifdef DEBUGERASE
+  printf("Verifying erase to memory address 0x%06x\n",mem_addr);
+#endif
+  for(ibyte = mem_addr; ibyte<mem_addr+256; ibyte++)
+    {
+      /* Write to set the memory address we're accessing */
+      vmeWrite32(&SDp->memAddrLSB, (ibyte & 0xFFFF) );
+      vmeWrite32(&SDp->memAddrMSB, (ibyte & 0xFF0000)>>16 );
+
+      vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+
+      data = vmeRead32(&SDp->memReadCtrl); 
+      if(data < 0)
+	{
+	  printf("%s: ERROR: page program timeout error\n", __FUNCTION__);
+	  TIUNLOCK;
+	  return ERROR;
+	}
+      else
+	{
+	  if(0xff != (data & 0xFF))
+	    {
+	      n_err++;
+#ifdef DEBUGERASE
+	      if(n_err<400)
+		{
+		  printf("0x%06x (%8d): 0x%02x != 0x%02x    ***** \n",
+			 ibyte, ibyte, 0xff, (data & 0xFF));
+		}
+#endif
+	      
+	    }
+	}
+
+    }
+
+  if(n_err)
+    {
+      printf("%s: Total errors: %d\n",__FUNCTION__,n_err);
+      return ERROR;
+    }
+
+  return OK;
+
+
+}
+
+void
+sdFirmwareWritePage(unsigned int mem_addr)
+{
+  int ibyte=0;
+  unsigned int prog=0;
+  unsigned int memCommand=0, mem_write=0;
+
+  vmeWrite32(&SDp->memAddrLSB, (mem_addr & 0xFFFF) );
+  vmeWrite32(&SDp->memAddrMSB, (mem_addr & 0xFF0000)>>16 );
+
+  memCommand=0x0600;
+  for(ibyte = mem_addr; ibyte < mem_addr + 256; ibyte++)
+    {
+
+      prog = (progFirmware[ibyte]) & 0xFF;
+
+      if(ibyte>=progFirmwareSize)
+	mem_write = (memCommand | 0xFF);
+      else
+	mem_write = (memCommand | prog);
+
+      vmeWrite32(&SDp->memWriteCtrl, mem_write ); // FIXME: Replace with define
+
+      if(ibyte==(mem_addr+255))
+	{
+	  memCommand=0x300;
+	  mem_write = (memCommand | prog);
+	      
+	  vmeWrite32(&SDp->memWriteCtrl, mem_write ); // FIXME: Replace with define
+	}
+
+    }
+  vmeWrite32(&SDp->memWriteCtrl, 0x0300 | prog); // FIXME: Replace with define
+  
+  usleep(7000);
+
+}
+
+int
+sdFirmwareWriteToMemory()
+{
+  unsigned int mem_addr=0;
+  int page_count=0;
+
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((progFirmware==NULL) || (progFirmwareSize==0))
+    {
+      printf("%s: Error: Firmware file not loaded into memory\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  /* Loop over each byte in the firmware */
+  for(mem_addr=0; mem_addr<progFirmwareSize; mem_addr+=256)
+    {
+
+      if( (mem_addr % 0x10000) == 0) /* Erase current sector */
+	{
+	  TILOCK;
+	  vmeWrite32(&SDp->memAddrLSB, (mem_addr & 0xFFFF) );
+	  vmeWrite32(&SDp->memAddrMSB, (mem_addr & 0xFF0000)>>16 );
+
+	  vmeWrite32(&SDp->memWriteCtrl, (0x1200) ); // FIXME: Replace with define
+
+	  sleep(3);
+	  TIUNLOCK;
+	  if(sdFirmwareWaitCmdDone(3300)<0)
+	    {
+	      printf("%s: ERROR: sector erase timeout error\n",__FUNCTION__);
+	      return ERROR;
+	    }
+
+	}
+
+      /* Write to set the memory address we're accessing */
+      if((mem_addr%0x10000) == 0) printf("Writing firmware to memory address 0x%06x\n",mem_addr);
+      TILOCK;
+
+      if(sdFirmwareVerifyPageZero(mem_addr)==ERROR)
+	{
+	  TIUNLOCK;
+	  printf("%s: Too many errors in current page (%d)\n",__FUNCTION__,page_count);
+	  return ERROR;
+	}
+
+      sdFirmwareWritePage(mem_addr);
+
+      if(sdFirmwareVerifyPage(mem_addr)==ERROR)
+	{
+	    TIUNLOCK;
+	    printf("%s: Too many errors in current page (%d)\n",__FUNCTION__,page_count);
+	    return ERROR;
+	}
+
+      page_count++;
+      
+      usleep(5000);
+      TIUNLOCK;
+
+    }
+  TIUNLOCK;
+
+  printf("%s: pages written = %d\n",__FUNCTION__,page_count);
+  return OK;
+}
+
+
+int
+sdFirmwareVerifyMemory()
+{
+  unsigned int mem_addr=0, data;
+  int n_err=0;
+
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  printf("%s: Verifying loaded firmware with current firmware\n",
+	 __FUNCTION__);
+
+  /* Loop over each byte in the firmware */
+  TILOCK;
+  for(mem_addr=0; mem_addr<progFirmwareSize; mem_addr++)
+    {
+      if((mem_addr%0x10000) == 0) printf("Verifying firmware to memory address 0x%06x\n",mem_addr);
+      /* Write to set the memory address we're accessing */
+      vmeWrite32(&SDp->memAddrLSB, (mem_addr & 0xFFFF) );
+      vmeWrite32(&SDp->memAddrMSB, (mem_addr & 0xFF0000)>>16 );
+
+      vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+
+      data = vmeRead32(&SDp->memReadCtrl); 
+      if(data < 0)
+	{
+	  printf("%s: ERROR: page program timeout error\n", __FUNCTION__);
+	  TIUNLOCK;
+	  return ERROR;
+	}
+      else
+	{
+	  if(progFirmware[mem_addr] != (data & 0xFF))
+	    {
+	      n_err++;
+	      if(n_err<400)
+		{
+		  printf("0x%06x (%8d): 0x%02x != 0x%02x    ***** \n",
+			 mem_addr, mem_addr, progFirmware[mem_addr], (data & 0xFF));
+		}
+	      
+	    }
+	}
+
+    }
+  TIUNLOCK;
+
+  printf("%s: Total errors: %d\n",__FUNCTION__,n_err);
+
+  if(n_err)
+    return ERROR;
+
+  return OK;
+
+}
+
+int
+sdFirmwareReadAddr(unsigned int addr)
+{
+  unsigned int data_out;
+	
+  TILOCK;
+  vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
+  vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
+  
+  vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+
+  taskDelay(1);
+	
+  data_out = vmeRead32(&SDp->memReadCtrl);
+  TIUNLOCK;
+
+/*   printf("{%04X}", data_out); */
+/*   printf("INFO: read byte done\n"); */
+  return data_out & 0xFF;
+
+}
+
+static int 
+sdFirmwareReadStatus()
+{
+  unsigned int status_out;
+  int i;
+	
+  TILOCK;
+  for(i = 0; i < 3; i++)
+    {
+      vmeWrite32(&SDp->memReadCtrl, 0x0400);
+/*       write_i2c (0x0400, 0x48); */
+      status_out = vmeRead32(&SDp->memCheckStatus);
+/*       status_out = read_i2c(0x49); */
+/*       if ((i % 2) == 0) */
+/* 	{	printf("{%04X}", status_out);} */
+		
+      if ((status_out & 0x4))
+	{
+/* 	  printf("%s: INFO: read status complete\n",__FUNCTION__); */
+/* 	  printf("{%04X}", status_out); */
+/* 	  printf("\n"); */
+	  TIUNLOCK;
+	  return status_out & 0xFF;
+	}
+      taskDelay(1);
+    }
+  TIUNLOCK;
+  printf("%s: ERROR: Timeout\n",__FUNCTION__);
+  return -1;
+}
+
+void
+sdFirmwareWriteSpecs(unsigned int addr, unsigned int serial_number,
+		     unsigned int hall_board_version, unsigned int firmware_version)
+{
+  int i;
+
+/*   TILOCK; */
+/*   vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) ); */
+/*   vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 ); */
+
+/*   vmeWrite32(&SDp->memWriteCtrl, (0x2200) ); // FIXME: Replace with define */
+
+/*   sleep(2); */
+/*   TIUNLOCK; */
+/*   if(sdFirmwareWaitCmdDone(3300)<0) */
+/*     { */
+/*       printf("%s: ERROR: sector erase timeout error\n",__FUNCTION__); */
+/*       return; */
+/*     } */
+
+  TILOCK;
+  vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
+  vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
+
+  vmeWrite32(&SDp->memWriteCtrl, (0x2200) ); // FIXME: Replace with define
+
+  sleep(3);
+  TIUNLOCK;
+  if(sdFirmwareWaitCmdDone(3300)<0)
+    {
+      printf("%s: ERROR: sector erase timeout error\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
+  vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
+
+  vmeWrite32(&SDp->memWriteCtrl, (0x1200) ); // FIXME: Replace with define
+
+  sleep(3);
+  TIUNLOCK;
+  if(sdFirmwareWaitCmdDone(3300)<0)
+    {
+      printf("%s: ERROR: sector erase timeout error\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+
+  sdFirmwareVerifyPageZero(addr);
+
+  vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
+  vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
+
+  /* Write the board specific stuff here */
+  vmeWrite32(&SDp->memWriteCtrl, (0x600) | (serial_number&0xFF) ); 
+  vmeWrite32(&SDp->memWriteCtrl, (0x600) | (hall_board_version&0xFF) );
+  vmeWrite32(&SDp->memWriteCtrl, (0x600) | (firmware_version&0xFF) );
+
+  for(i = 0; i < 253; i++)
+    {
+      vmeWrite32(&SDp->memWriteCtrl, 0x6EE);
+		
+      if (i == 252)
+	{
+	  vmeWrite32(&SDp->memWriteCtrl, 0x3EE);
+	  break;
+	}
+		
+    }
+
+/*   vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) ); */
+/*   vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 ); */
+
+  vmeWrite32(&SDp->memWriteCtrl, (0x2220) ); // FIXME: Replace with define
+/*   vmeWrite32(&SDp->memWriteCtrl, (0x2204) ); // FIXME: Replace with define */
+
+  sleep(2);
+  TIUNLOCK;
+  if(sdFirmwareWaitCmdDone(3300)<0)
+    {
+      printf("%s: ERROR: sector protect timeout error\n",__FUNCTION__);
+      return;
+    }
+
+  printf("%s: INFO: Complete\n",__FUNCTION__);
+
+}
+
+void
+sdFirmwarePrintSpecs()
+{
+  printf("%s:\n",__FUNCTION__);
+  printf("\tSerial Number           = %4d\n", sdFirmwareReadAddr(0x7F0000));
+  printf("\tAssigned Hall & Version = 0x%02X\n", sdFirmwareReadAddr(0x7F0001));
+  printf("\tFirmware Version        = 0x%02X\n", sdFirmwareReadAddr(0x7F0002));
+}
+
+unsigned int
+sdGetSerialNumber(char *rSN)
+{
+  unsigned int sn;
+  char retSN[10];
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  sn = sdFirmwareReadAddr(0x7F0000);
+
+  if(rSN!=NULL)
+    {
+      sprintf(retSN,"SD-%03d",sn&0xffff);
+      strcpy((char *)rSN,retSN);
+    }
+
+
+  printf("%s: SD Serial Number is %s (0x%08x)\n", 
+	 __FUNCTION__,retSN,sn);
+
+  return sn;
+
+}
+
 #ifdef TEST
 int
 sdTestGetBusyout()
@@ -611,7 +1237,7 @@ sdTestGetBusyout()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -628,7 +1254,7 @@ sdTestGetSdLink()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -645,7 +1271,7 @@ sdTestGetTokenIn()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -662,7 +1288,7 @@ sdTestGetTrigOut()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -678,7 +1304,7 @@ sdTestSetTokenOutMask(int mask)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
   if(mask>0xffff)
@@ -698,7 +1324,7 @@ sdTestSetStatBitBMask(int mask)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
   if(mask>0xffff)
@@ -718,7 +1344,7 @@ sdTestSetClkAPLL(int mode)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
   if(mode>=1) mode=1;
@@ -739,7 +1365,7 @@ sdTestGetClockAStatus()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -756,7 +1382,7 @@ sdTestGetClockAFreq()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -772,7 +1398,7 @@ sdTestSetClkBPLL(int mode)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
   if(mode>=1) mode=1;
@@ -790,7 +1416,7 @@ sdTestGetClockBStatus()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -807,7 +1433,7 @@ sdTestGetClockBFreq()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -823,7 +1449,7 @@ sdTestSetTIBusyOut(int level)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
   if(level>=1) level=1;
@@ -843,7 +1469,7 @@ sdTestGetTITokenIn()
   int rval;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -861,7 +1487,7 @@ sdTestSetTIGTPLink(int level)
 {
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
   if(level>=1) level=1;
@@ -881,7 +1507,7 @@ sdTestGetClkACounter()
   unsigned int rval=0;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return 0;
     }
 
@@ -898,7 +1524,7 @@ sdTestGetClkBCounter()
   unsigned int rval=0;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return 0;
     }
 
@@ -915,7 +1541,7 @@ sdTestGetSWALoopback()
   unsigned int rval=0;
   if(SDp==NULL)
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return 0;
     }
 

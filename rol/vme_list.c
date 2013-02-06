@@ -24,6 +24,7 @@
 #include "tiprimary_list.c" /* source required for CODA */
 
 #define BLOCKLEVEL 1
+#define BUFFERLEVEL 3
 
 unsigned int MAXTIWORDS=0;
 
@@ -92,14 +93,16 @@ rocDownload()
   tiSetSyncDelayWidth(0x54, 0x40, 1);
 
   /* Set the busy source to non-default value (no Switch Slot B busy) */
-  tiSetBusySource(TI_BUSY_LOOPBACK,1);
+  tiSetBusySource(0,1);
+
+  tiSetFiberDelay(10,0xcf);
 
   /* Set number of events per block */
   tiSetBlockLevel(BLOCKLEVEL);
 
   tiSetEventFormat(1);
 
-  tiSetBlockBufferLevel(1);
+  tiSetBlockBufferLevel(BUFFERLEVEL);
 
 
   tiStatus();

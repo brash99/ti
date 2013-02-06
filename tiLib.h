@@ -24,7 +24,9 @@
 
 #include <sdLib.h>
 #include <ctpLib.h>
+#ifndef VXWORKS
 #include <gtpLib.h>
+#endif
 
 #ifndef VXWORKS
 #include <pthread.h>
@@ -184,13 +186,13 @@ struct TI_A24RegStruct
 
 /* vmeControl bits and masks */
 #define TI_VMECONTROL_BERR           (1<<0)
-#define TI_VMECONTROL_TOKEN          (1<<1)
+#define TI_VMECONTROL_TOKEN_TESTMODE (1<<1)
 #define TI_VMECONTROL_MBLK           (1<<2)
 #define TI_VMECONTROL_A32M           (1<<3)
 #define TI_VMECONTROL_A32            (1<<4)
 #define TI_VMECONTROL_ERROR_INT      (1<<7)
 #define TI_VMECONTROL_I2CDEV_HACK    (1<<8)
-#define TI_VMECONTROL_TOKEN_HI       (1<<9)
+#define TI_VMECONTROL_TOKENOUT_HI    (1<<9)
 #define TI_VMECONTROL_FIRST_BOARD    (1<<10)
 #define TI_VMECONTROL_LAST_BOARD     (1<<11)
 #define TI_VMECONTROL_BUFFER_DISABLE (1<<15)
@@ -247,6 +249,7 @@ struct TI_A24RegStruct
 #define TI_CLOCK_HFBR5       (1)
 #define TI_CLOCK_HFBR1       (2)
 #define TI_CLOCK_FP          (3)
+#define TI_CLOCK_MASK        0x0000000F
 
 /* trig1Prescale bits and masks */
 #define TI_TRIG1PRESCALE_MASK          0x0000FFFF
@@ -512,5 +515,7 @@ void tiIntAck();
 int  tiIntEnable(int iflag);
 void tiIntDisable();
 unsigned int  tiGetIntCount();
-
+int  tiGetSWBBusy();
+int  tiSetTokenTestMode(int mode);
+int  tiSetTokenOutTest(int level);
 #endif /* TILIB_H */

@@ -55,7 +55,7 @@ OBJ			= tiLib.o
 ifeq ($(ARCH),Linux)
 all: echoarch $(LIBS) links
 else
-all: echoarch $(OBJ)
+all: echoarch $(OBJ) copy
 endif
 
 $(OBJ): $(SRC) $(HDRS)
@@ -74,8 +74,9 @@ links: $(LIBS)
 
 tiEMload: tiEMload.c
 	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) $(LIBS_$@) -lrt -ljvme -lti
-
-
+else
+copy: $(OBJ)
+	cp $< vx/
 endif
 
 clean:

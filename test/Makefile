@@ -31,4 +31,8 @@ clean distclean:
 	echo "Making $@"
 	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) $(LIBS_$@) -lrt -ljvme -lti
 
+fullCrate: fullCrate.c
+	echo "Making $@"
+	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) $(LIBS_$@) -lrt -ljvme -lti -lfadc
+
 .PHONY: all clean distclean

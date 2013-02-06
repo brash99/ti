@@ -103,8 +103,10 @@ static void FiberMeas();
 /* Library of routines for the CTP */
 #include "ctpLib.c"
 
+#ifndef VXWORKS
 /* Library of routines for the GTP */
 #include "gtpLib.c"
+#endif
 
 /*******************************************************************************
  *
@@ -377,7 +379,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 unsigned int
 tiFind()
 {
-  int islot, stat, tiFound=0;;
+  int islot, stat, tiFound=0;
   unsigned int tAddr, laddr, rval;
 
   for(islot = 2; islot<22; islot++)
@@ -2401,7 +2403,9 @@ tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigne
 int
 tiSetClockSource(unsigned int source)
 {
+  int rval=OK;
   unsigned int clkset=0;
+  unsigned int clkread=0;
   char sClock[20] = "";
 
   if(TIp == NULL) 
@@ -2436,9 +2440,23 @@ tiSetClockSource(unsigned int source)
   /* Reset DCM (Digital Clock Manager) - 125MHz */
   vmeWrite32(&TIp->reset,TI_RESET_CLK125);
   taskDelay(1);
+
+  if(source==1) /* Turn on running mode for External Clock verification */
+    {
+      vmeWrite32(&TIp->runningMode,TI_RUNNINGMODE_ENABLE);
+      taskDelay(1);
+      clkread = vmeRead32(&TIp->clock) & TI_CLOCK_MASK;
+      if(clkread != clkset)
+	{
+	  printf("%s: ERROR Setting Clock Source (clkset = 0x%x, clkread = 0x%x)\n",
+		 __FUNCTION__,clkset, clkread);
+	  rval = ERROR;
+	}
+      vmeWrite32(&TIp->runningMode,TI_RUNNINGMODE_DISABLE);
+    }
   TIUNLOCK;
 
-  return OK;
+  return rval;
 }
 
 int
@@ -3549,4 +3567,71 @@ unsigned int
 tiGetIntCount()
 {
   return(tiIntCount);
+}
+
+int
+tiGetSWBBusy()
+{
+  unsigned int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return 0;
+    }
+  
+  TILOCK;
+  rval = vmeRead32(&TIp->busy) & (TI_BUSY_SWB<<16);
+
+  printf("%s: busy = 0x%08x\n",
+	 __FUNCTION__,vmeRead32(&TIp->busy));
+  TIUNLOCK;
+
+  return rval;
+}
+
+
+int
+tiSetTokenTestMode(int mode)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(mode)
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) | (TI_VMECONTROL_TOKEN_TESTMODE));
+  else
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) & ~(TI_VMECONTROL_TOKEN_TESTMODE));
+  TIUNLOCK;
+
+  return OK;
+
+}
+
+int
+tiSetTokenOutTest(int level)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(level)
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) | (TI_VMECONTROL_TOKENOUT_HI));
+  else
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) & ~(TI_VMECONTROL_TOKENOUT_HI));
+
+  printf("%s: vmeControl = 0x%08x\n",__FUNCTION__,vmeRead32(&TIp->vmeControl));
+  TIUNLOCK;
+
+  return OK;
+
 }
