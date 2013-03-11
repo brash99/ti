@@ -89,13 +89,13 @@ rocDownload()
   tiSetTriggerHoldoff(1,10,0);
   tiSetTriggerHoldoff(2,10,0);
 
-  /* Set the sync delay width to 0x40*32 = 2.048us */
+/*   /\* Set the sync delay width to 0x40*32 = 2.048us *\/ */
   tiSetSyncDelayWidth(0x54, 0x40, 1);
 
   /* Set the busy source to non-default value (no Switch Slot B busy) */
-  tiSetBusySource(0,1);
+  tiSetBusySource(TI_BUSY_SWA,1);
 
-  tiSetFiberDelay(10,0xcf);
+/*   tiSetFiberDelay(10,0xcf); */
 
   /* Set number of events per block */
   tiSetBlockLevel(BLOCKLEVEL);

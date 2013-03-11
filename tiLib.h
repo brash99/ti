@@ -411,7 +411,8 @@ struct TI_A24RegStruct
 #define TI_TRIGGER_PULSER    5
 
 /* Define default Interrupt vector and level */
-#define TI_INT_VEC      0xc8
+#define TI_INT_VEC      0xec
+/* #define TI_INT_VEC      0xc8 */
 #define TI_INT_LEVEL    5
 
 /* i2c data masks - 16bit data default */
@@ -518,4 +519,5 @@ unsigned int  tiGetIntCount();
 int  tiGetSWBBusy();
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);
+void tiSetup(int slot);
 #endif /* TILIB_H */

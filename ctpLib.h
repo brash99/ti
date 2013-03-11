@@ -49,11 +49,12 @@ struct CTPStruct
   /* 0x7C28 */ volatile unsigned int history_buffer_lsb; /* Address 10 */
   /* 0x7C2C */ volatile unsigned int history_buffer_msb; /* Address 11 */
   /* 0x7C30 */ volatile unsigned int testCSR;            /* Address 12 */
-  /* 0x7C34 */ volatile unsigned int testClockFreq;      /* Adrdess 13 */
-  /* 0x7C38 */ volatile unsigned int testSyncCount;      /* Adrdess 14 */
-  /* 0x7C3C */ volatile unsigned int testTrig1Count;     /* Adrdess 15 */
-  /* 0x7C40 */ volatile unsigned int testTrig2Count;     /* Adrdess 16 */
-  /* 0x7C44 */          unsigned int blankCTP3[(0x10000-0x7C44)/4];
+  /* 0x7C34 */ volatile unsigned int testClockFreq;      /* Address 13 */
+  /* 0x7C38 */ volatile unsigned int testSyncCount;      /* Address 14 */
+  /* 0x7C3C */ volatile unsigned int testTrig1Count;     /* Address 15 */
+  /* 0x7C40 */ volatile unsigned int testTrig2Count;     /* Address 16 */
+  /* 0x7C44 */ volatile unsigned int fiberReset;         /* Address 17 */
+  /* 0x7C48 */          unsigned int blankCTP3[(0x10000-0x7C48)/4];
 };
 
 /* CTP Register bits and masks */
@@ -68,8 +69,10 @@ struct CTPStruct
 #define CTP_FPGA_STATUS1_ERROR_LATCH_FS          (1<<8)
 
 /* History buffer only for VLX110 */
-#define CTP_FPGA_CONFIG1_ARM_HISTORY_BUFFER      (1<<0)
-#define CTP_FPGA_STATUS1_HISTORY_BUFFER_READY    (1<<3)
+#define CTP_FPGA3_CONFIG1_ARM_HISTORY_BUFFER      (1<<0)
+#define CTP_FPGA3_STATUS1_HISTORY_BUFFER_READY    (1<<3)
+
+#define CTP_FPGA3_CONFIG1_RESET_ALL_GTP          (1<<1)
 
 #define CTP_DATA_MASK                            0xFFFFF
 
@@ -90,6 +93,7 @@ int  ctpGetErrorLatchFS(int pflag);
 int  ctpArmHistoryBuffer();
 int  ctpDReady();
 int  ctpReadEvent(volatile unsigned int *data, int nwrds);
+void ctpFiberReset();
 int  ctpTestResetCounter(int type);
 int  ctpTestGetClockFreq();
 int  ctpTestGetSyncCount();

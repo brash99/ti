@@ -577,7 +577,7 @@ ctpArmHistoryBuffer()
     }
 
   TILOCK;
-  vmeWrite32(&CTPp->fpga3.config1,CTP_FPGA_CONFIG1_ARM_HISTORY_BUFFER);
+  vmeWrite32(&CTPp->fpga3.config1,CTP_FPGA3_CONFIG1_ARM_HISTORY_BUFFER);
   vmeWrite32(&CTPp->fpga3.config1,0);
   TIUNLOCK;
 
@@ -595,7 +595,7 @@ ctpDReady()
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->fpga3.status1) & CTP_FPGA_STATUS1_HISTORY_BUFFER_READY;
+  rval = vmeRead32(&CTPp->fpga3.status1) & CTP_FPGA3_STATUS1_HISTORY_BUFFER_READY;
   TIUNLOCK;
   
   if(rval)
@@ -638,11 +638,29 @@ ctpReadEvent(volatile unsigned int *data, int nwrds)
   ii++;
 
   /* Use this to clear the data ready bit (dont set back to zero) */
-  vmeWrite32(&CTPp->fpga3.config1,CTP_FPGA_CONFIG1_ARM_HISTORY_BUFFER);
+  vmeWrite32(&CTPp->fpga3.config1,CTP_FPGA3_CONFIG1_ARM_HISTORY_BUFFER);
   TIUNLOCK;
 
   dCnt += ii;
   return dCnt;
+
+}
+
+void
+ctpFiberReset()
+{
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_ALL_GTP);
+  vmeWrite32(&CTPp->fpga3.config1, 0);
+/*   vmeWrite32(&CTPp->fiberReset,1); */
+/*   vmeWrite32(&CTPp->fiberReset,0); */
+  TIUNLOCK;
 
 }
 

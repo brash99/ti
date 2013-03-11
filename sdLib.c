@@ -914,8 +914,11 @@ sdFirmwareWritePage(unsigned int mem_addr)
     }
   vmeWrite32(&SDp->memWriteCtrl, 0x0300 | prog); // FIXME: Replace with define
   
+#ifdef VXWORKSPPC
+  taskDelay(1);
+#else
   usleep(7000);
-
+#endif
 }
 
 int
@@ -981,7 +984,11 @@ sdFirmwareWriteToMemory()
 
       page_count++;
       
+#ifdef VXWORKSPPC
+      taskDelay(1);
+#else
       usleep(5000);
+#endif
       TIUNLOCK;
 
     }

@@ -15,12 +15,13 @@
 #include <stdio.h>
 #include "jvme.h"
 #include "tiLib.h"
+#include "remexLib.h"
 
 DMA_MEM_ID vmeIN,vmeOUT;
 extern DMANODE *the_event;
 extern unsigned int *dma_dabufp;
 
-/* #define DO_READOUT */
+#define DO_READOUT
 
 /* Interrupt Service routine */
 void
@@ -76,7 +77,7 @@ mytiISR(int arg)
   outEvent = dmaPGetItem(vmeOUT);
 #define READOUT
 #ifdef READOUT
-  if(tiIntCount%100==0)
+  if(tiIntCount%1==0)
     {
       printf("Received %d triggers...\n",
 	     tiIntCount);
@@ -96,8 +97,8 @@ mytiISR(int arg)
 /*   tiResetBlockReadout(); */
 
 #endif /* DO_READOUT */
-  if(tiIntCount%100==0)
-    tiStatus();
+  if(tiIntCount%1==0)
+    printf("intCount = %d\n",tiIntCount );
 /*   sleep(1); */
 }
 
@@ -109,6 +110,9 @@ main(int argc, char *argv[]) {
 
     printf("\nJLAB TI Tests\n");
     printf("----------------------------\n");
+
+    remexSetCmsgServer("dafarm28");
+    remexInit(NULL,1);
 
     vmeOpenDefaultWindows();
 
@@ -149,10 +153,10 @@ main(int argc, char *argv[]) {
 
     tiLoadTriggerTable();
     
-/*     tiSetTriggerHoldoff(1,12,0); */
-/*     tiSetTriggerHoldoff(2,12,0); */
+    tiSetTriggerHoldoff(1,4,0);
+    tiSetTriggerHoldoff(2,4,0);
 
-/*     tiSetPrescale(1); */
+    tiSetPrescale(0);
     tiSetBlockLevel(1);
 
     stat = tiIntConnect(TI_INT_VEC, mytiISR, 0);
@@ -167,7 +171,8 @@ main(int argc, char *argv[]) {
       }
 
     tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
-    tiEnableTSInput(0x3f);
+/*     tiSetTriggerSource(TI_TRIGGER_PULSER); */
+    tiEnableTSInput(0x1);
 
 /*     tiSetFPInput(0x0); */
 /*     tiSetGenInput(0xffff); */
@@ -175,7 +180,13 @@ main(int argc, char *argv[]) {
 
     tiSetBusySource(TI_BUSY_LOOPBACK,1);
 
-    tiSetBlockBufferLevel(0x1);
+    tiSetBlockBufferLevel(1);
+
+    tiSetFiberDelay(1,2);
+    tiSetSyncDelayWidth(1,0x3f,1);
+    
+    printf("Hit enter to reset stuff\n");
+    getchar();
 
     tiClockReset();
     taskDelay(1);

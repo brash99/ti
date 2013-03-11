@@ -45,7 +45,7 @@ main(int argc, char *argv[])
   if(stat != OK)
     goto CLOSE;
 
-  stat = tiInit(0,2,0);
+  stat = tiInit((21<<19),2,0);
 /*   if(stat != OK) */
 /*     goto CLOSE; */
 
