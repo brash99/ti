@@ -10,7 +10,7 @@
 # Uncomment DEBUG line, to include some debugging info ( -g and -Wall)
 DEBUG=1
 #
-ARCH=Linux
+#ARCH=Linux
 ifndef ARCH
   ARCH=VXWORKSPPC
 endif
@@ -72,11 +72,14 @@ links: $(LIBS)
 	@ln -vsf $(PWD)/$(<:%.a=%.so) $(LINUXVME_LIB)/$(<:%.a=%.so)
 	@ln -vsf ${PWD}/*Lib.h $(LINUXVME_INC)
 
-tiEMload: tiEMload.c
+tiFirmwareUpdate: tiFirmwareUpdate.c
 	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) $(LIBS_$@) -lrt -ljvme -lti
 else
 copy: $(OBJ)
 	cp $< vx/
+tiFirmwareUpdate.o: tiFirmwareUpdate.c
+	$(CC) $(CFLAGS) -c -DTEMPE -o $@ $(<)
+	$(CC) $(CFLAGS) -c -o $(@:.o=_univ.o) $(<)
 endif
 
 clean:

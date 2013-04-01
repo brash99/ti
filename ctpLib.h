@@ -73,6 +73,7 @@ struct CTPStruct
 #define CTP_FPGA3_STATUS1_HISTORY_BUFFER_READY    (1<<3)
 
 #define CTP_FPGA3_CONFIG1_RESET_ALL_GTP          (1<<1)
+#define CTP_FPGA3_CONFIG1_RESET_SSP_MGT          (1<<2)
 
 #define CTP_DATA_MASK                            0xFFFFF
 

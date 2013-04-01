@@ -51,6 +51,7 @@
 #include "tiLib.h"
 extern int bigendian_out;
 
+extern int tiFiberLatencyOffset; /* offset for fiber latency */
 extern int tiDoAck;
 extern int tiNeedAck;
 extern int tsCrate;
@@ -134,6 +135,8 @@ static void __download()
   dmaPStatsAll();
 
   /* Initialize VME Interrupt interface - use defaults */
+  tiFiberLatencyOffset = FIBER_LATENCY_OFFSET;
+
   tiInit(TI_ADDR,TI_READOUT,0);
 
   /* Execute User defined download */

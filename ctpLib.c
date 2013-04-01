@@ -656,7 +656,8 @@ ctpFiberReset()
     }
 
   TILOCK;
-  vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_ALL_GTP);
+/*   vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_ALL_GTP); */
+  vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_SSP_MGT);
   vmeWrite32(&CTPp->fpga3.config1, 0);
 /*   vmeWrite32(&CTPp->fiberReset,1); */
 /*   vmeWrite32(&CTPp->fiberReset,0); */
