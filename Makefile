@@ -12,7 +12,11 @@ DEBUG=1
 #
 #ARCH=Linux
 ifndef ARCH
-  ARCH=VXWORKSPPC
+	ifdef LINUXVME_LIB
+		ARCH=Linux
+	else
+		ARCH=VXWORKSPPC
+	endif
 endif
 
 # Defs and build for VxWorks
@@ -83,7 +87,7 @@ tiFirmwareUpdate.o: tiFirmwareUpdate.c
 endif
 
 clean:
-	@rm -vf *.{o,a,so}
+	@rm -vf tiLib.o libti.{a,so}
 
 echoarch:
 	@echo "Make for $(ARCH)"
