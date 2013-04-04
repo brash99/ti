@@ -140,6 +140,9 @@ struct TI_A24RegStruct
 #define TI_READOUT_EXT_POLL   2
 #define TI_READOUT_TS_POLL    3
 
+/* Supported firmware version */
+#define TI_SUPPORTED_FIRMWARE 0x97
+
 /* boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
 #define TI_BOARDID_TYPE_TI           0x7100
@@ -509,6 +512,10 @@ unsigned int tiGetDaqStatus();
 int  tiVmeTrigger1();
 int  tiVmeTrigger2();
 
+int  tiGetSWBBusy();
+int  tiSetTokenTestMode(int mode);
+int  tiSetTokenOutTest(int level);
+
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
 int  tiIntDisconnect();
@@ -517,8 +524,6 @@ void tiIntAck();
 int  tiIntEnable(int iflag);
 void tiIntDisable();
 unsigned int  tiGetIntCount();
-int  tiGetSWBBusy();
-int  tiSetTokenTestMode(int mode);
-int  tiSetTokenOutTest(int level);
-void tiSetup(int slot);
+
+
 #endif /* TILIB_H */

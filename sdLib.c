@@ -34,16 +34,16 @@
 volatile struct SDStruct  *SDp=NULL;    /* pointer to SD memory map */
 
 /* Firmware updating variables */
+#ifndef VXWORKSPPC
 static unsigned char *progFirmware=NULL;
 static size_t progFirmwareSize=0;
 /* Maximum firmware size = 1 MB */
 #define SD_MAX_FIRMWARE_SIZE 1024*1024
-
+#endif
 
 /*
   sdInit
   - Initialize the Signal Distribution Module
-    Nothing here, at the moment.
 */
 int
 sdInit()
@@ -615,8 +615,9 @@ sdGetBusyoutCounter(int ipayload)
 
 /*************************************************************
  *  SD FIRMWARE UPDATING ROUTINES
+ *  Linux only supported
  ************************************************************/
-
+#ifndef VXWORKSPPC
 static int
 sdFirmwareWaitCmdDone(int wait)
 {
@@ -1058,29 +1059,7 @@ sdFirmwareVerifyMemory()
 
 }
 
-int
-sdFirmwareReadAddr(unsigned int addr)
-{
-  unsigned int data_out;
-	
-  TILOCK;
-  vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
-  vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
-  
-  vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
-
-  taskDelay(1);
-	
-  data_out = vmeRead32(&SDp->memReadCtrl);
-  TIUNLOCK;
-
-/*   printf("{%04X}", data_out); */
-/*   printf("INFO: read byte done\n"); */
-  return data_out & 0xFF;
-
-}
-
-static int 
+int 
 sdFirmwareReadStatus()
 {
   unsigned int status_out;
@@ -1198,6 +1177,29 @@ sdFirmwareWriteSpecs(unsigned int addr, unsigned int serial_number,
     }
 
   printf("%s: INFO: Complete\n",__FUNCTION__);
+
+}
+#endif /* !VXWORKSPPC */
+
+int
+sdFirmwareReadAddr(unsigned int addr)
+{
+  unsigned int data_out;
+	
+  TILOCK;
+  vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
+  vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
+  
+  vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+
+  taskDelay(1);
+	
+  data_out = vmeRead32(&SDp->memReadCtrl);
+  TIUNLOCK;
+
+/*   printf("{%04X}", data_out); */
+/*   printf("INFO: read byte done\n"); */
+  return data_out & 0xFF;
 
 }
 

@@ -81,6 +81,10 @@ ctpInit()
   printf("%s: CTP initialized at Local Base address 0x%lx\n",
 	 __FUNCTION__,(unsigned long) CTPp);
 
+  /* Reset the fiber links... this needs to be done after the TI clock switchover, 
+     So do it here */
+  ctpFiberReset();
+
   return OK;
 
 }

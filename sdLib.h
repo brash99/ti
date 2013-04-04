@@ -129,7 +129,23 @@ int  sdSetActiveVmeSlots(unsigned int vmemask);
 int  sdGetActivePayloadPorts();
 int  sdGetBusyoutCounter(int ipayload);
 
+#ifndef VXWORKSPPC
+int  sdFirmwareFlushFifo();
+int  sdFirmwareLoadFile(char *filename);
+void sdFirmwareFreeMemory();
+int  sdFirmwareVerifyPage(unsigned int mem_addr);
+int  sdFirmwareVerifyPageZero(unsigned int mem_addr);
+void sdFirmwareWritePage(unsigned int mem_addr);
+int  sdFirmwareWriteToMemory();
+int  sdFirmwareVerifyMemory();
+int  sdFirmwareReadStatus();
+void sdFirmwareWriteSpecs(unsigned int addr, unsigned int serial_number,
+			  unsigned int hall_board_version, unsigned int firmware_version);
+#endif
+
+int  sdFirmwareReadAddr(unsigned int addr);
 unsigned int sdGetSerialNumber(char *rSN);
+
 
 #ifdef TEST
 int  sdTestGetBusyout();

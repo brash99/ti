@@ -554,7 +554,7 @@ tiFirmwareEMload(char *filename)
 #ifdef VXWORKS
 	      cpuDelay(nbits*45);   //delay, assuming that the CPU is at 45 MHz
 #else
-	      usleep(nbits);
+	      usleep(nbits/2);
 #endif
 /* 	      int time = (nbits/1000)+1; */
 /* 	      taskDelay(time);   //delay, assuming that the CPU is at 45 MHz */

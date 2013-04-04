@@ -244,6 +244,13 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       printf("  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
 	     (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
       tiVersion = firmwareInfo&0xFFF;
+      if(tiVersion < TI_SUPPORTED_FIRMWARE)
+	{
+	  printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
+		 __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+	  TIp=NULL;
+	  return ERROR;
+	}
     }
   else
     {
@@ -2525,6 +2532,7 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
 
   vmeWrite32(&TIp->fiberSyncDelay,syncDelay);
 
+#ifdef STOPTHIS
   if(tiMaster != 1)  /* Slave only */
     {
       taskDelay(10);
@@ -2533,8 +2541,11 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
       vmeWrite32(&TIp->reset,0x800);   /* auto adjust the sync phase for HFBR#1 */
       taskDelay(10);
     }
+#endif
 
   TIUNLOCK;
+
+  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",__FUNCTION__,syncDelay);
 
 }
 
@@ -3023,15 +3034,16 @@ FiberMeas()
   taskDelay(1);
 
   fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber latency measurement result
-  printf("Fiber Latency is %x\n",fiberLatency);
-  printf("  Latency data = 0x%x (%d ns)\n",(fiberLatency>>23), (fiberLatency>>23) * 4);
+  printf("Software offset = 0x%08x (%d)\n",tiFiberLatencyOffset, tiFiberLatencyOffset);
+  printf("Fiber Latency is 0x%08x\n",fiberLatency);
+  printf("  Latency data = 0x%08x (%d ns)\n",(fiberLatency>>23), (fiberLatency>>23) * 4);
 
 
   vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);   // auto adjust the sync phase for HFBR#1
   taskDelay(1);
 
   fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber latency measurement result
-  syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)/2));
+  syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)>>1));
   syncDelay=(syncDelay<<8)&0xff00;  //set the sync delay according to the fiber latency
   taskDelay(1);
 
@@ -3040,8 +3052,8 @@ FiberMeas()
   syncDelay = vmeRead32(&TIp->fiberSyncDelay);
   TIUNLOCK;
 
-  printf (" \n The fiber latency of 0xA0 is: 0x%x\n", fiberLatency);
-  printf (" \n The sync latency of 0x50 is: 0x%x\n",syncDelay);
+  printf (" \n The fiber latency of 0xA0 is: 0x%08x\n", fiberLatency);
+  printf (" \n The sync latency of 0x50 is: 0x%08x\n",syncDelay);
 }
 
 
@@ -3538,60 +3550,6 @@ tiIntEnable(int iflag)
 
 }
 
-/*******************************************************************************
- *
- *  tiIntDisable
- *  - Disable interrupts or latching triggers
- *
-*/
-
-void 
-tiIntDisable()
-{
-
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return;
-    }
-
-  tiDisableTriggerSource(0);
-
-  TILOCK;
-  vmeWrite32(&TIp->intsetup,
-	     vmeRead32(&TIp->intsetup) & ~(TI_INTSETUP_ENABLE));
-  vmeWrite32(&TIp->runningMode,0x0);
-  tiIntRunning = 0;
-  TIUNLOCK;
-}
-
-unsigned int
-tiGetIntCount()
-{
-  return(tiIntCount);
-}
-
-int
-tiGetSWBBusy()
-{
-  unsigned int rval=0;
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return 0;
-    }
-  
-  TILOCK;
-  rval = vmeRead32(&TIp->busy) & (TI_BUSY_SWB<<16);
-
-  printf("%s: busy = 0x%08x\n",
-	 __FUNCTION__,vmeRead32(&TIp->busy));
-  TIUNLOCK;
-
-  return rval;
-}
-
-
 int
 tiSetTokenTestMode(int mode)
 {
@@ -3653,190 +3611,58 @@ tiGetGTPBufferLength(int pflag)
   return rval;
 }
 
+/*******************************************************************************
+ *
+ *  tiIntDisable
+ *  - Disable interrupts or latching triggers
+ *
+*/
 
-void
-tiSetup(int slot)
+void 
+tiIntDisable()
 {
-/*   unsigned long *laddr; */
-/*   unsigned long Dataword; */
-/*   unsigned long RegAddTI; */
 
-/*   RegAddTI = ((islotTI<<19)&0xf80000); */
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
 
-  // FPGA reload, needs ~30 ms
-/*   EMFPGAreload(islotTI); */
-/*   cpuDelay(10000000); */
-#ifdef SKIPTHIS
-  tiReload();
-  taskDelay(30);
-/* #endif */
+  tiDisableTriggerSource(0);
 
-  // Enable TI optic transceiver#1
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x4,&laddr);	 */
-/*   *laddr = 0x1; */
-/*   cpuDelay(300000); */
-  vmeWrite32(&TIp->fiber, 0x1);
-  taskDelay(1);
-
-  // TI readout setting
-  // Enable TI VME setting
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x1C,&laddr);	 */
-/*   *laddr = 0x11; */
-/*   cpuDelay(300000); */
-  vmeWrite32(&TIp->vmeControl, 0x11);
-  taskDelay(1);
-
-  // Set TI IRQ, but not enabled yet (set bit 16 to 1 to enable it)
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x8,&laddr);	 */
-/*   *laddr = 0x5c0 + (islotTI&0x1f); */
-/*   cpuDelay(300000); */
-/* #ifdef SKIPTHIS */
-  vmeWrite32(&TIp->intsetup, 0x5c0 + (slot & 0x1f));
-  taskDelay(1);
-
-  // Enable TI A32 address
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x10,&laddr);	 */
-/*   *laddr = (0x8003fe0+ (0xf80000 & (islotTI<<23))); */
-/*   cpuDelay(300000); */
-  vmeWrite32(&TIp->adr32, 0x8003fe0+ (0xf80000 & (slot<<23)));
-  taskDelay(1);
-
-  // TI clock selection, to use HFBR#1
-/*    sysBusToLocalAdrs(0x39,RegAddTI+0x2c,&laddr);     */
-/*    *laddr = 0x2; */
-/*    cpuDelay(300000); */
-  vmeWrite32(&TIp->clock, 0x2);
-  taskDelay(1);
-
-   // TI clock DCM reset
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x100,&laddr); */
-/*   *laddr = 0x0100; */
-/*   cpuDelay(300000); */
-/*   *laddr = 0x0200; */
-/*   cpuDelay(300000); */
-  vmeWrite32(&TIp->reset, 0x100);
-  taskDelay(1);
-  vmeWrite32(&TIp->reset, 0x200);
-  taskDelay(1);
-
-/* #endif */
-  // Fiber length measurement and compensation
-/*   FiberMeas(islotTI); */
-/*   cpuDelay(1000000); */
-  FiberMeas();
-  taskDelay(1);
-
-/* #ifdef SKIPTHIS */
-
-  // Enable TI trigger source and sync source 
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x20,&laddr);  //trigger source */
-/*   *laddr = 0x92;  //enable the HFRB#1 input and VME input */
-/*   cpuDelay(100000); */
-  vmeWrite32(&TIp->trigsrc, 0x92);
-  taskDelay(1);
-
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0xC,&laddr);  //trigger pulse width and delay */
-/*   *laddr = 0x0f000f00; */
-/*   cpuDelay(100000); */
-  vmeWrite32(&TIp->trigDelay, 0x0f000f00);
-  taskDelay(1);
-
-  //  sysBusToLocalAdrs(0x39,RegAddTI+0x50,&laddr); // sync delay
-  //  *laddr = 0x0f0e0d0c;
-  //  cpuDelay(100000);
-
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x80,&laddr); // sync pulse width */
-/*   *laddr = 0x24; */
-/*   cpuDelay(100000); */
-  vmeWrite32(&TIp->syncWidth, 0x40 | (1<<7));
-  taskDelay(1);
-
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x24,&laddr); // sync source */
-/*   *laddr = 0x2; */
-/*   cpuDelay(100000); */
-  vmeWrite32(&TIp->sync, 0x2);
-  taskDelay(1);
-
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x14,&laddr); // block size */
-/*   *laddr = 0xa; */
-/*   cpuDelay(100000); */
-  vmeWrite32(&TIp->blocklevel, tiBlockLevel);
-  taskDelay(1);
-
-/*   sysBusToLocalAdrs(0x39,RegAddTI,&laddr);  //crate id */
-/*   *laddr = 0x66; */
-/*   cpuDelay(100000); */
-  vmeWrite32(&TIp->boardID, 0x66);
-  taskDelay(1);
-
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x18,&laddr);  // data format */
-/*   *laddr = 0x60000003; */
-/*   cpuDelay(100000); */
-  vmeWrite32(&TIp->dataFormat, 0x6000003);
-  taskDelay(1);
-
-  // TI IODELAY reset
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x100,&laddr); */
-/*   *laddr = 0x4000;  */
-/*   cpuDelay(3000000); */
-  vmeWrite32(&TIp->reset, 0x4000);
-  taskDelay(1);
-
-#endif
-  vmeWrite32(&TIp->reset,TI_RESET_IODELAY); // reset the IODELAY
-  taskDelay(1);
-  vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);   /* auto adjust the sync phase for HFBR#1 */
-  taskDelay(1);
-#ifdef SKIPTHIS
-
-  // TI Sync auto alignment
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x100,&laddr); */
-/*   *laddr = 0x800;  */
-/*   cpuDelay(3000000); */
-  vmeWrite32(&TIp->reset, 0x800);
-  taskDelay(1);
-
-  // TI auto fiber delay measurement
-/*   *laddr = 0x8000;  */
-/*   cpuDelay(3000000); */
-  vmeWrite32(&TIp->reset, 0x8000);
-  taskDelay(1);
-
-  // TI auto alignement fiber delay
-/*   *laddr = 0x2000;  */
-/*   cpuDelay(3000000); */
-  vmeWrite32(&TIp->reset, 0x2000);
-  taskDelay(1);
-
-  // TI sync delay (no use for TIslave) and sync pulse width
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x80,&laddr); */
-/*   *laddr = 0x3f;  */
-/*   cpuDelay(300000); */
-  tiSetSyncDelayWidth(0x54, 0x40, 1);
-/* #ifdef SKIPTHIS */
-  vmeWrite32(&TIp->syncWidth, 0x3f);
-  taskDelay(1);
-
-  //Set TI MGT synchronization
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x100,&laddr); */
-/*   *laddr = 0x400;  */
-/*   cpuDelay(3000000); */
-  vmeWrite32(&TIp->reset, 0x400);
-  taskDelay(1);
-
-  //Set TI to running mode, so that the clock monitoring start to work
-/*   sysBusToLocalAdrs(0x39,RegAddTI+0x9c,&laddr); */
-/*   *laddr = 0x71;  */
-/*   cpuDelay(300000); */
-  vmeWrite32(&TIp->runningMode, 0x71);
-  taskDelay(1);
-
-  //check the TI states
-/*   sysBusToLocalAdrs(0x39,RegAddTI,&laddr); */
-/*   printf(" TI state register is %08x at slot %d\n", *laddr, islotTI); */
-#endif
-
-  printf (" \n TI setup ready \n");
-
-
+  TILOCK;
+  vmeWrite32(&TIp->intsetup,
+	     vmeRead32(&TIp->intsetup) & ~(TI_INTSETUP_ENABLE));
+  vmeWrite32(&TIp->runningMode,0x0);
+  tiIntRunning = 0;
+  TIUNLOCK;
 }
+
+unsigned int
+tiGetIntCount()
+{
+  return(tiIntCount);
+}
+
+int
+tiGetSWBBusy()
+{
+  unsigned int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return 0;
+    }
+  
+  TILOCK;
+  rval = vmeRead32(&TIp->busy) & (TI_BUSY_SWB<<16);
+
+  printf("%s: busy = 0x%08x\n",
+	 __FUNCTION__,vmeRead32(&TIp->busy));
+  TIUNLOCK;
+
+  return rval;
+}
+
+
+
