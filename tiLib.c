@@ -717,6 +717,8 @@ tiStatus()
 	printf("   Front Panel Input\n");
       if(sync & TI_SYNC_LOOPBACK)
 	printf("   Loopback\n");
+      if(sync & TI_SYNC_USER_SYNCRESET_ENABLED)
+	printf("   User SYNCRESET Receieve Enabled\n");
     }
   else
     {
@@ -2966,7 +2968,7 @@ tidVmeTrigger1()
 {
   if(TIp == NULL) 
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return ERROR;
     }
   
@@ -2989,7 +2991,7 @@ tidVmeTrigger2()
 {
   if(TIp == NULL) 
     {
-      printf("%s: ERROR: TID not initialized\n",__FUNCTION__);
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return ERROR;
     }
   
@@ -3056,6 +3058,179 @@ FiberMeas()
   printf (" \n The sync latency of 0x50 is: 0x%08x\n",syncDelay);
 }
 
+int
+tiSetUserSyncResetReceive(int enable)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->sync, (vmeRead32(&TIp->sync) & TI_SYNC_SOURCEMASK) | 
+	       TI_SYNC_USER_SYNCRESET_ENABLED);
+  else
+    vmeWrite32(&TIp->sync, (vmeRead32(&TIp->sync) & TI_SYNC_SOURCEMASK) &
+	       ~TI_SYNC_USER_SYNCRESET_ENABLED);
+  TIUNLOCK;
+
+  return OK;
+}
+
+int
+tiGetLastSyncCodes(int pflag)
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+
+  TILOCK;
+  if(tiMaster)
+    rval = ((vmeRead32(&TIp->sync) & TI_SYNC_LOOPBACK_CODE_MASK)>>16) & 0xF;
+  else
+    rval = ((vmeRead32(&TIp->sync) & TI_SYNC_HFBR1_CODE_MASK)>>8) & 0xF;
+  TIUNLOCK;
+
+  if(pflag)
+    {
+      printf(" Last Sync Code received:  0x%x\n",rval);
+    }
+
+  return rval;
+}
+
+int
+tiGetSyncHistoryBufferStatus(int pflag)
+{
+  int hist_status=0, rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  hist_status = vmeRead32(&TIp->sync) 
+    & (TI_SYNC_HISTORY_FIFO_MASK);
+  TIUNLOCK;
+
+  switch(hist_status)
+    {
+    case TI_SYNC_HISTORY_FIFO_EMPTY:
+      rval=0;
+      if(pflag) printf("%s: Sync history buffer EMPTY\n",__FUNCTION__);
+      break;
+
+    case TI_SYNC_HISTORY_FIFO_HALF_FULL:
+      rval=1;
+      if(pflag) printf("%s: Sync history buffer HALF FULL\n",__FUNCTION__);
+      break;
+
+    case TI_SYNC_HISTORY_FIFO_FULL:
+    default:
+      rval=2;
+      if(pflag) printf("%s: Sync history buffer FULL\n",__FUNCTION__);
+      break;
+    }
+
+  return rval;
+
+}
+
+void
+tiResetSyncHistory()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_SYNC_HISTORY);
+  TIUNLOCK;
+
+}
+
+
+
+void
+tiUserSyncReset(int enable)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET_HIGH); 
+  else
+    vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET_LOW); 
+
+  taskDelay(2);
+  TIUNLOCK;
+
+  printf("%s: User Sync Reset ");
+  if(enable)
+    printf("HIGH\n");
+  else
+    printf("LOW\n");
+
+}
+
+void
+tiPrintSyncHistory()
+{
+  unsigned int syncHistory=0;
+  int count=0; code=1, valid=0, timestamp=0, overflow=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+  
+  while(code!=0)
+    {
+      TILOCK;
+      syncHistory = vmeRead32(&TIp->syncHistory);
+      TIUNLOCK;
+
+      printf("     TimeStamp: Code (valid)\n");
+
+      if(tiMaster)
+	{
+	  code  = (syncHistory & TI_SYNCHISTORY_LOOPBACK_CODE_MASK)>>10;
+	  valid = (syncHistory & TI_SYNCHISTORY_LOOPBACK_CODE_VALID)>>14;
+	}
+      else
+	{
+	  code  = syncHistory & TI_SYNCHISTORY_HFBR1_CODE_MASK;
+	  valid = (syncHistory & TI_SYNCHISTORY_HFBR1_CODE_VALID)>>4;
+	}
+      
+      overflow  = (syncHistory & TI_SYNCHISTORY_TIMESTAMP_OVERFLOW)>>15;
+      timestamp = (syncHistory & TI_SYNCHISTORY_TIMESTAMP_MASK)>>16;
+
+      printf("%4d: %d %5d :  0x%x (%d)\n",
+	     count,
+	     overflow, timestamp, code, valid);
+      count++;
+      if(count>1024)
+	{
+	  printf("%s: More than expected in the Sync History Buffer... exitting\n",
+		 __FUNCTION__);
+	  break;
+	}
+    }
+}
 
 /*************************************************************
  Library Interrupt/Polling routines

@@ -104,7 +104,7 @@ struct TI_A24RegStruct
   /* 0x0008C */ volatile unsigned int fixedPulser1;
   /* 0x00090 */ volatile unsigned int fixedPulser2;
   /* 0x00094 */ volatile unsigned int nblocks;
-  /* 0x00098 */          unsigned int blank1;
+  /* 0x00098 */ volatile unsigned int syncHistory;
   /* 0x0009C */ volatile unsigned int runningMode;
   /* 0x000A0 */ volatile unsigned int fiberLatencyMeasurement;
   /* 0x000A4 */ volatile unsigned int fiberAlignment;
@@ -141,7 +141,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x97
+#define TI_SUPPORTED_FIRMWARE 0x98
 
 /* boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -219,13 +219,21 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_MONITOR_MASK     0xFFFF0000
 
 /* sync bits and masks */
-#define TI_SYNC_SOURCEMASK      0x0000FFFF
-#define TI_SYNC_P0               (1<<0)
-#define TI_SYNC_HFBR1            (1<<1)
-#define TI_SYNC_HFBR5            (1<<2)
-#define TI_SYNC_FP               (1<<3)
-#define TI_SYNC_LOOPBACK         (1<<4)
-#define TI_SYNC_MONITOR_MASK     0xFFFF0000
+#define TI_SYNC_SOURCEMASK              0x000000FF
+#define TI_SYNC_P0                      (1<<0)
+#define TI_SYNC_HFBR1                   (1<<1)
+#define TI_SYNC_HFBR5                   (1<<2)
+#define TI_SYNC_FP                      (1<<3)
+#define TI_SYNC_LOOPBACK                (1<<4)
+#define TI_SYNC_USER_SYNCRESET_ENABLED  (1<<7)
+#define TI_SYNC_HFBR1_CODE_MASK         0x00000F00
+#define TI_SYNC_HFBR5_CODE_MASK         0x0000F000
+#define TI_SYNC_LOOPBACK_CODE_MASK      0x000F0000
+#define TI_SYNC_HISTORY_FIFO_MASK       0x00700000
+#define TI_SYNC_HISTORY_FIFO_EMPTY      (1<<20)
+#define TI_SYNC_HISTORY_FIFO_HALF_FULL  (1<<21)
+#define TI_SYNC_HISTORY_FIFO_FULL       (1<<22)
+#define TI_SYNC_MONITOR_MASK            0xFF000000
 
 /* busy bits and masks */
 #define TI_BUSY_SOURCEMASK      0x0000FFFF
@@ -301,6 +309,8 @@ struct TI_A24RegStruct
 #define TI_SYNCCOMMAND_GTP_STATUSB_RESET   0x44
 #define TI_SYNCCOMMAND_TRIGGERLINK_ENABLE  0x55
 #define TI_SYNCCOMMAND_TRIGGERLINK_DISABLE 0x77
+#define TI_SYNCCOMMAND_SYNCRESET_HIGH      0x99
+#define TI_SYNCCOMMAND_SYNCRESET_LOW       0xCC
 #define TI_SYNCCOMMAND_SYNCRESET           0xDD
 #define TI_SYNCCOMMAND_SYNCCODE_MASK       0x000000FF
 
@@ -332,6 +342,16 @@ struct TI_A24RegStruct
 
 /* nblocks bits and masks */
 #define TI_NBLOCKS_BLOCK_COUNT_MASK    0x00FFFFFF
+
+/* syncHistory bits and masks */
+#define TI_SYNCHISTORY_HFBR1_CODE_MASK     0x0000000F
+#define TI_SYNCHISTORY_HFBR1_CODE_VALID    (1<<4)
+#define TI_SYNCHISTORY_HFBR5_CODE_MASK     0x000001E0
+#define TI_SYNCHISTORY_HFBR5_CODE_VALID    (1<<9)
+#define TI_SYNCHISTORY_LOOPBACK_CODE_MASK  0x00003C00
+#define TI_SYNCHISTORY_LOOPBACK_CODE_VALID (1<<14)
+#define TI_SYNCHISTORY_TIMESTAMP_OVERFLOW  (1<<15)
+#define TI_SYNCHISTORY_TIMESTAMP_MASK      0xFFFF0000
 
 /* runningMode settings */
 #define TI_RUNNINGMODE_ENABLE          0x71
@@ -389,6 +409,7 @@ struct TI_A24RegStruct
 #define TI_RESET_JTAG                 (1<<2)
 #define TI_RESET_SFM                  (1<<3)
 #define TI_RESET_SOFT                 (1<<4)
+#define TI_RESET_SYNC_HISTORY         (1<<6)
 #define TI_RESET_BUSYACK              (1<<7)
 #define TI_RESET_CLK250               (1<<8)
 #define TI_RESET_CLK200               (1<<8)
@@ -515,6 +536,13 @@ int  tiVmeTrigger2();
 int  tiGetSWBBusy();
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);
+
+int  tiSetUserSyncResetReceive(int enable);
+int  tiGetLastSyncCodes(int pflag);
+int  tiGetSyncHistoryBufferStatus(int pflag);
+void tiResetSyncHistory();
+void tiUserSyncReset(int enable);
+void tiPrintSyncHistory();
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
