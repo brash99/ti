@@ -75,7 +75,9 @@ static VOIDFUNCPTR  tiAckRoutine  = NULL;    /* user trigger acknowledge routine
 static int          tiAckArg      = 0;       /* arg to user trigger ack routine */
 static int          tiReadoutEnabled = 1;    /* Readout enabled, by default */
 int                 tiFiberLatencyOffset = 0xbf; /* Default offset for fiber latency */
-static int          tiVersion=0x0;
+static int          tiVersion     = 0x0;     /* Firmware version */
+static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
+static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -2261,7 +2263,8 @@ tiDisableA32()
 unsigned int
 tiBReady()
 {
-  unsigned int rval;
+  unsigned int blockBuffer, rval;
+
   if(TIp == NULL) 
     {
       logMsg("tiBReady: ERROR: TI not initialized\n",1,2,3,4,5,6);
@@ -2269,10 +2272,56 @@ tiBReady()
     }
 
   TILOCK;
-  rval  = (vmeRead32(&TIp->blockBuffer)&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
+  blockBuffer = vmeRead32(&TIp->blockBuffer);
+  rval        = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
+  tiSyncEventReceived = (blockBuffer&TI_BLOCKBUFFER_SYNCEVENT)>>31;
+
+  if( (rval==1) && (tiSyncEventReceived) )
+    tiSyncEventFlag = 1;
+  else
+    tiSyncEventFlag = 0;
+
   TIUNLOCK;
 
+  return rval;
+}
+
+/*
+ * tsGetSyncEventFlag
+ *   - Return the value of the Synchronization flag, obtained from tsBReady
+ *     1: if sync event received, and current blocks available = 1
+ *     0: Otherwise
+ *
+ */
+
+int
+tiGetSyncEventFlag()
+{
+  int rval=0;
   
+  TILOCK;
+  rval = tiSyncEventFlag;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/*
+ * tiSyncEventReceived
+ *  - Return the value of whether or not the sync event has been received
+ *     1: if sync event received
+ *     0: Otherwise
+ *
+ */
+
+int
+tiGetSyncEventReceived()
+{
+  int rval=0;
+  
+  TILOCK;
+  rval = tiSyncEventReceived;
+  TIUNLOCK;
 
   return rval;
 }
@@ -3178,7 +3227,7 @@ tiUserSyncReset(int enable)
   taskDelay(2);
   TIUNLOCK;
 
-  printf("%s: User Sync Reset ");
+  printf("%s: User Sync Reset ",__FUNCTION__);
   if(enable)
     printf("HIGH\n");
   else
@@ -3190,7 +3239,7 @@ void
 tiPrintSyncHistory()
 {
   unsigned int syncHistory=0;
-  int count=0; code=1, valid=0, timestamp=0, overflow=0;
+  int count=0, code=1, valid=0, timestamp=0, overflow=0;
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -3839,5 +3888,69 @@ tiGetSWBBusy()
   return rval;
 }
 
+/*
+ * tiSetSyncEventInterval
+ *    - Set the value of the syncronization event interval
+ *
+ * Args: 
+ *   blk_interval -
+ *      Sync Event will occur in the last event of the set blk_interval (number of blocks)
+ * 
+ */
+
+int
+tiSetSyncEventInterval(int blk_interval)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(blk_interval>0xFFFF)
+    {
+      printf("%s: ERROR: Invalid value for blk_interval (%d)\n",
+	     __FUNCTION__,blk_interval);
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->syncEventCtrl, blk_interval);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/*
+ * tiForceSyncEvent
+ *  - Force a sync event (type = 0).
+ */
+
+int
+tiForceSyncEvent()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_FORCE_SYNCEVENT);
+  TIUNLOCK;
+
+  return OK;
+}
 
 

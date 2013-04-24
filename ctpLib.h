@@ -95,6 +95,7 @@ int  ctpArmHistoryBuffer();
 int  ctpDReady();
 int  ctpReadEvent(volatile unsigned int *data, int nwrds);
 void ctpFiberReset();
+void ctpPayloadReset();
 int  ctpTestResetCounter(int type);
 int  ctpTestGetClockFreq();
 int  ctpTestGetSyncCount();

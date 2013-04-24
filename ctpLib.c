@@ -83,6 +83,7 @@ ctpInit()
 
   /* Reset the fiber links... this needs to be done after the TI clock switchover, 
      So do it here */
+/*   ctpPayloadReset(); */
   ctpFiberReset();
 
   return OK;
@@ -665,6 +666,22 @@ ctpFiberReset()
   vmeWrite32(&CTPp->fpga3.config1, 0);
 /*   vmeWrite32(&CTPp->fiberReset,1); */
 /*   vmeWrite32(&CTPp->fiberReset,0); */
+  TIUNLOCK;
+
+}
+
+void
+ctpPayloadReset()
+{
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_ALL_GTP);
+  vmeWrite32(&CTPp->fpga3.config1, 0);
   TIUNLOCK;
 
 }

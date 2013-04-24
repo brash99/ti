@@ -116,7 +116,8 @@ struct TI_A24RegStruct
   /* 0x000BC */ volatile unsigned int inputCounter;
   /* 0x000C0 */ volatile unsigned int blockStatus[4];
   /* 0x000D0 */ volatile unsigned int adr24;
-  /* 0x000D4 */          unsigned int blank2[(0xFC-0xD4)/4];
+  /* 0x000D4 */ volatile unsigned int syncEventCtrl;
+  /* 0x000D8 */          unsigned int blank2[(0xFC-0xD8)/4];
   /* 0x000FC */ volatile unsigned int scalerCtrl;
   /* 0x00100 */ volatile unsigned int reset;
   /* 0x00104 */          unsigned int blank3[(0x8C0-0x104)/4];
@@ -141,7 +142,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x98
+#define TI_SUPPORTED_FIRMWARE 0x102
 
 /* boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -269,7 +270,8 @@ struct TI_A24RegStruct
 #define TI_BLOCKBUFFER_BUFFERLEVEL_MASK      0x000000FF
 #define TI_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
 #define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
-#define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0xFF000000
+#define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
+#define TI_BLOCKBUFFER_SYNCEVENT             (1<<31)
 
 /* triggerRule bits and masks */
 #define TI_TRIGGERRULE_RULE1_MASK 0x000000FF
@@ -400,6 +402,10 @@ struct TI_A24RegStruct
 #define TI_ADR24_TM_NBLOCKS_READY1    0x00FF0000
 #define TI_ADR24_TM_NBLOCKS_NEEDACK1  0xFF000000
 
+/* syncEventCtrl bits and masks */
+#define TI_SYNCEVENTCTRL_NBLOCKS_MASK 0x0000FFFF
+#define TI_SYNCEVENTCTRL_ENABLE       0x005A0000
+
 /* scalerLatchControl bits and masks */
 #define TI_SCALERCTRL_FP_LATCH_ENABLE  (1<<0)
 #define TI_SCALERCTRL_FP_RESET_ENABLE  (1<<1)
@@ -423,6 +429,7 @@ struct TI_A24RegStruct
 #define TI_RESET_MEASURE_LATENCY      (1<<15)
 #define TI_RESET_TAKE_TOKEN           (1<<16)
 #define TI_RESET_BLOCK_READOUT        (1<<17)
+#define TI_RESET_FORCE_SYNCEVENT      (1<<20)
 #define TI_RESET_SCALERS_LATCH        (1<<24)
 #define TI_RESET_SCALERS_RESET        (1<<25)
 
@@ -510,6 +517,8 @@ void tiClockReset();
 int  tiSetAdr32(unsigned int a32base);
 int  tiDisableA32();
 unsigned int  tiBReady();
+int  tiGetSyncEventFlag();
+int  tiGetSyncEventReceived();
 int  tiSetBlockBufferLevel(unsigned int level);
 int  tiEnableTSInput(unsigned int inpMask);
 int  tiDisableTSInput(unsigned int inpMask);
