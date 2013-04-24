@@ -1,6 +1,10 @@
 
 Changelog for the TI (pipeline) Library.
 
+r11364:
+ - Implementation of changes to firmware up to version 0x102
+   - Routines to handle Sync Events
+
 r11258:
  - Firmware updating code a bit more user friendly
  - Support for updating firmware for the SD
