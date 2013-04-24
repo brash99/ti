@@ -32,6 +32,7 @@ extern unsigned int sysUnivSetLSI(unsigned short, unsigned short);
 
 extern volatile struct TI_A24RegStruct *TIp;
 unsigned int BoardSerialNumber;
+unsigned int firmwareInfo;
 char *programName;
 
 int tiEMInit();
@@ -114,6 +115,18 @@ main(int argc, char *argv[])
   BoardSerialNumber = tiGetSerialNumber(NULL);
   printf(" Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
 	 BoardSerialNumber&0xffff);
+
+  firmwareInfo = tiGetFirmwareVersion();
+  if(firmwareInfo>0)
+    {
+      printf("  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
+	     (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
+    }
+  else
+    {
+      printf("  Error reading Firmware Version\n");
+    }
+
 
   /* Check the serial number and ask for input if necessary */
   /* Force this program to only work for TI (not TD or TS) */
