@@ -56,14 +56,6 @@ int intLockKeya;
 }
 #endif
 
-struct ScalerStruct
-{
-  /* 0x00n80 */ volatile unsigned int fp[4];
-  /* 0x00n90 */ volatile unsigned int GTP[8];
-  /* 0x00nB0 */ volatile unsigned int ext[8];
-  /* 0x00nD0 */ volatile unsigned int blank[(0x380-0x1D0)/4];
-};
-
 struct TI_A24RegStruct
 {
   /* 0x00000 */ volatile unsigned int boardID;
@@ -460,21 +452,6 @@ struct TI_A24RegStruct
 #define TI_BLOCK_TRAILER_SLOTS_MASK        0x1F000000
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
-
-/* VXS Payload Port to VME Slot map */
-#define MAX_VME_SLOTS 21    /* This is either 20 or 21 */
-unsigned short PayloadPort[MAX_VME_SLOTS+1] =
-  {
-    0,     /* Filler for mythical VME slot 0 */ 
-#if MAX_VME_SLOTS == 21
-    0,     /* VME Controller */
-#endif
-    17, 15, 13, 11, 9, 7, 5, 3, 1,  
-    0,     /* Switch Slot A - SD */
-    0,     /* Switch Slot B - CTP/GTP */
-    2, 4, 6, 8, 10, 12, 14, 16, 
-    18     /* VME Slot Furthest to the Right - TI */ 
-  };
 
 /* Function prototypes */
 int  tiInit(unsigned int tAddr, unsigned int mode, int force);

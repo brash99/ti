@@ -79,6 +79,7 @@ rocDownload()
   int islot;
 
   remexSetCmsgServer("dafarm28");
+  remexSetRedirect(1);
   remexInit(NULL,1);
 
 

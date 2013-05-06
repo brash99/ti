@@ -100,6 +100,21 @@ IMPORT  STATUS sysVmeDmaSend(UINT32, UINT32, int, BOOL);
 
 static void FiberMeas();
 
+/* VXS Payload Port to VME Slot map */
+#define MAX_VME_SLOTS 21    /* This is either 20 or 21 */
+unsigned short PayloadPort[MAX_VME_SLOTS+1] =
+  {
+    0,     /* Filler for mythical VME slot 0 */ 
+#if MAX_VME_SLOTS == 21
+    0,     /* VME Controller */
+#endif
+    17, 15, 13, 11, 9, 7, 5, 3, 1,  
+    0,     /* Switch Slot A - SD */
+    0,     /* Switch Slot B - CTP/GTP */
+    2, 4, 6, 8, 10, 12, 14, 16, 
+    18     /* VME Slot Furthest to the Right - TI */ 
+  };
+
 /* Library of routines for the SD */
 #include "sdLib.c"
 
