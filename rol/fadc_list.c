@@ -115,7 +115,7 @@ rocDownload()
      pins 21/22 | 23/24 | 25/26 : trigger1
      pins 29/30 | 31/32 | 33/34 : trigger2
   */
-  tiLoadTriggerTable();
+  tiLoadTriggerTable(0);
 
   tiSetTriggerHoldoff(1,10,0);
   tiSetTriggerHoldoff(2,10,0);

@@ -514,7 +514,7 @@ int  tiDisableDataReadout();
 int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
-int  tiLoadTriggerTable();
+int  tiLoadTriggerTable(int mode);
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
 

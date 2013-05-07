@@ -2924,29 +2924,63 @@ tiResetBlockReadout()
 
 }
 
+/*******************************************************************************
+ *
+ * tiLoadTriggerTable
+ *    - Load a predefined trigger table (mapping TS inputs to trigger types).
+ *   Modes available:
+ *     mode 0:
+ *	   TS#1,2,3,4,5 generates Trigger1 (physics trigger),
+ *         TS#6 generates Trigger2 (playback trigger),
+ *         No SyncEvent;
+ *     mode 1:
+ *         TS#1,2,3 generates Trigger1 (physics trigger), 
+ *         TS#4,5,6 generates Trigger2 (playback trigger).  
+ *         If both Trigger1 and Trigger2, they are SyncEvent;
+ *     mode 2:
+ *         TS#1,2,3,4,5 generates Trigger1 (physics trigger),
+ *         TS#6 generates Trigger2 (playback trigger),
+ *         If both Trigger1 and Trigger2, generates SyncEvent;
+ *
+ */
 
 int
-tiLoadTriggerTable()
+tiLoadTriggerTable(int mode)
 {
   int ipat;
-  /* This pattern associates (according to Gu)
-     pins 21/22 | 23/24 | 25/26 : trigger1
-     pins 29/30 | 31/32 | 33/34 : trigger2
-  */
-  unsigned int trigPattern[16] =
-    {
-      0x0C0C0C00, 0x0C0C0C0C, 0xCCCCCCC0, 0xCCCCCCCC,
-      0xCCCCCCC0, 0xCCCCCCCC, 0xCCCCCCC0, 0xCCCCCCCC,
-      0xCCCCCCC0, 0xCCCCCCCC, 0xCCCCCCC0, 0xCCCCCCCC, 
-      0xCCCCCCC0, 0xCCCCCCCC, 0xCCCCCCC0, 0xCCCCCCCC
-    };
 
-  unsigned int trigPattern_v85[16] = 
+  unsigned int trigPattern[3][16] = 
     {
-      0x43424100, 0x47464544, 0xcbcac988, 0xcfcecdcc,
-      0xd3d2d190, 0xd7d6d5d4, 0xdbdad998, 0xdfdedddc,
-      0xe3e2e1a0, 0xe7e6e5e4, 0xebeae9a8, 0xefeeedec,
-      0xf3f2f1b0, 0xf7f6f5f4, 0xfbfaf9b8, 0xfffefdfc
+      { /* mode 0:
+	   TS#1,2,3,4,5 generates Trigger1 (physics trigger),
+	   TS#6 generates Trigger2 (playback trigger),
+	   No SyncEvent;
+	*/
+	0x43424100, 0x47464544, 0x4b4a4948, 0x4f4e4d4c,
+	0x53525150, 0x57565554, 0x5b5a5958, 0x5f5e5d5c,
+	0x636261a0, 0x67666564, 0x6b6a6968, 0x6f6e6d6c,
+	0x73727170, 0x77767574, 0x7b7a7978, 0x7f7e7d7c, 
+      },
+      { /* mode 1:
+	   TS#1,2,3 generates Trigger1 (physics trigger), 
+	   TS#4,5,6 generates Trigger2 (playback trigger).  
+	   If both Trigger1 and Trigger2, they are SyncEvent;
+	*/
+	0x43424100, 0x47464544, 0xcbcac988, 0xcfcecdcc,
+	0xd3d2d190, 0xd7d6d5d4, 0xdbdad998, 0xdfdedddc,
+	0xe3e2e1a0, 0xe7e6e5e4, 0xebeae9a8, 0xefeeedec,
+	0xf3f2f1b0, 0xf7f6f5f4, 0xfbfaf9b8, 0xfffefdfc, 
+      },
+      { /* mode 2:
+	   TS#1,2,3,4,5 generates Trigger1 (physics trigger),
+	   TS#6 generates Trigger2 (playback trigger),
+	   If both Trigger1 and Trigger2, generates SyncEvent;
+	*/
+	0x43424100, 0x47464544, 0x4b4a4948, 0x4f4e4d4c,
+	0x53525150, 0x57565554, 0x5b5a5958, 0x5f5e5d5c,
+	0xe3e2e1a0, 0xe7e6e5e4, 0xebeae9e8, 0xefeeedec,
+	0xf3f2f1f0, 0xf7f6f5f4, 0xfbfaf9f8, 0xfffefdfc 
+      }
     };
 
 
@@ -2955,17 +2989,17 @@ tiLoadTriggerTable()
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return ERROR;
     }
+
+  if(mode>2)
+    {
+      printf("%s: WARN: Invalid mode %d.  Using Trigger Table mode = 0\n",
+	     __FUNCTION__,mode);
+      mode=0;
+    }
   
   TILOCK;
   for(ipat=0; ipat<16; ipat++)
-    if(tiVersion>0x80)
-      {
-	vmeWrite32(&TIp->trigTable[ipat], trigPattern_v85[ipat]);
-      }
-    else
-      {
-	vmeWrite32(&TIp->trigTable[ipat], trigPattern[ipat]);
-      }
+    vmeWrite32(&TIp->trigTable[ipat], trigPattern[mode][ipat]);
 
   TIUNLOCK;
 
