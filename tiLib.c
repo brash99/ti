@@ -2343,6 +2343,53 @@ tiGetSyncEventReceived()
 
 /*******************************************************************************
  *
+ *  tiEnableVXSSignals/tiDisableVXSSignals
+ *   - Enable/Disable trigger and sync signals sent through the VXS
+ *     to the Signal Distribution (SD) module.
+ *     This may be required to eliminate the possibility of accidental
+ *     signals being sent during Clock Synchronization or Trigger
+ *     Enable/Disabling by the TI Master or TS.
+ *
+ * RETURNS: OK if successful, otherwise ERROR
+ *
+ */
+
+int
+tiEnableVXSSignals()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->fiber,
+	     (vmeRead32(&TIp->fiber) & 0xFF) | TI_FIBER_ENABLE_P0);
+  TIUNLOCK;
+
+  return OK;
+}
+
+int
+tiDisableVXSSignals()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->fiber,
+	     (vmeRead32(&TIp->fiber) & 0xFF) & ~TI_FIBER_ENABLE_P0);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/*******************************************************************************
+ *
  *  tiSetBlockBufferLevel
  *   - Set the block buffer level for the number of blocks in the system
  *     that need to be read out.

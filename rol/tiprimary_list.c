@@ -144,6 +144,7 @@ static void __download()
  
   daLogMsg("INFO","Download Executed");
 
+  tiDisableVXSSignals();
 
 } /*end download */     
 
@@ -170,6 +171,8 @@ static void __prestart()
   taskDelay(2);
   tiTrigLinkReset();
 #endif
+
+  tiEnableVXSSignals();
 
   /* Execute User defined prestart */
   rocPrestart();

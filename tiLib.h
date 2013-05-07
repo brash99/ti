@@ -155,6 +155,7 @@ struct TI_A24RegStruct
 #define TI_FIBER_6 (1<<5)
 #define TI_FIBER_7 (1<<6)
 #define TI_FIBER_8 (1<<7)
+#define TI_FIBER_ENABLE_P0 (1<<8)
 
 /* intsetup bits and masks */
 #define TI_INTSETUP_VECTOR_MASK   0x000000FF
@@ -496,6 +497,8 @@ int  tiDisableA32();
 unsigned int  tiBReady();
 int  tiGetSyncEventFlag();
 int  tiGetSyncEventReceived();
+int  tiEnableVXSSignals();
+int  tiDisableVXSSignals();
 int  tiSetBlockBufferLevel(unsigned int level);
 int  tiEnableTSInput(unsigned int inpMask);
 int  tiDisableTSInput(unsigned int inpMask);

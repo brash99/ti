@@ -381,6 +381,27 @@ rocTrigger(int arg)
   int dCnt, len=0, idata;
   int stat, itime, gbready;
   int roflag=1;
+  int syncFlag=0;
+  static unsigned int roEventNumber=0;
+
+
+  roEventNumber++;
+  syncFlag = tiGetSyncEventFlag();
+
+  if(tiGetSyncEventReceived())
+    {
+      printf("%s: Sync Event received at readout event %d\n",
+	     __FUNCTION__,roEventNumber);
+    }
+
+  if(syncFlag)
+    {
+      printf("%s: Sync Flag Received at readout event %d\n",
+	     __FUNCTION__,roEventNumber);
+/*       printf("  Sleeping for 10 seconds... \n"); */
+/*       sleep(10); */
+/*       printf("  ... Done\n"); */
+    }
 
   /* Set high, the first output port */
   tiSetOutputPort(1,0,0,0);
