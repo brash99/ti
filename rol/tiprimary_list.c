@@ -146,6 +146,13 @@ static void __download()
 
   tiDisableVXSSignals();
 
+  /* If the TI Master, send a Clock and Trig Link Reset */
+#ifdef TI_MASTER
+  tiClockReset();
+  taskDelay(2);
+  tiTrigLinkReset();
+#endif
+
 } /*end download */     
 
 static void __prestart()
@@ -165,12 +172,6 @@ static void __prestart()
   CTRIGRSS(TIPRIMARY,1,usrtrig,usrtrig_done);
   CRTTYPE(1,TIPRIMARY,1);
 
-  /* If the TI Master, send a Clock and Trig Link Reset */
-#ifdef TI_MASTER
-  tiClockReset();
-  taskDelay(2);
-  tiTrigLinkReset();
-#endif
 
   tiEnableVXSSignals();
 

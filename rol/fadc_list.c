@@ -324,6 +324,7 @@ rocGo()
   int iwait=0;
   int islot, allchanup=0;
 
+  ctpGetErrorLatchFS(1);
 
   for(islot=0;islot<NFADC;islot++)
     {
@@ -500,14 +501,14 @@ rocCleanup()
    * Perform a RESET on all FADC250s.
    *   - Turn off all A32 (block transfer) addresses
    */
-  printf("%s: Reset all FADCs\n",__FUNCTION__);
+/*   printf("%s: Reset all FADCs\n",__FUNCTION__); */
   
   for(islot=0; islot<NFADC; islot++)
     {
       FA_SLOT = fadcID[islot];
       faReset(FA_SLOT,1); /* Reset, and DO NOT restore A32 settings (1) */
     }
-  
+
   remexClose();
 
 }

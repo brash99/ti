@@ -251,8 +251,11 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       return OK;
     }
 
+  
+/*   tiDisableVXSSignals(); */
   tiReload();
   taskDelay(60);
+  tiDisableVXSSignals();
 
   /* Get the Firmware Information and print out some details */
   firmwareInfo = tiGetFirmwareVersion();
@@ -2691,13 +2694,6 @@ tiAddSlave(unsigned int fiber)
   if((fiber<1) || (fiber>8) )
     {
       printf("%s: ERROR: Invalid value for fiber (%d)\n",
-	     __FUNCTION__,fiber);
-      return ERROR;
-    }
-
-  if(fiber<5)
-    {
-      printf("%s: ERROR: TI Slaves connected to TI Master HFBR %d not supported.\n",
 	     __FUNCTION__,fiber);
       return ERROR;
     }
