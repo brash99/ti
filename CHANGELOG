@@ -1,6 +1,13 @@
 
 Changelog for the TI (pipeline) Library.
 
+r11463:
+ - Supported version 0x102
+ - Disable VXS signals (Sync and Trigger) at initialization.  Must be re-enabled before a
+   system SYNC is issued.
+ - Support for TI Masters with Slaves on any fiber port.
+ - Multiple trigger modes available for TI Master in tiLoadTriggerTable (see comment)
+
 r11364:
  - Implementation of changes to firmware up to version 0x102
    - Routines to handle Sync Events
