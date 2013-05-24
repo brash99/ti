@@ -204,8 +204,6 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_TSINPUTS         (1<<5)
 #define TI_TRIGSRC_TSREV2           (1<<6)
 #define TI_TRIGSRC_PULSER           (1<<7)
-#define TI_TRIGSRC_ENABLE           (1<<8)
-#define TI_TRIGSRC_P2BUSY           (1<<9)
 #define TI_TRIGSRC_PART_1           (1<<12)
 #define TI_TRIGSRC_PART_2           (1<<13)
 #define TI_TRIGSRC_PART_3           (1<<14)
@@ -434,6 +432,10 @@ struct TI_A24RegStruct
 #define TI_TRIGGER_TSREV2    4
 #define TI_TRIGGER_RANDOM    5
 #define TI_TRIGGER_PULSER    5
+#define TI_TRIGGER_PART_1    6
+#define TI_TRIGGER_PART_2    7
+#define TI_TRIGGER_PART_3    8
+#define TI_TRIGGER_PART_4    9
 
 /* Define default Interrupt vector and level */
 #define TI_INT_VEC      0xec

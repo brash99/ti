@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include "jvme.h"
 #include "tiLib.h"
-#include "remexLib.h"
+/* #include "remexLib.h" */
 
 DMA_MEM_ID vmeIN,vmeOUT;
 extern DMANODE *the_event;
@@ -69,7 +69,7 @@ mytiISR(int arg)
   else
     {
       dma_dabufp += dCnt;
-/*       printf("dCnt = %d\n",dCnt); */
+      /*       printf("dCnt = %d\n",dCnt); */
     
     }
   PUTEVENT(vmeOUT);
@@ -77,7 +77,7 @@ mytiISR(int arg)
   outEvent = dmaPGetItem(vmeOUT);
 #define READOUT
 #ifdef READOUT
-  if(tiIntCount%1==0)
+  if(tiIntCount%4000==0)
     {
       printf("Received %d triggers...\n",
 	     tiIntCount);
@@ -94,27 +94,27 @@ mytiISR(int arg)
 #endif
   dmaPFreeItem(outEvent);
 #else /* DO_READOUT */
-/*   tiResetBlockReadout(); */
+  /*   tiResetBlockReadout(); */
 
 #endif /* DO_READOUT */
-  if(tiIntCount%1==0)
+  if(tiIntCount%4000==0)
     printf("intCount = %d\n",tiIntCount );
-/*   sleep(1); */
+/*     sleep(1); */
 }
 
 
 int 
 main(int argc, char *argv[]) {
 
-    int stat;
+  int stat;
 
-    printf("\nJLAB TI Tests\n");
-    printf("----------------------------\n");
+  printf("\nJLAB TI Tests\n");
+  printf("----------------------------\n");
 
-    remexSetCmsgServer("dafarm28");
-    remexInit(NULL,1);
+/*   remexSetCmsgServer("dafarm28"); */
+/*   remexInit(NULL,1); */
 
-    vmeOpenDefaultWindows();
+  vmeOpenDefaultWindows();
 
   /* Setup Address and data modes for DMA transfers
    *   
@@ -124,112 +124,114 @@ main(int argc, char *argv[]) {
    *  dataType = 0 (D16)    1 (D32)    2 (BLK32) 3 (MBLK) 4 (2eVME) 5 (2eSST)
    *  sstMode  = 0 (SST160) 1 (SST267) 2 (SST320)
    */
-    vmeDmaConfig(2,5,1);
+  vmeDmaConfig(2,5,1);
 
-    /* INIT dmaPList */
+  /* INIT dmaPList */
 
-    dmaPFreeAll();
-    vmeIN  = dmaPCreate("vmeIN",1024,500,0);
-    vmeOUT = dmaPCreate("vmeOUT",0,0,0);
+  dmaPFreeAll();
+  vmeIN  = dmaPCreate("vmeIN",1024,500,0);
+  vmeOUT = dmaPCreate("vmeOUT",0,0,0);
     
-    dmaPStatsAll();
+  dmaPStatsAll();
 
-    dmaPReInitAll();
+  dmaPReInitAll();
 
-/*     gefVmeSetDebugFlags(vmeHdl,0x0); */
-    /* Set the TI structure pointer */
-/*     tiInit((2<<19),TI_READOUT_EXT_POLL,0); */
-    tiInit(0,TI_READOUT_EXT_POLL,0);
-    tiCheckAddresses();
+  /*     gefVmeSetDebugFlags(vmeHdl,0x0); */
+  /* Set the TI structure pointer */
+  /*     tiInit((2<<19),TI_READOUT_EXT_POLL,0); */
+  tiInit(0,TI_READOUT_EXT_POLL,0);
+  tiCheckAddresses();
 
-    char mySN[20];
-    printf("0x%08x\n",tiGetSerialNumber((char **)&mySN));
-    printf("mySN = %s\n",mySN);
+  char mySN[20];
+  printf("0x%08x\n",tiGetSerialNumber((char **)&mySN));
+  printf("mySN = %s\n",mySN);
 
 #ifndef DO_READOUT
-    tiDisableDataReadout();
-    tiDisableA32();
+  tiDisableDataReadout();
+  tiDisableA32();
 #endif
 
-    tiLoadTriggerTable();
+  tiLoadTriggerTable(0);
     
-    tiSetTriggerHoldoff(1,4,0);
-    tiSetTriggerHoldoff(2,4,0);
+  tiSetTriggerHoldoff(1,4,0);
+  tiSetTriggerHoldoff(2,4,0);
 
-    tiSetPrescale(0);
-    tiSetBlockLevel(1);
+  tiSetPrescale(0);
+  tiSetBlockLevel(1);
 
-    stat = tiIntConnect(TI_INT_VEC, mytiISR, 0);
-    if (stat != OK) 
-      {
-	printf("ERROR: tiIntConnect failed \n");
-	goto CLOSE;
-      } 
-    else 
-      {
-	printf("INFO: Attached TI Interrupt\n");
-      }
+  stat = tiIntConnect(TI_INT_VEC, mytiISR, 0);
+  if (stat != OK) 
+    {
+      printf("ERROR: tiIntConnect failed \n");
+      goto CLOSE;
+    } 
+  else 
+    {
+      printf("INFO: Attached TI Interrupt\n");
+    }
 
-/*     tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
-    tiSetTriggerSource(TI_TRIGGER_PULSER);
-    tiEnableTSInput(0x1);
+  /*     tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
+  tiSetTriggerSource(TI_TRIGGER_PULSER);
+  tiEnableTSInput(0x1);
 
-/*     tiSetFPInput(0x0); */
-/*     tiSetGenInput(0xffff); */
-/*     tiSetGTPInput(0x0); */
+  /*     tiSetFPInput(0x0); */
+  /*     tiSetGenInput(0xffff); */
+  /*     tiSetGTPInput(0x0); */
 
-    tiSetBusySource(TI_BUSY_LOOPBACK,1);
+  tiSetBusySource(TI_BUSY_LOOPBACK,1);
 
-    tiSetBlockBufferLevel(1);
+  tiSetBlockBufferLevel(1);
 
-    tiSetFiberDelay(1,2);
-    tiSetSyncDelayWidth(1,0x3f,1);
+  tiSetFiberDelay(1,2);
+  tiSetSyncDelayWidth(1,0x3f,1);
     
-    printf("Hit enter to reset stuff\n");
-    getchar();
+  printf("Hit enter to reset stuff\n");
+  getchar();
 
-    tiClockReset();
-    taskDelay(1);
-    tiTrigLinkReset();
-    taskDelay(1);
-    tiSyncReset();
+  tiClockReset();
+  taskDelay(1);
+  tiTrigLinkReset();
+  taskDelay(1);
+  tiEnableVXSSignals();
+  taskDelay(1);
+  tiSyncReset();
 
-    taskDelay(1);
+  taskDelay(1);
     
-    tiStatus();
+  tiStatus();
 
-    printf("Hit enter to start triggers\n");
-    getchar();
+  printf("Hit enter to start triggers\n");
+  getchar();
 
-    tiIntEnable(0);
-    tiStatus();
+  tiIntEnable(0);
+  tiStatus();
 #define SOFTTRIG
 #ifdef SOFTTRIG
-    tiSetRandomTrigger(1,0x7);
-    taskDelay(10);
-    tiSoftTrig(1,0x1,0x700,0);
+  tiSetRandomTrigger(1,0x7);
+  taskDelay(10);
+  tiSoftTrig(1,0x1,0x700,0);
 #endif
 
-    printf("Hit any key to Disable TID and exit.\n");
-    getchar();
-    tiStatus();
+  printf("Hit any key to Disable TID and exit.\n");
+  getchar();
+  tiStatus();
 
 #ifdef SOFTTRIG
-    /* No more soft triggers */
-/*     tidSoftTrig(0x0,0x8888,0); */
-    tiSoftTrig(1,0,0x700,0);
-    tiDisableRandomTrigger();
+  /* No more soft triggers */
+  /*     tidSoftTrig(0x0,0x8888,0); */
+  tiSoftTrig(1,0,0x700,0);
+  tiDisableRandomTrigger();
 #endif
 
-    tiIntDisable();
+  tiIntDisable();
 
-    tiIntDisconnect();
+  tiIntDisconnect();
 
 
  CLOSE:
 
-    vmeCloseDefaultWindows();
+  vmeCloseDefaultWindows();
 
-    exit(0);
+  exit(0);
 }
 

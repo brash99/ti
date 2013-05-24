@@ -701,8 +701,14 @@ tiStatus()
 	printf("   Trigger Supervisor (rev2)\n");
       if(tiTriggerSource & TI_TRIGSRC_PULSER)
 	printf("   Internal Pulser\n");
-      if(tiTriggerSource & TI_TRIGSRC_ENABLE)
-	printf("   FP/Ext/GTP\n");
+      if(tiTriggerSource & TI_TRIGSRC_PART_1)
+	printf("   TS Partition 1 (HFBR #1)\n");
+      if(tiTriggerSource & TI_TRIGSRC_PART_2)
+	printf("   TS Partition 2 (HFBR #1)\n");
+      if(tiTriggerSource & TI_TRIGSRC_PART_3)
+	printf("   TS Partition 3 (HFBR #1)\n");
+      if(tiTriggerSource & TI_TRIGSRC_PART_4)
+	printf("   TS Partition 4 (HFBR #1)\n");
     }
   else 
     {
@@ -1061,6 +1067,7 @@ tiSetBlockLevel(unsigned int blockLevel)
  *         3: Front Panel TS Inputs
  *         4: TS (rev2) 
  *         5: Random
+ *       6-9: TS Partition 1-4
  *
  * RETURNS: OK if successful, ERROR otherwise
  *
@@ -1077,24 +1084,48 @@ tiSetTriggerSource(int trig)
       return ERROR;
     }
 
-  if( (trig>6) || (trig<0) )
+  if( (trig>9) || (trig<0) )
     {
-      printf("%s: ERROR: Invalid Trigger Source (%d).  Must be between 0 and 7.\n",
+      printf("%s: ERROR: Invalid Trigger Source (%d).  Must be between 0 and 10.\n",
 	     __FUNCTION__,trig);
       return ERROR;
     }
 
 
   if(!tiMaster)
-    {
-      /* Only valid trigger for TI Slave is HFBR1 */
-      trigenable = TI_TRIGSRC_HFBR1 | TI_TRIGSRC_VME;
-      if( (trig & ~TI_TRIGGER_HFBR1) != 0)
+    { 
+      /* Setup for TI Slave */
+      trigenable = TI_TRIGSRC_VME;
+
+      if((trig>=6) && (trig<=9)) /* TS partition specified */
 	{
+	  switch(trig)
+	    {
+	    case TI_TRIGGER_PART_1:
+	      trigenable |= TI_TRIGSRC_PART_1;
+	      break;
+	  
+	    case TI_TRIGGER_PART_2:
+	      trigenable |= TI_TRIGSRC_PART_2;
+	      break;
+	  
+	    case TI_TRIGGER_PART_3:
+	      trigenable |= TI_TRIGSRC_PART_3;
+	      break;
+
+	    case TI_TRIGGER_PART_4:
+	      trigenable |= TI_TRIGSRC_PART_4;
+	      break;
+	    }
+	}
+      else if( (trig & ~TI_TRIGGER_HFBR1) != 0)
+	{
+	  trigenable |= TI_TRIGSRC_HFBR1;
 	  printf("%s: WARN:  Only valid trigger source for TI Slave is HFBR1 (%d).",
 		 __FUNCTION__,TI_TRIGGER_HFBR1);
 	  printf("  Ignoring specified trig (0x%x)\n",trig);
 	}
+
     }
   else
     {
@@ -1106,34 +1137,34 @@ tiSetTriggerSource(int trig)
 
       switch(trig)
 	{
-	case 0:
+	case TI_TRIGGER_P0:
 	  trigenable |= TI_TRIGSRC_P0;
 	  break;
 
-	case 1:
+	case TI_TRIGGER_HFBR1:
 	  trigenable |= TI_TRIGSRC_HFBR1;
 	  break;
 
-	case 2:
+	case TI_TRIGGER_FPTRG:
 	  trigenable |= TI_TRIGSRC_FPTRG;
 	  break;
 
-	case 3:
+	case TI_TRIGGER_TSINPUTS:
 	  trigenable |= TI_TRIGSRC_TSINPUTS;
 	  break;
 
-	case 4:
+	case TI_TRIGGER_TSREV2:
 	  trigenable |= TI_TRIGSRC_TSREV2;
 	  break;
 
-	case 5:
+	case TI_TRIGGER_PULSER:
 	  trigenable |= TI_TRIGSRC_PULSER;
 	  break;
 
-	case 6:
-	  trigenable |= TI_TRIGSRC_ENABLE;
-	  break;
-
+	default:
+	  printf("%s: ERROR: Invalid Trigger Source (%d) for TI Master\n",
+		 __FUNCTION__,trig);
+	  return ERROR;
 	}
     }
 
