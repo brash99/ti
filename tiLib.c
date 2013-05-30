@@ -228,8 +228,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  printf("%s: ERROR: Invalid Board ID: 0x%x (rval = 0x%08x)\n",
 		 __FUNCTION__,
 		 (rval&TI_BOARDID_TYPE_MASK)>>16,rval);
-	  /*  Not setting the TIp to NULL here... just in case we're
-	      re-programming the firmware */
+	  TIp=NULL;
 	  return(ERROR);
 	}
       /* Check if this is board has a valid slot number */
@@ -1118,12 +1117,15 @@ tiSetTriggerSource(int trig)
 	      break;
 	    }
 	}
-      else if( (trig & ~TI_TRIGGER_HFBR1) != 0)
+      else
 	{
 	  trigenable |= TI_TRIGSRC_HFBR1;
-	  printf("%s: WARN:  Only valid trigger source for TI Slave is HFBR1 (%d).",
-		 __FUNCTION__,TI_TRIGGER_HFBR1);
-	  printf("  Ignoring specified trig (0x%x)\n",trig);
+	  if( (trig & ~TI_TRIGGER_HFBR1) != 0)
+	    {
+	      printf("%s: WARN:  Only valid trigger source for TI Slave is HFBR1 (%d).",
+		     __FUNCTION__,TI_TRIGGER_HFBR1);
+	      printf("  Ignoring specified trig (0x%x)\n",trig);
+	    }
 	}
 
     }
