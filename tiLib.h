@@ -536,10 +536,10 @@ int  tiGetSyncHistoryBufferStatus(int pflag);
 void tiResetSyncHistory();
 void tiUserSyncReset(int enable);
 void tiPrintSyncHistory();
-int  tiSyncResetRequest();
 int  tiSetSyncEventInterval(int blk_interval);
 int  tiForceSyncEvent();
-
+int  tiSyncResetRequest();
+int  tiGetSyncResetRequest();
 unsigned int tiGetGTPBufferLength(int pflag)
 
 

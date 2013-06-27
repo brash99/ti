@@ -3407,34 +3407,6 @@ tiPrintSyncHistory()
     }
 }
 
-/********************************************************************************
- *
- * tiSyncResetRequest
- *
- *  - Sync Reset Request is sent to TI-Master or TS.  
- *
- *    This option is available for multicrate systems when the
- *    synchronization is suspect.  It should be exercised only during
- *    "sync events" where the requested sync reset will immediately
- *    follow all ROCs concluding their readout.
- *
- */
-
-int
-tiSyncResetRequest()
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  TILOCK;
-  tiDoSyncResetRequest=1;
-  TIUNLOCK;
-
-  return OK;
-}
 
 /*
  * tiSetSyncEventInterval
@@ -3474,6 +3446,63 @@ tiSetSyncEventInterval(int blk_interval)
   return OK;
 }
 
+
+/*
+ * tiForceSyncEvent
+ *  - Force a sync event (type = 0).
+ */
+
+int
+tiForceSyncEvent()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_FORCE_SYNCEVENT);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/********************************************************************************
+ *
+ * tiSyncResetRequest
+ *
+ *  - Sync Reset Request is sent to TI-Master or TS.  
+ *
+ *    This option is available for multicrate systems when the
+ *    synchronization is suspect.  It should be exercised only during
+ *    "sync events" where the requested sync reset will immediately
+ *    follow all ROCs concluding their readout.
+ *
+ */
+
+int
+tiSyncResetRequest()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  tiDoSyncResetRequest=1;
+  TIUNLOCK;
+
+  return OK;
+}
+
 /********************************************************************************
  *
  * tiGetSyncResetRequest
@@ -3506,33 +3535,6 @@ tiGetSyncResetRequest()
   return request;
 }
 
-
-/*
- * tiForceSyncEvent
- *  - Force a sync event (type = 0).
- */
-
-int
-tiForceSyncEvent()
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  if(!tiMaster)
-    {
-      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  TILOCK;
-  vmeWrite32(&TIp->reset, TI_RESET_FORCE_SYNCEVENT);
-  TIUNLOCK;
-
-  return OK;
-}
 
 unsigned int
 tiGetGTPBufferLength(int pflag)
