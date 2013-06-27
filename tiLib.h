@@ -534,6 +534,11 @@ int  tiGetSyncHistoryBufferStatus(int pflag);
 void tiResetSyncHistory();
 void tiUserSyncReset(int enable);
 void tiPrintSyncHistory();
+int  tiSetSyncEventInterval(int blk_interval);
+int  tiForceSyncEvent();
+
+unsigned int tiGetGTPBufferLength(int pflag)
+
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
@@ -544,5 +549,8 @@ int  tiIntEnable(int iflag);
 void tiIntDisable();
 unsigned int  tiGetIntCount();
 
+/* Some token testing routines */
+int  tiSetTokenTestMode(int mode);
+int  tiSetTokenOutTest(int level);
 
 #endif /* TILIB_H */

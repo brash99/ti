@@ -3406,6 +3406,86 @@ tiPrintSyncHistory()
     }
 }
 
+/*
+ * tiSetSyncEventInterval
+ *    - Set the value of the syncronization event interval
+ *
+ * Args: 
+ *   blk_interval -
+ *      Sync Event will occur in the last event of the set blk_interval (number of blocks)
+ * 
+ */
+
+int
+tiSetSyncEventInterval(int blk_interval)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(blk_interval>0xFFFF)
+    {
+      printf("%s: ERROR: Invalid value for blk_interval (%d)\n",
+	     __FUNCTION__,blk_interval);
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->syncEventCtrl, blk_interval);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/*
+ * tiForceSyncEvent
+ *  - Force a sync event (type = 0).
+ */
+
+int
+tiForceSyncEvent()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_FORCE_SYNCEVENT);
+  TIUNLOCK;
+
+  return OK;
+}
+
+unsigned int
+tiGetGTPBufferLength(int pflag)
+{
+  unsigned int rval=0;
+
+  TILOCK;
+  rval = vmeRead32(&TIp->GTPtriggerBufferLength);
+  TIUNLOCK;
+
+  if(pflag)
+    printf("%s: 0x%08x\n",__FUNCTION__,rval);
+
+  return rval;
+}
+
 /*************************************************************
  Library Interrupt/Polling routines
 *************************************************************/
@@ -3899,67 +3979,6 @@ tiIntEnable(int iflag)
 
 }
 
-int
-tiSetTokenTestMode(int mode)
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  TILOCK;
-  if(mode)
-    vmeWrite32(&TIp->vmeControl,
-	       vmeRead32(&TIp->vmeControl) | (TI_VMECONTROL_TOKEN_TESTMODE));
-  else
-    vmeWrite32(&TIp->vmeControl,
-	       vmeRead32(&TIp->vmeControl) & ~(TI_VMECONTROL_TOKEN_TESTMODE));
-  TIUNLOCK;
-
-  return OK;
-
-}
-
-int
-tiSetTokenOutTest(int level)
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  TILOCK;
-  if(level)
-    vmeWrite32(&TIp->vmeControl,
-	       vmeRead32(&TIp->vmeControl) | (TI_VMECONTROL_TOKENOUT_HI));
-  else
-    vmeWrite32(&TIp->vmeControl,
-	       vmeRead32(&TIp->vmeControl) & ~(TI_VMECONTROL_TOKENOUT_HI));
-
-  printf("%s: vmeControl = 0x%08x\n",__FUNCTION__,vmeRead32(&TIp->vmeControl));
-  TIUNLOCK;
-
-  return OK;
-
-}
-
-unsigned int
-tiGetGTPBufferLength(int pflag)
-{
-  unsigned int rval=0;
-
-  TILOCK;
-  rval = vmeRead32(&TIp->GTPtriggerBufferLength);
-  TIUNLOCK;
-
-  if(pflag)
-    printf("%s: 0x%08x\n",__FUNCTION__,rval);
-
-  return rval;
-}
-
 /*******************************************************************************
  *
  *  tiIntDisable
@@ -4013,18 +4032,8 @@ tiGetSWBBusy()
   return rval;
 }
 
-/*
- * tiSetSyncEventInterval
- *    - Set the value of the syncronization event interval
- *
- * Args: 
- *   blk_interval -
- *      Sync Event will occur in the last event of the set blk_interval (number of blocks)
- * 
- */
-
 int
-tiSetSyncEventInterval(int blk_interval)
+tiSetTokenTestMode(int mode)
 {
   if(TIp == NULL) 
     {
@@ -4032,32 +4041,21 @@ tiSetSyncEventInterval(int blk_interval)
       return ERROR;
     }
 
-  if(!tiMaster)
-    {
-      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  if(blk_interval>0xFFFF)
-    {
-      printf("%s: ERROR: Invalid value for blk_interval (%d)\n",
-	     __FUNCTION__,blk_interval);
-    }
-
   TILOCK;
-  vmeWrite32(&TIp->syncEventCtrl, blk_interval);
+  if(mode)
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) | (TI_VMECONTROL_TOKEN_TESTMODE));
+  else
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) & ~(TI_VMECONTROL_TOKEN_TESTMODE));
   TIUNLOCK;
 
   return OK;
+
 }
 
-/*
- * tiForceSyncEvent
- *  - Force a sync event (type = 0).
- */
-
 int
-tiForceSyncEvent()
+tiSetTokenOutTest(int level)
 {
   if(TIp == NULL) 
     {
@@ -4065,17 +4063,17 @@ tiForceSyncEvent()
       return ERROR;
     }
 
-  if(!tiMaster)
-    {
-      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
-      return ERROR;
-    }
-
   TILOCK;
-  vmeWrite32(&TIp->reset, TI_RESET_FORCE_SYNCEVENT);
+  if(level)
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) | (TI_VMECONTROL_TOKENOUT_HI));
+  else
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) & ~(TI_VMECONTROL_TOKENOUT_HI));
+
+  printf("%s: vmeControl = 0x%08x\n",__FUNCTION__,vmeRead32(&TIp->vmeControl));
   TIUNLOCK;
 
   return OK;
+
 }
-
-
