@@ -540,7 +540,7 @@ int  tiSetSyncEventInterval(int blk_interval);
 int  tiForceSyncEvent();
 int  tiSyncResetRequest();
 int  tiGetSyncResetRequest();
-unsigned int tiGetGTPBufferLength(int pflag)
+unsigned int tiGetGTPBufferLength(int pflag);
 
 
 /* Library Interrupt/Polling routine prototypes */
