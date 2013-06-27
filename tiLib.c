@@ -78,6 +78,7 @@ int                 tiFiberLatencyOffset = 0xbf; /* Default offset for fiber lat
 static int          tiVersion     = 0x0;     /* Firmware version */
 static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
+static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -3406,6 +3407,68 @@ tiPrintSyncHistory()
     }
 }
 
+/********************************************************************************
+ *
+ * tiSyncResetRequest
+ *
+ *  - Sync Reset Request is sent to TI-Master or TS.  
+ *
+ *    This option is available for multicrate systems when the
+ *    synchronization is suspect.  It should be exercised only during
+ *    "sync events" where the requested sync reset will immediately
+ *    follow all ROCs concluding their readout.
+ *
+ */
+
+int
+tiSyncResetRequest()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  tiDoSyncResetRequest=1;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/********************************************************************************
+ *
+ * tiGetSyncResetRequest
+ *
+ *  - Determine if a TI has requested a Sync Reset
+ *
+ */
+
+int
+tiGetSyncResetRequest()
+{
+  int request=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+
+  TILOCK;
+  request = (vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_SYNCRESET_REQUESTED)>>30;
+  TIUNLOCK;
+
+  return request;
+
+}
+
 /*************************************************************
  Library Interrupt/Polling routines
 *************************************************************/
@@ -3785,6 +3848,7 @@ tiAckConnect(VOIDFUNCPTR routine, unsigned int arg)
 void
 tiIntAck()
 {
+  int resetbits=0;
   if(TIp == NULL) {
     logMsg("tiIntAck: ERROR: TI not initialized\n",0,0,0,0,0,0);
     return;
@@ -3802,16 +3866,21 @@ tiIntAck()
       TILOCK;
       tiDoAck = 1;
       tiAckCount++;
-      if(tiReadoutEnabled)
-	{
-	  /* Normal Readout Acknowledge */
-	  vmeWrite32(&TIp->reset,TI_RESET_BUSYACK);
-	}
-      else
+      resetbits = TI_RESET_BUSYACK;
+
+      if(!tiReadoutEnabled)
 	{
 	  /* Readout Acknowledge and decrease the number of available blocks by 1 */
-	  vmeWrite32(&TIp->reset,TI_RESET_BUSYACK | TI_RESET_BLOCK_READOUT);
+	  resetbits |= TI_RESET_BLOCK_READOUT;
 	}
+      
+      if(tiDoSyncResetRequest)
+	{
+	  resetbits |= TI_RESET_SYNCRESET_REQUEST;
+	  tiDoSyncResetRequest=0;
+	}
+
+      vmeWrite32(&TIp->reset, resetbits);
       TIUNLOCK;
     }
 

@@ -134,7 +134,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x102
+#define TI_SUPPORTED_FIRMWARE 0x111
 
 /* boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -262,6 +262,7 @@ struct TI_A24RegStruct
 #define TI_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
 #define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
 #define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
+#define TI_BLOCKBUFFER_SYNCRESET_REQUESTED   (1<<30)
 #define TI_BLOCKBUFFER_SYNCEVENT             (1<<31)
 
 /* triggerRule bits and masks */
@@ -421,6 +422,7 @@ struct TI_A24RegStruct
 #define TI_RESET_TAKE_TOKEN           (1<<16)
 #define TI_RESET_BLOCK_READOUT        (1<<17)
 #define TI_RESET_FORCE_SYNCEVENT      (1<<20)
+#define TI_RESET_SYNCRESET_REQUEST    (1<<23)
 #define TI_RESET_SCALERS_LATCH        (1<<24)
 #define TI_RESET_SCALERS_RESET        (1<<25)
 
@@ -534,6 +536,7 @@ int  tiGetSyncHistoryBufferStatus(int pflag);
 void tiResetSyncHistory();
 void tiUserSyncReset(int enable);
 void tiPrintSyncHistory();
+int  tiSyncResetRequest();
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
