@@ -79,6 +79,7 @@ static int          tiVersion     = 0x0;     /* Firmware version */
 static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
 static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
+static int          tiSlotNumber=0;          /* Slot number in which the TI resides */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -241,6 +242,8 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  TIp=NULL;
 	  return(ERROR);
 	}
+      tiSlotNumber = boardID;
+
       /* Get the "production" type bits.  1=production, 0=prototype */
       prodID = (rval&TI_BOARDID_PROD_MASK)>>16;
     }
@@ -1590,9 +1593,9 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
       if((unsigned long) (data)&0x7) 
 	{
 #ifdef VXWORKS
-	  *data = TI_DUMMY_DATA;
+	  *data = (TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22);
 #else
-	  *data = LSWAP(TI_DUMMY_DATA);
+	  *data = LSWAP((TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22));
 #endif
 	  dummy = 1;
 	  laddr = (data + 1);
@@ -1610,7 +1613,7 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 #else
       retVal = vmeDmaSend((UINT32)laddr, vmeAdr, (nwrds<<2));
 #endif
-      if(retVal |= 0) 
+      if(retVal != 0) 
 	{
 	  logMsg("\ntiReadBlock: ERROR in DMA transfer Initialization 0x%x\n",retVal,0,0,0,0,0);
 	  TIUNLOCK;
@@ -1689,6 +1692,141 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
   TIUNLOCK;
 
   return OK;
+}
+
+/*******************************************************************************
+ *
+ * tiReadTriggerBlock - Read a block from the TI and form it into a 
+ *                      CODA Trigger Bank
+ *
+ *    data  - local memory address to place data
+ *    nwrds - Max number of words to transfer
+ *    rflag - Readout Flag
+ *              0 - programmed I/O from the specified board
+ *              1 - DMA transfer using Universe/Tempe DMA Engine 
+ *                    (DMA VME transfer Mode must be setup prior)
+ *
+ * RETURNS: Number of words transferred to data if successful, ERROR otherwise
+ *
+ */
+
+
+int
+tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag)
+{
+  int rval=0;
+  int iword=0;
+  unsigned int word=0;
+  int iblkhead=-1, iblktrl=-1;
+
+
+  if(data==NULL) 
+    {
+      logMsg("\ntiReadTriggerBlock: ERROR: Invalid Destination address\n",0,0,0,0,0,0);
+      return(ERROR);
+    }
+
+  /* Obtain the trigger bank by just making a call the tiReadBlock */
+  rval = tiReadBlock(data, nwrds, rflag);
+  if(rval < 0)
+    {
+      /* Error occurred */
+      return ERROR;
+    }
+  else if (rval == 0)
+    {
+      /* No data returned */
+      return 0; 
+    }
+    
+  /* Work down to find index of block header */
+  while(iword<rval)
+    { 
+
+      word = data[iword];
+#ifndef VXWORKS
+      word = LSWAP(word);
+#endif
+      if(word & TI_DATA_TYPE_DEFINE_MASK)
+	{
+	  if(((word & TI_WORD_TYPE_MASK)>>27) == 0)
+	    {
+	      iblkhead = iword;
+	      break;
+	    }
+	}     
+      iword++;
+    }
+
+  /* Check if the index is valid */
+  if(iblkhead == -1)
+    {
+      printf("%s: ERROR: Failed to find TI Block Header\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+  if(iblkhead != 0)
+    {
+      printf("%s: WARN: Invalid index (%d) for the TI Block header.\n",
+	     __FUNCTION__,iblkhead);
+    }
+
+  /* Work up to find index of block trailer */
+  iword=rval-1;
+  while(iword>=0)
+    { 
+
+      word = data[iword];
+#ifndef VXWORKS
+      word = LSWAP(word);
+#endif
+      if(word & TI_DATA_TYPE_DEFINE_MASK)
+	{
+	  if(((word & TI_WORD_TYPE_MASK)>>27) == 1)
+	    {
+#ifdef CDEBUG
+	      printf("%s: block trailer? 0x%08x\n",
+		     __FUNCTION__,word);
+#endif
+	      iblktrl = iword;
+	      break;
+	    }
+	}     
+      iword--;
+    }
+
+  /* Check if the index is valid */
+  if(iblktrl == -1)
+    {
+      printf("%s: ERROR: Failed to find TI Block Trailer\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  /* Get the block trailer, and check the number of words contained in it */
+  word = data[iblktrl];
+#ifndef VXWORKS
+  word = LSWAP(word);
+#endif
+  if((iblktrl - iblkhead + 1) != (word & 0x3fffff))
+    {
+      printf("%s: Number of words inconsistent (index count = %d, block trailer count = %d",
+	     __FUNCTION__,(iblktrl - iblkhead + 1), word & 0x3fffff);
+      return ERROR;
+    }
+
+  /* Modify the total words returned */
+  rval = iblktrl - iblkhead;
+
+  /* Write in the Trigger Bank Length */
+#ifdef VXWORKS
+  data[iblkhead] = rval-1;
+#else
+  data[iblkhead] = LSWAP(rval-1);
+#endif
+
+  return rval;
+
 }
 
 /*******************************************************************************
