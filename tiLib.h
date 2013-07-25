@@ -525,7 +525,7 @@ void tiResetBlockReadout();
 int  tiLoadTriggerTable(int mode);
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
-
+int  tiLive(int sflag);
 unsigned int tiGetDaqStatus();
 int  tiVmeTrigger1();
 int  tiVmeTrigger2();

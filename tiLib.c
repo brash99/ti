@@ -3268,6 +3268,63 @@ tiGetBusyTime()
   return rval;
 }
 
+/*******************************************************************************
+ *
+ * tiLive
+ *   - Calculate the live time (percentage) from the live and busy time scalers
+ *
+ *  ARGs: sflag : if > 0, then returns the integrated live time
+ *
+ *  RETURNS: live time as a 3 digit integer % (e.g. 987 = 98.7%)
+ *
+ */
+
+int
+tiLive(int sflag)
+{
+  int rval=0;
+  float fval=0;
+  unsigned int newBusy=0, newLive=0, newTotal=0;
+  unsigned int live=0, total=0;
+  static unsigned int oldLive=0, oldTotal=0;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  newLive = vmeRead32(&TIp->livetime);
+  newBusy = vmeRead32(&TIp->busytime);
+
+  newTotal = newLive+newBusy;
+
+  if((sflag==0) && (oldTotal<newTotal))
+    { /* Differential */
+      live  = newLive - oldLive;
+      total = newTotal - oldTotal;
+    }
+  else
+    { /* Integrated */
+      live = newLive;
+      total = newTotal;
+    }
+
+  oldLive = newLive;
+  oldTotal = newTotal;
+
+  if(total>0)
+    fval = 1000*(((float) live)/((float) total));
+
+  rval = (int) fval;
+
+  TIUNLOCK;
+
+  return rval;
+}
+
+
 #ifdef NOTDONE
 /*******************************************************************************
  *
