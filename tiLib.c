@@ -913,6 +913,9 @@ tiGetSerialNumber(char **rSN)
 {
   unsigned int rval=0;
   char retSN[10];
+
+  memset(retSN,0,sizeof(retSN));
+  
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -929,7 +932,7 @@ tiGetSerialNumber(char **rSN)
 
   if(rSN!=NULL)
     {
-      sprintf(retSN,"TI-%d",rval&0xfff);
+      sprintf(retSN,"TI-%d",rval&0x7ff);
       strcpy((char *)rSN,retSN);
     }
 

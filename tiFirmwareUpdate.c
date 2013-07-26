@@ -35,6 +35,7 @@ unsigned int BoardSerialNumber;
 unsigned int firmwareInfo;
 char *programName;
 
+int tiMasterID(int sn);
 int tiEMInit();
 void tiFirmwareEMload(char *filename);
 #ifndef VXWORKS
@@ -113,8 +114,25 @@ main(int argc, char *argv[])
 
   /* Read out the board serial number first */
   BoardSerialNumber = tiGetSerialNumber(NULL);
-  printf(" Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
-	 BoardSerialNumber&0xffff);
+
+  /* Check if this board should be relabled as a TIMaster */
+  if( ((BoardSerialNumber&0xF800)==0) && (tiMasterID(BoardSerialNumber)!=0) )
+    {
+      BoardSerialNumber |= tiMasterID(BoardSerialNumber);
+    }
+  
+  if(BoardSerialNumber & 0xF800) /* TIMaster */
+    {
+      printf(" Board Serial Number from PROM usercode is: 0x%08x (TIM-%d  TI-%d) \n", 
+	     BoardSerialNumber,
+	     (BoardSerialNumber&0xF000)>>12,
+	     BoardSerialNumber&0x7FF);
+    }
+  else
+    {
+      printf(" Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
+	     BoardSerialNumber&0xffff);
+    }
 
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
@@ -144,9 +162,20 @@ main(int argc, char *argv[])
 	}
 
       /* Add the TI board ID in the MSB */
-      BoardSerialNumber = 0x71000000 | (BoardNumber&0xfff);
-      printf(" The board serial number will be set to: 0x%08x (%d)\n",BoardSerialNumber,
-	     BoardSerialNumber&0xffff);
+      BoardSerialNumber = 0x71000000 | (BoardNumber&0x7ff) | (tiMasterID(BoardNumber) & 0xF800);
+      if(BoardSerialNumber & 0xF800)
+	{ /* TIMaster */
+	  printf(" The board serial number will be set to: 0x%08x (TIM-%d  TI-%d)\n",
+		 BoardSerialNumber,
+		 (BoardSerialNumber&0xF800)>>12,
+		 BoardSerialNumber&0x7ff);
+	}
+      else
+	{
+	  printf(" The board serial number will be set to: 0x%08x (%d)\n",
+		 BoardSerialNumber,
+		 BoardSerialNumber&0x7ff);
+	}
     }
 
 
@@ -182,6 +211,47 @@ main(int argc, char *argv[])
   printf("\n");
 
   return OK;
+}
+
+/* Routine to provide the serial number addition for TIs configured with 
+   more than 2 optical transceivers... so-called TIMasters */
+int
+tiMasterID(int sn)
+{
+  int i=0;
+  int rval=0;
+  unsigned int themap[18][2] = 
+    {
+      { 251, 0x5800},
+      { 252, 0x6800},
+      { 255, 0x7800},
+      { 259, 0x8800},
+      { 225, 0x1800},
+      { 236, 0x2800},
+      { 262, 0x3800},
+      { 275, 0x4800},
+      { 296, 0x1000},
+      { 300, 0x2000},
+      { 305, 0x3000},
+      { 307, 0x4000},
+      { 309, 0x5000},
+      { 311, 0x6000},
+      { 314, 0x7000},
+      { 330, 0x8000},
+      { 336, 0x9000},
+      { 341, 0xa000}
+    };
+
+  for(i=0; i<18; i++)
+    {
+      if(themap[i][0] == sn)
+	{
+	  rval = themap[i][1];
+	  break;
+	}
+    }
+
+  return rval;
 }
 
 /* Replacement TI initialization routine for that from the tiLib */
