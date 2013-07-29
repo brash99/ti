@@ -13,7 +13,7 @@
 /* Define Interrupt source and address */
 #define TI_MASTER
 #define TI_READOUT TI_READOUT_EXT_POLL  /* Poll for available data, external triggers */
-#define TI_ADDR    (3<<19)          /* GEO slot 3 */
+#define TI_ADDR    (21<<19)          /* GEO slot 21 */
 
 /* Decision on whether or not to readout the TI for each block 
    - Comment out to disable readout 
@@ -27,11 +27,6 @@
 
 #define BLOCKLEVEL 1
 #define BUFFERLEVEL 3
-
-unsigned int MAXTIWORDS=0;
-
-
-extern unsigned int tiTriggerSource;
 
 /* Redefine tsCrate according to TI_MASTER or TI_SLAVE */
 #ifdef TI_SLAVE
@@ -95,7 +90,7 @@ rocDownload()
   tiSetSyncDelayWidth(0x54, 0x40, 1);
 
   /* Set the busy source to non-default value (no Switch Slot B busy) */
-  tiSetBusySource(TI_BUSY_SWA,1);
+  tiSetBusySource(TI_BUSY_LOOPBACK,1);
 
 /*   tiSetFiberDelay(10,0xcf); */
 
