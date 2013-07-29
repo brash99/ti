@@ -107,9 +107,22 @@ int
 main(int argc, char *argv[]) {
 
   int stat;
+  int partchoice=1;
 
   printf("\nJLAB TI Tests\n");
   printf("----------------------------\n");
+
+  if(argc>1)
+    {
+      partchoice = atoi(argv[1]);
+      if((partchoice<1) || (partchoice>4))
+	{
+	  printf(" ERROR: Invalid partition choice (%d)\n",partchoice);
+	  exit(0);
+	}
+      printf("Partition Choice = %d\n",partchoice);
+      exit(0);
+    }
 
 /*   remexSetCmsgServer("dafarm28"); */
 /*   remexInit(NULL,1); */
@@ -170,9 +183,26 @@ main(int argc, char *argv[]) {
       printf("INFO: Attached TI Interrupt\n");
     }
 
-  /*     tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
-  tiSetTriggerSource(TI_TRIGGER_PART_1);
-/*   tiSetTriggerSource(TI_TRIGGER_PULSER); */
+  switch(partchoice)
+    {
+    case 1:
+      tiSetTriggerSource(TI_TRIGGER_PART_1);
+      break;
+
+    case 2:
+      tiSetTriggerSource(TI_TRIGGER_PART_2);
+      break;
+
+    case 3:
+      tiSetTriggerSource(TI_TRIGGER_PART_3);
+      break;
+
+    case 4:
+    default:
+      tiSetTriggerSource(TI_TRIGGER_PART_4);
+      break;
+
+    }
   tiEnableTSInput(0x1);
 
   /*     tiSetFPInput(0x0); */

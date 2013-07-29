@@ -21,6 +21,8 @@ DMA_MEM_ID vmeIN,vmeOUT;
 extern DMANODE *the_event;
 extern unsigned int *dma_dabufp;
 
+#define BLOCKLEVEL 1
+
 #define DO_READOUT
 
 /* Interrupt Service routine */
@@ -31,6 +33,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
+  int printout = 4000/BLOCKLEVEL;
 
   unsigned int tiIntCount = tiGetIntCount();
 
@@ -59,9 +62,7 @@ mytiISR(int arg)
     }
 #endif
 
-  *dma_dabufp++;
-
-  dCnt = tiReadBlock(dma_dabufp,900>>2,1);
+  dCnt = tiReadTriggerBlock(dma_dabufp,3*BLOCKLEVEL+10,1);
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);
@@ -73,11 +74,11 @@ mytiISR(int arg)
     
     }
   PUTEVENT(vmeOUT);
-  
+
   outEvent = dmaPGetItem(vmeOUT);
 #define READOUT
 #ifdef READOUT
-  if(tiIntCount%4000==0)
+  if(tiIntCount%printout==0)
     {
       printf("Received %d triggers...\n",
 	     tiIntCount);
@@ -97,7 +98,7 @@ mytiISR(int arg)
   /*   tiResetBlockReadout(); */
 
 #endif /* DO_READOUT */
-  if(tiIntCount%4000==0)
+  if(tiIntCount%printout==0)
     printf("intCount = %d\n",tiIntCount );
 /*     sleep(1); */
 }
@@ -129,7 +130,7 @@ main(int argc, char *argv[]) {
   /* INIT dmaPList */
 
   dmaPFreeAll();
-  vmeIN  = dmaPCreate("vmeIN",1024,500,0);
+  vmeIN  = dmaPCreate("vmeIN",10244,500,0);
   vmeOUT = dmaPCreate("vmeOUT",0,0,0);
     
   dmaPStatsAll();
@@ -157,7 +158,7 @@ main(int argc, char *argv[]) {
   tiSetTriggerHoldoff(2,4,0);
 
   tiSetPrescale(0);
-  tiSetBlockLevel(1);
+  tiSetBlockLevel(BLOCKLEVEL);
 
   stat = tiIntConnect(TI_INT_VEC, mytiISR, 0);
   if (stat != OK) 
