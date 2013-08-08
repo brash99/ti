@@ -80,6 +80,7 @@ static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
 static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
 static int          tiSlotNumber=0;          /* Slot number in which the TI resides */
+static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -246,6 +247,13 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
       /* Get the "production" type bits.  1=production, 0=prototype */
       prodID = (rval&TI_BOARDID_PROD_MASK)>>16;
+
+      /* Determine whether or not we'll need to swap the trigger block endianess */
+      if( ((TIp->boardID & TI_BOARDID_TYPE_MASK)>>16) != TI_BOARDID_TYPE_TI)
+	tiSwapTriggerBlock=1;
+      else
+	tiSwapTriggerBlock=0;
+      
     }
   
   /* Check if we should exit here, or initialize some board defaults */
@@ -1827,6 +1835,15 @@ tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag)
 #else
   data[iblkhead] = LSWAP(rval-1);
 #endif
+
+  if(tiSwapTriggerBlock==1)
+    {
+      for(iword=iblkhead; iword<rval; iword++)
+	{
+	  word = data[iword];
+	  data[iword] = LSWAP(word);
+	}
+    }
 
   return rval;
 
