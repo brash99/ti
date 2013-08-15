@@ -1272,13 +1272,18 @@ tiEnableTriggerSource()
 /*******************************************************************************
  *
  * tiDisableTriggerSource - Disable trigger sources
+ *    
+ *    ARGs: fflag - 0: Disable Triggers
+ *                 >0: Disable Triggers and generate enough
+ *                     triggers to fill the current block
+ *                     ** Must be TI master **
  *
  * RETURNS: OK if successful, ERROR otherwise
  *
  */
 
 int
-tiDisableTriggerSource()
+tiDisableTriggerSource(int fflag)
 {
   if(TIp==NULL)
     {
@@ -1288,7 +1293,12 @@ tiDisableTriggerSource()
 
   TILOCK;
   vmeWrite32(&TIp->trigsrc,0);
+
   TIUNLOCK;
+  if(fflag && tiMaster)
+    {
+      tiFillToEndBlock();      
+    }
 
   return OK;
 
@@ -2314,6 +2324,32 @@ tiSyncReset()
   
   TILOCK;
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM); 
+  taskDelay(1);
+  TIUNLOCK;
+
+}
+
+/*******************************************************************************
+ *
+ *  tiSyncResetResync
+ *  - Generate a Sync Reset Resync signal.  This signal is sent to the loopback and
+ *    all configured TI Slaves.  This type of Sync Reset will NOT reset 
+ *    event numbers
+ *
+ */
+
+void
+tiSyncResetResync()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+  
+  TILOCK;
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
   TIUNLOCK;
 
 }
@@ -2458,6 +2494,51 @@ tiDisableA32()
   TIUNLOCK;
 
   return OK;
+}
+
+/*******************************************************************************
+ *
+ *  tiResetEventCounter
+ *  - Reset the L1A counter, as incremented by the TI.
+ *
+ */
+
+int
+tiResetEventCounter()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_SCALERS_RESET);
+  TIUNLOCK;
+
+  return OK;
+}
+
+unsigned long long int
+tiGetEventCounter()
+{
+  unsigned long long int rval=0;
+  unsigned int lo=0, hi=0;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  lo = vmeRead32(&TIp->eventNumber_lo);
+  hi = (vmeRead32(&TIp->eventNumber_hi) & TI_EVENTNUMBER_HI_MASK)>>16;
+
+  rval = lo | ((unsigned long long)hi<<32);
+  TIUNLOCK;
+  
+  return rval;
 }
 
 
@@ -3750,6 +3831,36 @@ tiGetSyncResetRequest()
   return request;
 }
 
+/********************************************************************************
+ *
+ * tiFillToEndBlock
+ *
+ *  - Generate non-physics triggers until the current block is filled.
+ *    This feature is useful for "end of run" situations.
+ *
+ */
+
+int
+tiFillToEndBlock()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_FILL_TO_END_BLOCK);
+  TIUNLOCK;
+
+  return OK;
+}
 
 unsigned int
 tiGetGTPBufferLength(int pflag)
@@ -4282,7 +4393,7 @@ tiIntDisable()
       return;
     }
 
-  tiDisableTriggerSource(0);
+  tiDisableTriggerSource(1);
 
   TILOCK;
   vmeWrite32(&TIp->intsetup,

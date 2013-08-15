@@ -109,7 +109,9 @@ struct TI_A24RegStruct
   /* 0x000C0 */ volatile unsigned int blockStatus[4];
   /* 0x000D0 */ volatile unsigned int adr24;
   /* 0x000D4 */ volatile unsigned int syncEventCtrl;
-  /* 0x000D8 */          unsigned int blank2[(0xFC-0xD8)/4];
+  /* 0x000D8 */ volatile unsigned int eventNumber_hi;
+  /* 0x000DC */ volatile unsigned int eventNumber_lo;
+  /* 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
   /* 0x000FC */ volatile unsigned int scalerCtrl;
   /* 0x00100 */ volatile unsigned int reset;
   /* 0x00104 */          unsigned int blank3[(0x8C0-0x104)/4];
@@ -134,7 +136,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x111
+#define TI_SUPPORTED_FIRMWARE 0x126
 
 /* boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -304,6 +306,7 @@ struct TI_A24RegStruct
 #define TI_SYNCCOMMAND_TRIGGERLINK_ENABLE  0x55
 #define TI_SYNCCOMMAND_TRIGGERLINK_DISABLE 0x77
 #define TI_SYNCCOMMAND_SYNCRESET_HIGH      0x99
+#define TI_SYNCCOMMAND_RESET_EVNUM         0xBB
 #define TI_SYNCCOMMAND_SYNCRESET_LOW       0xCC
 #define TI_SYNCCOMMAND_SYNCRESET           0xDD
 #define TI_SYNCCOMMAND_SYNCCODE_MASK       0x000000FF
@@ -402,6 +405,9 @@ struct TI_A24RegStruct
 #define TI_SCALERCTRL_FP_LATCH_ENABLE  (1<<0)
 #define TI_SCALERCTRL_FP_RESET_ENABLE  (1<<1)
 
+/* 0xD8 eventNumber_hi bits and masks */
+#define TI_EVENTNUMBER_HI_MASK        0xFFFF0000
+
 /* reset bits and masks */
 #define TI_RESET_I2C                  (1<<1)
 #define TI_RESET_JTAG                 (1<<2)
@@ -425,6 +431,7 @@ struct TI_A24RegStruct
 #define TI_RESET_SYNCRESET_REQUEST    (1<<23)
 #define TI_RESET_SCALERS_LATCH        (1<<24)
 #define TI_RESET_SCALERS_RESET        (1<<25)
+#define TI_RESET_FILL_TO_END_BLOCK    (1<<31)
 
 /* Trigger Sources, used by tiSetTriggerSource  */
 #define TI_TRIGGER_P0        0
@@ -476,7 +483,7 @@ int  tiSetBlockLevel(unsigned int blockLevel);
 int  tiSetTriggerSource(int trig);
 int  tiSetTriggerSourceMask(int trigmask);
 int  tiEnableTriggerSource();
-int  tiDisableTriggerSource();
+int  tiDisableTriggerSource(int fflag);
 int  tiSetSyncSource(unsigned int sync);
 int  tiSetEventFormat(int format);
 int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range);
@@ -499,9 +506,12 @@ int  tiSetTriggerPulse(int trigger, int delay, int width);
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
 void tiSyncReset();
+void tiSyncResetResync();
 void tiClockReset();
 int  tiSetAdr32(unsigned int a32base);
 int  tiDisableA32();
+int  tiResetEventCounter();
+unsigned long long int tiGetEventCounter();
 unsigned int  tiBReady();
 int  tiGetSyncEventFlag();
 int  tiGetSyncEventReceived();
@@ -544,6 +554,7 @@ int  tiSetSyncEventInterval(int blk_interval);
 int  tiForceSyncEvent();
 int  tiSyncResetRequest();
 int  tiGetSyncResetRequest();
+int  tiFillToEndBlock();
 unsigned int tiGetGTPBufferLength(int pflag);
 
 
