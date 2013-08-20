@@ -202,7 +202,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   else 
     {
       if(!noBoardInit)
-	printf("TI VME (USER) address = 0x%.8x (0x%.8x)\n",tAddr,laddr);
+	printf("TI VME (Local) address = 0x%.8x (0x%.8x)\n",tAddr,laddr);
     }
 #endif
   tiA24Offset = laddr-tAddr;
@@ -590,6 +590,8 @@ tiStatus()
   output       = vmeRead32(&TIp->output);
   fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
 
+  /* Latch scalers first */
+  vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
   livetime     = vmeRead32(&TIp->livetime);
   busytime     = vmeRead32(&TIp->busytime);
 
@@ -609,7 +611,7 @@ tiStatus()
   printf("STATUS for TI at base address 0x%08x \n",
 	 (unsigned int) TIp);
 #else
-  printf("STATUS for TI at VME (USER) base address 0x%08x (0x%08x) \n",
+  printf("STATUS for TI at VME (Local) base address 0x%08x (0x%08x) \n",
 	 (unsigned int) TIp - tiA24Offset, (unsigned int) TIp);
 #endif
   printf("--------------------------------------------------------------------------------\n");
@@ -621,7 +623,7 @@ tiStatus()
       printf("base address 0x%08x\n",
 	     (unsigned int)TIpd);
 #else
-      printf("VME (USER) base address 0x%08x (0x%08x)\n",
+      printf("VME (Local) base address 0x%08x (0x%08x)\n",
 	     (unsigned int)TIpd - tiA32Offset, (unsigned int)TIpd);
 #endif
     }
