@@ -21,7 +21,9 @@ DMA_MEM_ID vmeIN,vmeOUT;
 extern DMANODE *the_event;
 extern unsigned int *dma_dabufp;
 
-#define BLOCKLEVEL 1
+extern int tiA32Base;
+
+#define BLOCKLEVEL 10
 
 #define DO_READOUT
 
@@ -33,7 +35,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
-  int printout = 4000/BLOCKLEVEL;
+  int printout = 10/BLOCKLEVEL;
 
   unsigned int tiIntCount = tiGetIntCount();
 
@@ -140,6 +142,7 @@ main(int argc, char *argv[]) {
   /*     gefVmeSetDebugFlags(vmeHdl,0x0); */
   /* Set the TI structure pointer */
   /*     tiInit((2<<19),TI_READOUT_EXT_POLL,0); */
+  tiA32Base=0x09000000;
   tiInit(0,TI_READOUT_EXT_POLL,0);
   tiCheckAddresses();
 
@@ -194,6 +197,9 @@ main(int argc, char *argv[]) {
   tiTrigLinkReset();
   taskDelay(1);
   tiEnableVXSSignals();
+
+  int again=1;
+ AGAIN:
   taskDelay(1);
   tiSyncReset();
 
@@ -209,8 +215,8 @@ main(int argc, char *argv[]) {
 #define SOFTTRIG
 #ifdef SOFTTRIG
   tiSetRandomTrigger(1,0x7);
-  taskDelay(10);
-  tiSoftTrig(1,0x1,0x700,0);
+/*   taskDelay(10); */
+/*   tiSoftTrig(1,0x1,0x700,0); */
 #endif
 
   printf("Hit any key to Disable TID and exit.\n");
@@ -228,9 +234,16 @@ main(int argc, char *argv[]) {
 
   tiIntDisconnect();
 
+  if(again==1)
+    {
+      again=0;
+      goto AGAIN;
+    }
+
 
  CLOSE:
 
+  dmaPFreeAll();
   vmeCloseDefaultWindows();
 
   exit(0);

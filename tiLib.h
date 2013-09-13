@@ -248,6 +248,21 @@ struct TI_A24RegStruct
 #define TI_BUSY_HFBR7            (1<<14)
 #define TI_BUSY_HFBR8            (1<<15)
 #define TI_BUSY_MONITOR_MASK     0xFFFF0000
+#define TI_BUSY_MONITOR_SWA      (1<<16)
+#define TI_BUSY_MONITOR_SWB      (1<<17)
+#define TI_BUSY_MONITOR_P2       (1<<18)
+#define TI_BUSY_MONITOR_FP_FTDC  (1<<19)
+#define TI_BUSY_MONITOR_FP_FADC  (1<<20)
+#define TI_BUSY_MONITOR_FP       (1<<21)
+#define TI_BUSY_MONITOR_LOOPBACK (1<<23)
+#define TI_BUSY_MONITOR_HFBR1    (1<<24)
+#define TI_BUSY_MONITOR_HFBR2    (1<<25)
+#define TI_BUSY_MONITOR_HFBR3    (1<<26)
+#define TI_BUSY_MONITOR_HFBR4    (1<<27)
+#define TI_BUSY_MONITOR_HFBR5    (1<<28)
+#define TI_BUSY_MONITOR_HFBR6    (1<<29)
+#define TI_BUSY_MONITOR_HFBR7    (1<<30)
+#define TI_BUSY_MONITOR_HFBR8    (1<<31)
 
 /* clock bits and mask  */
 #define TI_CLOCK_INTERNAL    (0)
@@ -533,6 +548,7 @@ int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
 int  tiLoadTriggerTable(int mode);
+int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
 int  tiLive(int sflag);

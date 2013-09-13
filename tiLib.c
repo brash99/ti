@@ -563,12 +563,17 @@ tiStatus()
   unsigned int blockStatus[5], iblock, nblocksReady, nblocksNeedAck;
   unsigned int ifiber, fibermask;
   unsigned int TIBase;
+  unsigned long long int l1a_count=0;
 
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return;
     }
+
+  l1a_count    = tiGetEventCounter();
+  /* latch live and busytime scalers */
+  tiLatchTimers();
 
   TILOCK;
   boardID      = vmeRead32(&TIp->boardID);
@@ -637,6 +642,8 @@ tiStatus()
 
   printf(" Readout Count: %d\n",tiIntCount);
   printf("     Ack Count: %d\n",tiAckCount);
+  printf("     L1A Count: %llu\n",l1a_count);
+/*   printf("   Block Count: %d\n",nblocks & TS_NBLOCKS_COUNT_MASK); */
   printf(" Registers (offset):\n");
   printf("  boardID        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->boardID) - TIBase, boardID);
   printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiber) - TIBase, fiber);
@@ -768,35 +775,35 @@ tiStatus()
     {
       printf(" BUSY input source = \n");
       if(busy & TI_BUSY_SWA)
-	printf("   Switch Slot A\n");
+	printf("   Switch Slot A    %s\n",(busy&TI_BUSY_MONITOR_SWA)?"** BUSY **":"");
       if(busy & TI_BUSY_SWB)
-	printf("   Switch Slot B\n");
+	printf("   Switch Slot B    %s\n",(busy&TI_BUSY_MONITOR_SWB)?"** BUSY **":"");
       if(busy & TI_BUSY_P2)
-	printf("   P2 Input\n");
+	printf("   P2 Input         %s\n",(busy&TI_BUSY_MONITOR_P2)?"** BUSY **":"");
       if(busy & TI_BUSY_FP_FTDC)
-	printf("   Front Panel TDC\n");
+	printf("   Front Panel TDC  %s\n",(busy&TI_BUSY_MONITOR_FP_FTDC)?"** BUSY **":"");
       if(busy & TI_BUSY_FP_FADC)
-	printf("   Front Panel ADC\n");
+	printf("   Front Panel ADC  %s\n",(busy&TI_BUSY_MONITOR_FP_FADC)?"** BUSY **":"");
       if(busy & TI_BUSY_FP)
-	printf("   Front Panel\n");
+	printf("   Front Panel      %s\n",(busy&TI_BUSY_MONITOR_FP)?"** BUSY **":"");
       if(busy & TI_BUSY_LOOPBACK)
-	printf("   Loopback\n");
+	printf("   Loopback         %s\n",(busy&TI_BUSY_MONITOR_LOOPBACK)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR1)
-	printf("   HFBR #1\n");
+	printf("   HFBR #1          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR2)
-	printf("   HFBR #2\n");
+	printf("   HFBR #2          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR3)
-	printf("   HFBR #3\n");
+	printf("   HFBR #3          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR4)
-	printf("   HFBR #4\n");
+	printf("   HFBR #4          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR5)
-	printf("   HFBR #5\n");
+	printf("   HFBR #5          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR6)
-	printf("   HFBR #6\n");
+	printf("   HFBR #6          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR7)
-	printf("   HFBR #7\n");
+	printf("   HFBR #7          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR8)
-	printf("   HFBR #8\n");
+	printf("   HFBR #8          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
     }
   else
     {
@@ -1287,6 +1294,7 @@ tiEnableTriggerSource()
 int
 tiDisableTriggerSource(int fflag)
 {
+  int regset=0;
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -1294,7 +1302,11 @@ tiDisableTriggerSource(int fflag)
     }
 
   TILOCK;
-  vmeWrite32(&TIp->trigsrc,0);
+
+  if(tiMaster)
+    regset = TI_TRIGSRC_LOOPBACK;
+
+  vmeWrite32(&TIp->trigsrc,regset);
 
   TIUNLOCK;
   if(fflag && tiMaster)
@@ -1521,10 +1533,10 @@ tiSetRandomTrigger(int trigger, int setting)
       return ERROR;
     }
 
-  if(setting>0x7)
+  if(setting>TI_RANDOMPULSER_TRIG1_RATE_MASK)
     {
-      printf("%s: ERROR: setting (0x%x) must be less than 0x7\n",
-	     __FUNCTION__,setting);
+      printf("%s: ERROR: setting (0x%x) must be less than 0x%x\n",
+	     __FUNCTION__,setting,TI_RANDOMPULSER_TRIG1_RATE_MASK);
       return ERROR;
     }
 
@@ -3277,6 +3289,33 @@ tiLoadTriggerTable(int mode)
   return OK;
 }
 
+/*******************************************************************************
+ *
+ * tiLatchTimers
+ *   - Latch the Busy and Live Timers.
+ *     This routine should be called prior to a call to 
+ *
+ *   tiGetLiveTime
+ *   tiGetBusyTime
+ *
+ */
+
+int
+tiLatchTimers()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_SCALERS_LATCH);
+  TIUNLOCK;
+
+  return OK;
+}
+
 unsigned int
 tiGetLiveTime()
 {
@@ -3290,66 +3329,6 @@ tiGetLiveTime()
   TILOCK;
   rval = vmeRead32(&TIp->livetime);
   TIUNLOCK;
-
-  return rval;
-}
-
-unsigned int
-tiBlockStatus(int fiber, int pflag)
-{
-  unsigned int rval=0;
-  char name[50];
-  unsigned int nblocksReady, nblocksNeedAck;
-
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  if(fiber>8)
-    {
-      printf("%s: ERROR: Invalid value (%d) for fiber\n",__FUNCTION__,fiber);
-      return ERROR;
-
-    }
-
-  switch(fiber)
-    {
-    case 0:
-      rval = (vmeRead32(&TIp->blockStatus[4]) & 0xFFFF0000)>>16;
-      break;
-
-    case 1:
-    case 3:
-    case 5:
-    case 7:
-      rval = (vmeRead32(&TIp->blockStatus[(fiber-1)/2]) & 0xFFFF);
-      break;
-
-    case 2:
-    case 4:
-    case 6:
-    case 8: 
-      rval = ( vmeRead32(&TIp->blockStatus[(fiber/2)-1]) & 0xFFFF0000 )>>16;
-      break;
-    }
-
-  if(pflag)
-    {
-      nblocksReady   = rval & TI_BLOCKSTATUS_NBLOCKS_READY0;
-      nblocksNeedAck = (rval & TI_BLOCKSTATUS_NBLOCKS_NEEDACK0)>>8;
-
-      if(fiber==0)
-	sprintf(name,"Loopback");
-      else
-	sprintf(name,"Fiber %d",fiber);
-
-      printf("%s: %s : Blocks ready / need acknowledge: %d / %d\n",
-	     __FUNCTION__, name,
-	     nblocksReady, nblocksNeedAck);
-
-    }
 
   return rval;
 }
@@ -3423,6 +3402,67 @@ tiLive(int sflag)
   rval = (int) fval;
 
   TIUNLOCK;
+
+  return rval;
+}
+
+
+unsigned int
+tiBlockStatus(int fiber, int pflag)
+{
+  unsigned int rval=0;
+  char name[50];
+  unsigned int nblocksReady, nblocksNeedAck;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(fiber>8)
+    {
+      printf("%s: ERROR: Invalid value (%d) for fiber\n",__FUNCTION__,fiber);
+      return ERROR;
+
+    }
+
+  switch(fiber)
+    {
+    case 0:
+      rval = (vmeRead32(&TIp->blockStatus[4]) & 0xFFFF0000)>>16;
+      break;
+
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+      rval = (vmeRead32(&TIp->blockStatus[(fiber-1)/2]) & 0xFFFF);
+      break;
+
+    case 2:
+    case 4:
+    case 6:
+    case 8: 
+      rval = ( vmeRead32(&TIp->blockStatus[(fiber/2)-1]) & 0xFFFF0000 )>>16;
+      break;
+    }
+
+  if(pflag)
+    {
+      nblocksReady   = rval & TI_BLOCKSTATUS_NBLOCKS_READY0;
+      nblocksNeedAck = (rval & TI_BLOCKSTATUS_NBLOCKS_NEEDACK0)>>8;
+
+      if(fiber==0)
+	sprintf(name,"Loopback");
+      else
+	sprintf(name,"Fiber %d",fiber);
+
+      printf("%s: %s : Blocks ready / need acknowledge: %d / %d\n",
+	     __FUNCTION__, name,
+	     nblocksReady, nblocksNeedAck);
+
+    }
 
   return rval;
 }
