@@ -571,9 +571,9 @@ tiStatus()
       return;
     }
 
-  l1a_count    = tiGetEventCounter();
   /* latch live and busytime scalers */
   tiLatchTimers();
+  l1a_count    = tiGetEventCounter();
 
   TILOCK;
   boardID      = vmeRead32(&TIp->boardID);
