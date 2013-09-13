@@ -561,9 +561,11 @@ tiStatus()
   unsigned int livetime, busytime;
   unsigned int inputCounter;
   unsigned int blockStatus[5], iblock, nblocksReady, nblocksNeedAck;
+  unsigned int nblocks;
   unsigned int ifiber, fibermask;
   unsigned int TIBase;
   unsigned long long int l1a_count=0;
+  unsigned int blocklimit;
 
   if(TIp==NULL)
     {
@@ -593,6 +595,7 @@ tiStatus()
   tsInput      = vmeRead32(&TIp->tsInput);
 
   output       = vmeRead32(&TIp->output);
+  blocklimit   = vmeRead32(&TIp->blocklimit);
   fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
 
   /* Latch scalers first */
@@ -607,6 +610,7 @@ tiStatus()
 
   blockStatus[4] = vmeRead32(&TIp->adr24);
 
+  nblocks      = vmeRead32(&TIp->nblocks);
   TIUNLOCK;
 
   TIBase = (unsigned int)TIp;
@@ -643,7 +647,8 @@ tiStatus()
   printf(" Readout Count: %d\n",tiIntCount);
   printf("     Ack Count: %d\n",tiAckCount);
   printf("     L1A Count: %llu\n",l1a_count);
-/*   printf("   Block Count: %d\n",nblocks & TS_NBLOCKS_COUNT_MASK); */
+  printf("   Block Limit: %d\n",blocklimit);
+  printf("   Block Count: %d\n",nblocks & TI_NBLOCKS_COUNT_MASK);
   printf(" Registers (offset):\n");
   printf("  boardID        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->boardID) - TIBase, boardID);
   printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiber) - TIBase, fiber);
@@ -2552,6 +2557,39 @@ tiGetEventCounter()
   rval = lo | ((unsigned long long)hi<<32);
   TIUNLOCK;
   
+  return rval;
+}
+
+int
+tiSetBlockLimit(unsigned int limit)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->blocklimit,limit);
+  TIUNLOCK;
+
+  return OK;
+}
+
+unsigned int
+tiGetBlockLimit()
+{
+  unsigned int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->blocklimit);
+  TIUNLOCK;
+
   return rval;
 }
 
