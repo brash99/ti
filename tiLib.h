@@ -140,15 +140,37 @@ struct TI_A24RegStruct
 #define TI_BOARDID_CRATEID_MASK  0x000000FF
 
 /* 0x4 fiber bits and masks */
-#define TI_FIBER_1 (1<<0)
-#define TI_FIBER_2 (1<<1)
-#define TI_FIBER_3 (1<<2)
-#define TI_FIBER_4 (1<<3)
-#define TI_FIBER_5 (1<<4)
-#define TI_FIBER_6 (1<<5)
-#define TI_FIBER_7 (1<<6)
-#define TI_FIBER_8 (1<<7)
-#define TI_FIBER_ENABLE_P0 (1<<8)
+#define TI_FIBER_1                        (1<<0)
+#define TI_FIBER_2                        (1<<1)
+#define TI_FIBER_3                        (1<<2)
+#define TI_FIBER_4                        (1<<3)
+#define TI_FIBER_5                        (1<<4)
+#define TI_FIBER_6                        (1<<5)
+#define TI_FIBER_7                        (1<<6)
+#define TI_FIBER_8                        (1<<7)
+#define TI_FIBER_ENABLE_P0                (1<<8)
+#define TI_FIBER_ENABLED(x)           (1<<(x+1))
+#define TI_FIBER_MASK                 0x000000FF
+#define TI_FIBER_CONNECTED_1             (1<<16)
+#define TI_FIBER_CONNECTED_2             (1<<17)
+#define TI_FIBER_CONNECTED_3             (1<<18)
+#define TI_FIBER_CONNECTED_4             (1<<19)
+#define TI_FIBER_CONNECTED_5             (1<<20)
+#define TI_FIBER_CONNECTED_6             (1<<21)
+#define TI_FIBER_CONNECTED_7             (1<<22)
+#define TI_FIBER_CONNECTED_8             (1<<23)
+#define TI_FIBER_CONNECTED_TI(x)     (1<<(x+15))
+#define TI_FIBER_CONNECTED_MASK       0x00FF0000
+#define TI_FIBER_TRIGSRC_ENABLED_1       (1<<24)
+#define TI_FIBER_TRIGSRC_ENABLED_2       (1<<25)
+#define TI_FIBER_TRIGSRC_ENABLED_3       (1<<26)
+#define TI_FIBER_TRIGSRC_ENABLED_4       (1<<27)
+#define TI_FIBER_TRIGSRC_ENABLED_5       (1<<28)
+#define TI_FIBER_TRIGSRC_ENABLED_6       (1<<29)
+#define TI_FIBER_TRIGSRC_ENABLED_7       (1<<30)
+#define TI_FIBER_TRIGSRC_ENABLED_8       (1<<31)
+#define TI_FIBER_TRIGSRC_ENABLED_TI(x) (1<<(x+23))
+#define TI_FIBER_TRIGSRC_ENABLED_MASK 0xFF000000
 
 /* 0x8 intsetup bits and masks */
 #define TI_INTSETUP_VECTOR_MASK   0x000000FF

@@ -676,11 +676,13 @@ tiStatus()
   fibermask = fiber;
   if(fibermask)
     {
-      printf(" HFBR enabled (0x%x)= ",fibermask);
+      printf(" HFBR enabled (0x%x)= \n",fibermask);
       for(ifiber=0; ifiber<8; ifiber++)
 	{
 	  if( fibermask & (1<<ifiber) ) 
-	    printf(" %d",ifiber+1);
+	    printf("   %d: -%s-   -%s-\n",ifiber+1,
+		   (fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
+		   (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
 	}
       printf("\n");
     }
@@ -4011,6 +4013,69 @@ tiGetGTPBufferLength(int pflag)
 
   return rval;
 }
+
+/*******************************************************************************
+ *
+ * tiGetConnectedFiberMask
+ *   - Returns the mask of fiber channels that report a "connected"
+ *     status from a TI.
+ *
+ */
+
+int
+tiGetConnectedFiberMask()
+{
+  int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->fiber) & TI_FIBER_CONNECTED_MASK)>>16;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/*******************************************************************************
+ *
+ * tiGetTrigSrcEnabledFiberMask
+ *   - Returns the mask of fiber channels that report a "connected"
+ *     status from a TI has it's trigger source enabled.
+ *
+ */
+
+int
+tiGetTrigSrcEnabledFiberMask()
+{
+  int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->fiber) & TI_FIBER_TRIGSRC_ENABLED_MASK)>>24;
+  TIUNLOCK;
+
+  return rval;
+}
+
 
 /*************************************************************
  Library Interrupt/Polling routines
