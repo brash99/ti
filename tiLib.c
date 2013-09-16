@@ -647,7 +647,8 @@ tiStatus()
   printf(" Readout Count: %d\n",tiIntCount);
   printf("     Ack Count: %d\n",tiAckCount);
   printf("     L1A Count: %llu\n",l1a_count);
-  printf("   Block Limit: %d\n",blocklimit);
+  printf("   Block Limit: %d   %s\n",blocklimit,
+	 (blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"- In Progress -");
   printf("   Block Count: %d\n",nblocks & TI_NBLOCKS_COUNT_MASK);
   printf(" Registers (offset):\n");
   printf("  boardID        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->boardID) - TIBase, boardID);
@@ -707,7 +708,9 @@ tiStatus()
   if(tiTriggerSource&TI_TRIGSRC_SOURCEMASK)
     {
       if(trigger)
-	printf(" Trigger input source (ENABLED) =\n");
+	printf(" Trigger input source (%s) =\n",
+	       (blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"DISABLED on Block Limit":
+	       "ENABLED");
       else
 	printf(" Trigger input source (DISABLED) =\n");
       if(tiTriggerSource & TI_TRIGSRC_P0)
@@ -2538,6 +2541,13 @@ tiResetEventCounter()
   return OK;
 }
 
+/*******************************************************************************
+ *
+ *  tiGetEventCounter
+ *  - Returns the event counter (48 bit)
+ *
+ */
+
 unsigned long long int
 tiGetEventCounter()
 {
@@ -2560,6 +2570,13 @@ tiGetEventCounter()
   return rval;
 }
 
+/*******************************************************************************
+ *
+ *  tiSetBlockLimit
+ *  - Set the block number at which triggers will be disabled automatically
+ *
+ */
+
 int
 tiSetBlockLimit(unsigned int limit)
 {
@@ -2576,6 +2593,14 @@ tiSetBlockLimit(unsigned int limit)
   return OK;
 }
 
+
+/*******************************************************************************
+ *
+ *  tiGetBlockLimit
+ *  - Returns the value that is currently programmed as the block limit
+ *
+ */
+
 unsigned int
 tiGetBlockLimit()
 {
@@ -2588,6 +2613,36 @@ tiGetBlockLimit()
 
   TILOCK;
   rval = vmeRead32(&TIp->blocklimit);
+  TIUNLOCK;
+
+  return rval;
+}
+
+/*******************************************************************************
+ *
+ *  tiGetBlockLimitStatus
+ *  - Get the current status of the block limit
+ *    
+ * Returns: 1 if block limit has been reached, 0 if not, otherwise ERROR;
+ *    
+ */
+
+int
+tiGetBlockLimitStatus()
+{
+  unsigned int reg=0, rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg = vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT;
+  if(reg)
+    rval = 1;
+  else
+    rval = 0;
   TIUNLOCK;
 
   return rval;

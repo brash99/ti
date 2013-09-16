@@ -182,7 +182,7 @@ main(int argc, char *argv[]) {
   /*     tiSetGenInput(0xffff); */
   /*     tiSetGTPInput(0x0); */
 
-  tiSetBusySource(TI_BUSY_LOOPBACK,1);
+/*   tiSetBusySource(TI_BUSY_LOOPBACK,1); */
 
   tiSetBlockBufferLevel(1);
 
