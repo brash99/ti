@@ -15,11 +15,9 @@
  * Description:
  *     Status and Control library for the JLAB Crate Trigger Processor
  *     (CTP) module using an i2c interface from the JLAB Trigger
- *     Interface/Distribution (TID) module.
+ *     Interface (TI) module.
  *
- *   This file is "included" in the tidLib.c
- *
- * SVN: $Rev$
+ *   This file is "included" in the tiLib.c
  *
  *----------------------------------------------------------------------------*/
 
@@ -44,8 +42,6 @@ unsigned int ctpPayloadPort[NUM_CTP_FPGA][NUM_FADC_CHANNELS] =
     {  3,  1,  5,  2,  4,  6}
   };
 
-
-extern int tidBuildSlotMask(int slot, unsigned int *outmask);
 
 /*
   ctpInit
@@ -94,13 +90,17 @@ ctpInit()
 /*
   ctpStatus
   - Display the status of the CTP registers 
+  FIXME: SKIPPED FOR NOW
 */
+#ifdef NEEDSFIXED
 int
 ctpStatus()
 {
-  struct CTP_FPGAStruct fpga[3];
+  struct CTP_FPGA_U1_Struct u1;
+  struct CTP_FPGA_U3_Struct u3;
+  struct CTP_FPGA_U24_Struct u24;
   int ifpga, ichan, ipport;
-  int lane_up[16+1];    /* Stored payload port that has it's "lane up" */
+  int lane0_up[16+1], lane1_up[16+1];    /* Stored payload port that has it's "lane up" */
   int channel_up[16+1]; /* Stored payload port that has it's "channel up" */
   int firmware_version[3];
   unsigned int threshold_lsb, threshold_msb;
@@ -112,27 +112,27 @@ ctpStatus()
     }
 
   TILOCK;
-  fpga[0].status0 = vmeRead32(&CTPp->fpga1.status0);
-  fpga[0].status1 = vmeRead32(&CTPp->fpga1.status1);
-  fpga[1].status0 = vmeRead32(&CTPp->fpga2.status0);
-  fpga[1].status1 = vmeRead32(&CTPp->fpga2.status1);
-  fpga[2].status0 = vmeRead32(&CTPp->fpga3.status0);
-  fpga[2].status1 = vmeRead32(&CTPp->fpga3.status1);
+  u1.status0 = vmeRead32(&CTPp->fpga1.status0);
+  u1.status1 = vmeRead32(&CTPp->fpga1.status1);
+  u3.status0 = vmeRead32(&CTPp->fpga3.status0);
+  u3.status1 = vmeRead32(&CTPp->fpga3.status1);
+  u24.status0 = vmeRead32(&CTPp->fpga24.status0);
+  u24.status1 = vmeRead32(&CTPp->fpga24.status1);
 
-  fpga[0].temp    = vmeRead32(&CTPp->fpga1.temp);
-  fpga[1].temp    = vmeRead32(&CTPp->fpga2.temp);
-  fpga[2].temp    = vmeRead32(&CTPp->fpga3.temp);
+  u1.temp    = vmeRead32(&CTPp->fpga1.temp);
+  u3.temp    = vmeRead32(&CTPp->fpga3.temp);
+  u24.temp    = vmeRead32(&CTPp->fpga24.temp);
 
-  fpga[0].vint    = vmeRead32(&CTPp->fpga1.vint);
-  fpga[1].vint    = vmeRead32(&CTPp->fpga2.vint);
-  fpga[2].vint    = vmeRead32(&CTPp->fpga3.vint);
+  u1.vint    = vmeRead32(&CTPp->fpga1.vint);
+  u3.vint    = vmeRead32(&CTPp->fpga3.vint);
+  u24.vint    = vmeRead32(&CTPp->fpga24.vint);
 
-  fpga[0].config0 = vmeRead32(&CTPp->fpga1.config0);
-  fpga[1].config0 = vmeRead32(&CTPp->fpga2.config0);
-  fpga[2].config0 = vmeRead32(&CTPp->fpga3.config0);
+  u1.config0 = vmeRead32(&CTPp->fpga1.config0);
+  u3.config0 = vmeRead32(&CTPp->fpga3.config0);
+  u24.config0 = vmeRead32(&CTPp->fpga24.config0);
 
-  threshold_lsb = vmeRead32(&CTPp->sum_threshold_lsb);
-  threshold_msb = vmeRead32(&CTPp->sum_threshold_msb);
+  threshold_lsb = vmeRead32(&CTPp.fpga24->sum_threshold_lsb);
+  threshold_msb = vmeRead32(&CTPp.fpga24->sum_threshold_msb);
   TIUNLOCK;
 
   /* Loop over FPGAs and Channels to get the detailed status info.
@@ -257,7 +257,7 @@ ctpStatus()
   printf("  Payload ports enabled: \n\t");
   for(ipport=1; ipport<17; ipport++)
     {
-      if(fpga[0].config0 & (1<<(ipport-1)))
+      if(u1.config0 & (1<<(ipport-1)))
 	printf("%2d ",ipport);
       else
 	printf("   ");
@@ -270,6 +270,7 @@ ctpStatus()
 
   return OK;
 }
+#endif /* NEEDSFIXED */
 
 /*
   ctpSetFinalSumThreshold
@@ -297,43 +298,19 @@ ctpSetFinalSumThreshold(unsigned int threshold, int arm)
   threshold_lsb = threshold&0xffff;
   threshold_msb = threshold>>16;
 
-#define CTP_DEBUG
-#ifdef CTP_DEBUG
-  printf("%s: To write...\n",__FUNCTION__);
-  printf("%s:   Threshold lsb = %d (0x%04x)\n",__FUNCTION__,
-	 threshold_lsb,threshold_lsb);
-  printf("%s:   Threshold msb = %d (0x%04x)\n",__FUNCTION__,
-	 threshold_msb,threshold_msb);
-  printf("%s:   Threshold     = %d (0x%04x)\n",__FUNCTION__,
-	 (threshold_msb<<16)|(threshold_lsb),
-	 (threshold_msb<<16)|(threshold_lsb));
-#endif
 
   TILOCK;
-  vmeWrite32(&CTPp->sum_threshold_lsb, threshold_lsb);
-  vmeWrite32(&CTPp->sum_threshold_msb, threshold_msb);
+  vmeWrite32(&CTPp->fpga24.sum_threshold_lsb, threshold_lsb);
+  vmeWrite32(&CTPp->fpga24.sum_threshold_msb, threshold_msb);
 
-  /* Ben did this in his code... to Arm the trigger?  Maybe this isn't needed */
-/*   if(arm==1) */
-/*     { */
-/*       vmeWrite32(&CTPp->fpga3.config0,1); */
-/*       vmeWrite32(&CTPp->fpga3.config0,0); */
-/*     } */
+  threshold_lsb = vmeRead32(&CTPp->fpga24.sum_threshold_lsb);
+  threshold_msb = vmeRead32(&CTPp->fpga24.sum_threshold_msb);
 
-  threshold_lsb = vmeRead32(&CTPp->sum_threshold_lsb);
-  threshold_msb = vmeRead32(&CTPp->sum_threshold_msb);
-
-#ifdef CTP_DEBUG
-  printf("%s: Readback, after write...\n",__FUNCTION__);
-  printf("%s:   Threshold lsb = %d (0x%04x)\n",__FUNCTION__,
-	 threshold_lsb,threshold_lsb);
-  printf("%s:   Threshold msb = %d (0x%04x)\n",__FUNCTION__,
-	 threshold_msb,threshold_msb);
-  printf("%s:   Threshold     = %d (0x%04x)\n",__FUNCTION__,
-	 (threshold_msb<<16)|(threshold_lsb),
-	 (threshold_msb<<16)|(threshold_lsb));
-#endif
   TIUNLOCK;
+
+  printf("%s: Set to %d (0x%x)\n",
+	 __FUNCTION__,threshold_lsb | (threshold_msb<<16), 
+	 threshold_lsb | (threshold_msb<<16));
 
   return OK;
 }
@@ -344,7 +321,7 @@ ctpSetFinalSumThreshold(unsigned int threshold, int arm)
 
 */
 int
-ctpGetFinalSumThreshold()
+ctpGetFinalSumThreshold(int pflag)
 {
   unsigned int rval;
   if(CTPp==NULL)
@@ -354,10 +331,15 @@ ctpGetFinalSumThreshold()
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->sum_threshold_lsb);
-  rval |= (vmeRead32(&CTPp->sum_threshold_msb)<<16);
+  rval = vmeRead32(&CTPp->fpga24.sum_threshold_lsb);
+  rval |= (vmeRead32(&CTPp->fpga24.sum_threshold_msb)<<16);
   TIUNLOCK;
 
+  if(pflag)
+    {
+      printf("%s: Set to %d (0x%x)\n",
+	     __FUNCTION__,rval, rval);
+    }
   return rval;
 }
 
@@ -376,9 +358,6 @@ ctpGetFinalSumThreshold()
 int
 ctpSetPayloadEnableMask(int enableMask)
 {
-#ifdef OLDWAY
-  int ifpga, ichan;
-#endif
   unsigned int chipMask=0;
   if(CTPp==NULL)
     {
@@ -393,67 +372,14 @@ ctpSetPayloadEnableMask(int enableMask)
       return ERROR;
     }
 
-#ifdef OLDWAY  
-  /* Loop over the map for each fpga (and channel) to set the bit mask
-     to send to the register */
-  for(ifpga=0; ifpga<NUM_CTP_FPGA; ifpga++)
-    {
-      chipMask=0;
-      for(ichan=0; ichan<NUM_FADC_CHANNELS; ichan++)
-	{
-	  if( ctpPayloadPort[ifpga][ichan] != 0)
-	    {
-	      /* Translate the payload port number to a bit and check
-		 it against the mask. */
-	      if( (1<<(ctpPayloadPort[ifpga][ichan] -1 )) & enableMask)
-		{
-#ifdef DEBUG
-		  printf("  Found... cPP[%d][%d] = %2d  logic = 0x%.4x \n",ifpga,ichan,
-			 ctpPayloadPort[ifpga][ichan], (1<<(ctpPayloadPort[ifpga][ichan] -1)));
-#endif /* DEBUG */
-		  chipMask |= 1<<ichan;
-		}
-	    }
-	}
-      /* Configuration 0 register, according to the chipMask */
-#ifdef DEBUG
-      printf("%s: Chipmask for FPGA %d = 0x%2x\n",
-	     __FUNCTION__, ifpga, chipMask);
-#endif /* DEBUG */      
-      if( (ifpga<2 && (chipMask > 0x1F)) || (ifpga==2 && (chipMask > 0x3F)) )
-	{
-	  printf("%s: Library ERROR: Invalid Chipmask (0x%x) for FPGA%d.  Check Payload Port map!\n",
-		 __FUNCTION__,chipMask,ifpga+1);
-	  return ERROR;
-	}
-#ifndef DEBUG
-      TILOCK;
-      switch (ifpga)
-	{
-	  case 0:
-	    vmeWrite32(&CTPp->fpga1.config0,chipMask);
-	    break;
-	  case 1: 
-	    vmeWrite32(&CTPp->fpga2.config0,chipMask);
-	    break;
-	  case 2: 
-	    vmeWrite32(&CTPp->fpga3.config0,chipMask);
-	    break;
-	}
-      TIUNLOCK;
-#endif /* DEBUG */      
-    }
-#else /* OLDWAY */
   TILOCK;
   chipMask = enableMask;
-  printf("%s: Writing 0x%08x to all chips \n",__FUNCTION__,chipMask);
   vmeWrite32(&CTPp->fpga1.config0,chipMask);
-  vmeWrite32(&CTPp->fpga2.config0,chipMask);
   vmeWrite32(&CTPp->fpga3.config0,chipMask);
+  vmeWrite32(&CTPp->fpga24.config0,chipMask);
   TIUNLOCK;
-#endif /* OLDWAY */
 
-
+  printf("%s: Set enable mask to 0x%08x\n",__FUNCTION__,chipMask);
 
   return OK;
 }
@@ -514,14 +440,17 @@ ctpSetVmeSlotEnableMask(unsigned int vmemask)
 
 
 /*
-  ctpPulseAllChanUp 
-  - temporary routine to poll the status the All Chan Up bit in status1
+  ctpGetAllChanUp 
+  - Returns the status of all configured channels up, from each chip where
+    bit0: U1
+    bit1: U3
+    bit2: U24
 */
 
 int
-ctpGetAllChanUp()
+ctpGetAllChanUp(int pflag)
 {
-  int chip1, chip2, chip3;
+  int chip1, chip3, chip24;
 
   if(CTPp==NULL)
     {
@@ -530,15 +459,18 @@ ctpGetAllChanUp()
     }
 
   TILOCK;
-  chip1 = vmeRead32(&CTPp->fpga1.status1) & (CTP_FGPA_STATUS1_ALLCHANUP);
-  chip2 = vmeRead32(&CTPp->fpga2.status1) & (CTP_FGPA_STATUS1_ALLCHANUP);
-  chip3 = vmeRead32(&CTPp->fpga3.status1) & (CTP_FGPA_STATUS1_ALLCHANUP);
+  chip1  = vmeRead32(&CTPp->fpga1.status1) & (CTP_FGPA_STATUS1_ALLCHANUP);
+  chip3  = vmeRead32(&CTPp->fpga3.status1) & (CTP_FGPA_STATUS1_ALLCHANUP);
+  chip24 = vmeRead32(&CTPp->fpga24.status1) & (CTP_FGPA_STATUS1_ALLCHANUP);
   TIUNLOCK;
 
-/*   printf("%s: chip1 = %d, chip2 = %d, chip3 = %d\n", */
-/* 	 __FUNCTION__,chip1,chip2,chip3); */
+  if(pflag)
+    {
+      printf("%s: chip1 = %d, chip3 = %d, chip24 = %d\n",
+	     __FUNCTION__,chip1,chip3,chip24);
+    }
 
-  return ((chip1>>1) | (chip2) | (chip3<<1));
+  return (chip1>>1) | chip3 | (chip24<<1);
 
 }
 
@@ -554,7 +486,7 @@ ctpGetErrorLatchFS(int pflag)
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->fpga3.status1) & (CTP_FPGA_STATUS1_ERROR_LATCH_FS);
+  rval = vmeRead32(&CTPp->fpga24.status1) & (CTP_FPGA24_STATUS1_ERROR_LATCH_FS);
   TIUNLOCK;
 
   if(rval)
@@ -563,7 +495,7 @@ ctpGetErrorLatchFS(int pflag)
   if(pflag)
     {
       if(rval)
-	printf("%s: ERROR: Unexpected summing sequence!\n",__FUNCTION__);
+	printf("%s: ERROR: Bad summing sequence!\n",__FUNCTION__);
       else
 	printf("%s: Summing sequence is OK.\n",__FUNCTION__);
     }
@@ -582,8 +514,8 @@ ctpArmHistoryBuffer()
     }
 
   TILOCK;
-  vmeWrite32(&CTPp->fpga3.config1,CTP_FPGA3_CONFIG1_ARM_HISTORY_BUFFER);
-  vmeWrite32(&CTPp->fpga3.config1,0);
+  vmeWrite32(&CTPp->fpga24.config1,CTP_FPGA24_CONFIG1_ARM_HISTORY_BUFFER);
+  vmeWrite32(&CTPp->fpga24.config1,0);
   TIUNLOCK;
 
   return OK;
@@ -600,7 +532,7 @@ ctpDReady()
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->fpga3.status1) & CTP_FPGA3_STATUS1_HISTORY_BUFFER_READY;
+  rval = vmeRead32(&CTPp->fpga24.status1) & CTP_FPGA24_STATUS1_HISTORY_BUFFER_READY;
   TIUNLOCK;
   
   if(rval)
@@ -633,8 +565,8 @@ ctpReadEvent(volatile unsigned int *data, int nwrds)
   TILOCK;
   while(ii<nwrds)
     {
-      data[ii] = (vmeRead32(&CTPp->history_buffer_lsb) 
-		  | (vmeRead32(&CTPp->history_buffer_msb)<<16)) & CTP_DATA_MASK;
+      data[ii] = (vmeRead32(&CTPp->fpga24.history_buffer_lsb) 
+		  | (vmeRead32(&CTPp->fpga24.history_buffer_msb)<<16)) & CTP_DATA_MASK;
 #ifndef VXWORKS
       data[ii] = LSWAP(data[ii]);
 #endif
@@ -643,7 +575,7 @@ ctpReadEvent(volatile unsigned int *data, int nwrds)
   ii++;
 
   /* Use this to clear the data ready bit (dont set back to zero) */
-  vmeWrite32(&CTPp->fpga3.config1,CTP_FPGA3_CONFIG1_ARM_HISTORY_BUFFER);
+  vmeWrite32(&CTPp->fpga24.config1,CTP_FPGA24_CONFIG1_ARM_HISTORY_BUFFER);
   TIUNLOCK;
 
   dCnt += ii;
@@ -661,11 +593,8 @@ ctpFiberReset()
     }
 
   TILOCK;
-/*   vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_ALL_GTP); */
-  vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_SSP_MGT);
-  vmeWrite32(&CTPp->fpga3.config1, 0);
-/*   vmeWrite32(&CTPp->fiberReset,1); */
-/*   vmeWrite32(&CTPp->fiberReset,0); */
+  vmeWrite32(&CTPp->fpga24.config1, CTP_FPGA24_CONFIG1_RESET_FIBER_MGT);
+  vmeWrite32(&CTPp->fpga24.config1, 0);
   TIUNLOCK;
 
 }
@@ -680,14 +609,20 @@ ctpPayloadReset()
     }
 
   TILOCK;
-  vmeWrite32(&CTPp->fpga3.config1, CTP_FPGA3_CONFIG1_RESET_ALL_GTP);
+  vmeWrite32(&CTPp->fpga1.config1, CTP_FGPA_CONFIG1_INIT_ALL_MGT);
+  vmeWrite32(&CTPp->fpga1.config1, 0);
+
+  vmeWrite32(&CTPp->fpga3.config1, CTP_FGPA_CONFIG1_INIT_ALL_MGT);
   vmeWrite32(&CTPp->fpga3.config1, 0);
+
+  vmeWrite32(&CTPp->fpga24.config1, CTP_FGPA_CONFIG1_INIT_ALL_MGT);
+  vmeWrite32(&CTPp->fpga24.config1, 0);
   TIUNLOCK;
 
 }
 
 int
-ctpTestResetCounter(int type)
+ctpResetScalers()
 {
   if(CTPp==NULL)
     {
@@ -696,33 +631,69 @@ ctpTestResetCounter(int type)
     }
 
   TILOCK;
-  switch(type)
-    {
-    case 0: /* SYNC */
-      vmeWrite32(&CTPp->testCSR,CTP_TESTCSR_RESET_SYNC_COUNTER);
-      break;
-      
-    case 1: /* Trig1 */
-      vmeWrite32(&CTPp->testCSR,CTP_TESTCSR_RESET_TRIG1_COUNTER);
-      break;
-
-    case 2: /* Trig2 */
-      vmeWrite32(&CTPp->testCSR,CTP_TESTCSR_RESET_TRIG2_COUNTER);
-      break;
-
-    default:
-      printf("%s: ERROR: Undefined type %d\n",__FUNCTION__,type);
-
-    }
-  vmeWrite32(&CTPp->testCSR,0);
-
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl,
+	     CTP_SCALER_CTRL_RESET_SYNC |
+	     CTP_SCALER_CTRL_RESET_TRIG1 |
+	     CTP_SCALER_CTRL_RESET_TRIG2);
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl,0);
   TIUNLOCK;
 
   return OK;
 }
 
 int
-ctpTestGetClockFreq()
+ctpResetSyncScaler()
+{
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl, CTP_SCALER_CTRL_RESET_SYNC);
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl, 0);
+  TIUNLOCK;
+
+  return ERROR;
+}
+
+int
+ctpResetTrig1Scaler()
+{
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl, CTP_SCALER_CTRL_RESET_TRIG1);
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl, 0);
+  TIUNLOCK;
+
+  return ERROR;
+}
+
+int
+ctpResetTrig2Scaler()
+{
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl, CTP_SCALER_CTRL_RESET_TRIG2);
+  vmeWrite32(&CTPp->fpga24.scaler_ctrl, 0);
+  TIUNLOCK;
+
+  return ERROR;
+}
+
+int
+ctpGetClockScaler()
 {
   int rval=0;
   if(CTPp==NULL)
@@ -732,14 +703,14 @@ ctpTestGetClockFreq()
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->testClockFreq) & 0xff;
+  rval = vmeRead32(&CTPp->fpga24.clock_scaler) & CTP_CLOCK_SCALER_COUNT_MASK;
   TIUNLOCK;
 
   return rval;
 }
 
 int
-ctpTestGetSyncCount()
+ctpGetSyncScaler()
 {
   int rval=0;
   if(CTPp==NULL)
@@ -749,7 +720,7 @@ ctpTestGetSyncCount()
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->testSyncCount) & 0xffff;
+  rval = vmeRead32(&CTPp->fpga24.sync_scaler) & CTP_SCALER_COUNT_MASK;
   TIUNLOCK;
 
   return rval;
@@ -757,7 +728,7 @@ ctpTestGetSyncCount()
 }
 
 int
-ctpTestGetTrig1Count()
+ctpGetTrig1Scaler()
 {
   int rval=0;
   if(CTPp==NULL)
@@ -767,7 +738,7 @@ ctpTestGetTrig1Count()
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->testTrig1Count) & 0xffff;
+  rval = vmeRead32(&CTPp->fpga24.trig1_scaler) & CTP_SCALER_COUNT_MASK;
   TIUNLOCK;
 
   return rval;
@@ -775,7 +746,7 @@ ctpTestGetTrig1Count()
 }
 
 int
-ctpTestGetTrig2Count()
+ctpGetTrig2Scaler()
 {
   int rval=0;
   if(CTPp==NULL)
@@ -785,7 +756,7 @@ ctpTestGetTrig2Count()
     }
 
   TILOCK;
-  rval = vmeRead32(&CTPp->testTrig2Count) & 0xffff;
+  rval = vmeRead32(&CTPp->fpga24.trig2_scaler) & CTP_SCALER_COUNT_MASK;
   TIUNLOCK;
 
   return rval;
