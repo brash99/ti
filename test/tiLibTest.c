@@ -189,6 +189,8 @@ main(int argc, char *argv[]) {
   tiSetFiberDelay(1,2);
   tiSetSyncDelayWidth(1,0x3f,1);
     
+  tiSetBlockLimit(1012);
+
   printf("Hit enter to reset stuff\n");
   getchar();
 
@@ -198,7 +200,7 @@ main(int argc, char *argv[]) {
   taskDelay(1);
   tiEnableVXSSignals();
 
-  int again=1;
+  int again=0;
  AGAIN:
   taskDelay(1);
   tiSyncReset();

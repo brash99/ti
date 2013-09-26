@@ -518,6 +518,8 @@ int  tiSetAdr32(unsigned int a32base);
 int  tiDisableA32();
 int  tiResetEventCounter();
 unsigned long long int tiGetEventCounter();
+int  tiSetBlockLimit(unsigned int limit);
+unsigned int  tiGetBlockLimit();
 unsigned int  tiBReady();
 int  tiGetSyncEventFlag();
 int  tiGetSyncEventReceived();
