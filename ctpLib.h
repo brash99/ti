@@ -92,7 +92,13 @@ struct CTPStruct
 /* Lane_up mask shifts by 2 bits for each channel (two lanes/channel) */
 
 /* Common bits and masks for all FPGAs */
+#define CTP_FPGA_STATUS0_CHAN_UP(chan)    (1<<(chan+12))
+#define CTP_FPGA_STATUS0_LANE0_UP(chan)   (1<<(2*chan))
+#define CTP_FPGA_STATUS0_LANE1_UP(chan)   (1<<(2*chan+1))
+
+#define CTP_FPGA_STATUS1_CHANUP_EXTRA1           (1<<0)
 #define CTP_FGPA_STATUS1_ALLCHANUP               (1<<1)
+#define CTP_FPGA_STATUS1_CHANUP_EXTRA2           (1<<2)
 
 #define CTP_FGPA_CONFIG1_INIT_ALL_MGT            (1<<1)
 
@@ -195,5 +201,7 @@ int  ctpGetClockScaler();
 int  ctpGetSyncScaler();
 int  ctpGetTrig1Scaler();
 int  ctpGetTrig2Scaler();
+
+int  ctpGetSerialNumber(char **rval);
 
 #endif /* CTPLIB_H */

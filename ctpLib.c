@@ -34,14 +34,16 @@ volatile struct CTPStruct  *CTPp=NULL;    /* pointer to CTP memory map */
 #define NUM_FADC_CHANNELS 6 /* 5 for VLX50, 6 for VLX110 */
 unsigned int ctpPayloadPort[NUM_CTP_FPGA][NUM_FADC_CHANNELS] =
   {
-    /* VLX50  at i2c Board Addres 0 */
+    /* U1 */
     {  7,  9, 11, 13, 15,  0},  
-    /* VLX50  at i2c Board Addres 1 */
+    /* U3 */
     {  8, 10, 12, 14, 16,  0},
-    /* VLX110 at i2c Board Addres 2 */
+    /* U24 */
     {  3,  1,  5,  2,  4,  6}
   };
 
+/* Static function prototypes */
+static int ctpSROMRead(int addr, int ntries);
 
 /*
   ctpInit
@@ -90,19 +92,17 @@ ctpInit()
 /*
   ctpStatus
   - Display the status of the CTP registers 
-  FIXME: SKIPPED FOR NOW
 */
-#ifdef NEEDSFIXED
 int
-ctpStatus()
+ctpStatus(int pflag)
 {
-  struct CTP_FPGA_U1_Struct u1;
-  struct CTP_FPGA_U3_Struct u3;
-  struct CTP_FPGA_U24_Struct u24;
-  int ifpga, ichan, ipport;
+  enum ifpga {U1, U3, U24, NFPGA};
+  struct CTP_FPGA_U1_Struct fpga[NFPGA]; // Array to handle the "common" registers
+  char sfpga[NFPGA][4] = {"U1", "U3", "U24"};
+  int ichan, ifpga, payloadport, ipport;
   int lane0_up[16+1], lane1_up[16+1];    /* Stored payload port that has it's "lane up" */
   int channel_up[16+1]; /* Stored payload port that has it's "channel up" */
-  int firmware_version[3];
+  int firmware_version[NFPGA];
   unsigned int threshold_lsb, threshold_msb;
 
   if(CTPp==NULL)
@@ -112,130 +112,141 @@ ctpStatus()
     }
 
   TILOCK;
-  u1.status0 = vmeRead32(&CTPp->fpga1.status0);
-  u1.status1 = vmeRead32(&CTPp->fpga1.status1);
-  u3.status0 = vmeRead32(&CTPp->fpga3.status0);
-  u3.status1 = vmeRead32(&CTPp->fpga3.status1);
-  u24.status0 = vmeRead32(&CTPp->fpga24.status0);
-  u24.status1 = vmeRead32(&CTPp->fpga24.status1);
+  fpga[U1].status0 = vmeRead32(&CTPp->fpga1.status0);
+  fpga[U1].status1 = vmeRead32(&CTPp->fpga1.status1);
+  fpga[U3].status0 = vmeRead32(&CTPp->fpga3.status0);
+  fpga[U3].status1 = vmeRead32(&CTPp->fpga3.status1);
+  fpga[U24].status0 = vmeRead32(&CTPp->fpga24.status0);
+  fpga[U24].status1 = vmeRead32(&CTPp->fpga24.status1);
 
-  u1.temp    = vmeRead32(&CTPp->fpga1.temp);
-  u3.temp    = vmeRead32(&CTPp->fpga3.temp);
-  u24.temp    = vmeRead32(&CTPp->fpga24.temp);
+  fpga[U1].temp    = vmeRead32(&CTPp->fpga1.temp);
+  fpga[U3].temp    = vmeRead32(&CTPp->fpga3.temp);
+  fpga[U24].temp    = vmeRead32(&CTPp->fpga24.temp);
 
-  u1.vint    = vmeRead32(&CTPp->fpga1.vint);
-  u3.vint    = vmeRead32(&CTPp->fpga3.vint);
-  u24.vint    = vmeRead32(&CTPp->fpga24.vint);
+  fpga[U1].vint    = vmeRead32(&CTPp->fpga1.vint);
+  fpga[U3].vint    = vmeRead32(&CTPp->fpga3.vint);
+  fpga[U24].vint    = vmeRead32(&CTPp->fpga24.vint);
 
-  u1.config0 = vmeRead32(&CTPp->fpga1.config0);
-  u3.config0 = vmeRead32(&CTPp->fpga3.config0);
-  u24.config0 = vmeRead32(&CTPp->fpga24.config0);
+  fpga[U1].config0 = vmeRead32(&CTPp->fpga1.config0);
+  fpga[U3].config0 = vmeRead32(&CTPp->fpga3.config0);
+  fpga[U24].config0 = vmeRead32(&CTPp->fpga24.config0);
 
-  threshold_lsb = vmeRead32(&CTPp.fpga24->sum_threshold_lsb);
-  threshold_msb = vmeRead32(&CTPp.fpga24->sum_threshold_msb);
+  threshold_lsb = vmeRead32(&CTPp->fpga24.sum_threshold_lsb);
+  threshold_msb = vmeRead32(&CTPp->fpga24.sum_threshold_msb);
   TIUNLOCK;
 
-  /* Loop over FPGAs and Channels to get the detailed status info.
-     This is quite tedious... but so is the map of registers to
-     channels to payload slots.
-   */
-  for(ifpga=0;ifpga<NUM_CTP_FPGA; ifpga++)
+  /* Loop over FPGAs and Channels to get the detailed status info. */
+  for(ichan=0; ichan<6; ichan++)
     {
-      for(ichan=0;ichan<NUM_FADC_CHANNELS;ichan++)
+      for(ifpga=U1; ifpga<NFPGA; ifpga++)
 	{
-	  if(ichan==5 && ifpga<2) 
-	    continue; /* Skip channel 5 for the VLX50s */
+	  payloadport = ctpPayloadPort[ifpga][ichan];
+	  if(payloadport==0)
+	    continue;
+	  
+	  /* Get MGT Channel Up Status */
+	  switch(payloadport)
+	    {
+	    case 15:
+	    case 16:
+	    case 4:
+	      channel_up[payloadport] = fpga[ifpga].status1 & CTP_FPGA_STATUS1_CHANUP_EXTRA1;
+	      break;
+	      
+	    case 6:
+	      channel_up[payloadport] = fpga[ifpga].status1 & CTP_FPGA_STATUS1_CHANUP_EXTRA2;
+	      break;
+	      
+	    default:
+	      channel_up[payloadport] = fpga[ifpga].status0 & CTP_FPGA_STATUS0_CHAN_UP(ichan);
+	      
+	    }
 
-	  /* Determine if Lane's are up for each Payload slot */
-	  if(fpga[ifpga].status0 & (CTP_FPGA_STATUS0_LANE_UP_MASK<<(ichan*2)) )
-	    lane_up[ctpPayloadPort[ifpga][ichan]]=1;
-	  else
-	    lane_up[ctpPayloadPort[ifpga][ichan]]=0;
-
-	  /* Determine of Channel is up for each payload slot */
-	  if(ichan<4)
-	    {
-	      if(fpga[ifpga].status0 & CTP_FPGA_STATUS0_FADC_CHANUP(ichan) )
-		channel_up[ctpPayloadPort[ifpga][ichan]]=1;
-	      else
-		channel_up[ctpPayloadPort[ifpga][ichan]]=0;
-	    }
-	  else if(ichan==4)
-	    {
-	      if(fpga[ifpga].status1 & (CTP_FPGA_STATUS1_FADC4_CHANUP) )
-		channel_up[ctpPayloadPort[ifpga][ichan]]=1;
-	      else
-		channel_up[ctpPayloadPort[ifpga][ichan]]=0;
-	    }
-	  else /* ichan==5 */
-	    {
-	      if(fpga[ifpga].status1 & (CTP_FPGA_STATUS1_FADC5_CHANUP) )
-		channel_up[ctpPayloadPort[ifpga][ichan]]=1;
-	      else
-		channel_up[ctpPayloadPort[ifpga][ichan]]=0;
-	    }
-#ifdef OLDCODE
-	  else /* ichan>=4 */
-	    {
-	      if(fpga[ifpga].status1 & (1<<(ichan)) )
-		channel_up[ctpPayloadPort[ifpga][ichan]]=1;
-	      else
-		channel_up[ctpPayloadPort[ifpga][ichan]]=0;
-	    }
-#endif
+	  /* Get MGT Lane0/1 Up Status */
+	  lane0_up[payloadport] = fpga[ifpga].status0 & CTP_FPGA_STATUS0_LANE0_UP(ichan);
+	  lane1_up[payloadport] = fpga[ifpga].status0 & CTP_FPGA_STATUS0_LANE1_UP(ichan);
 	}
-
-      /* Get the firmware version */
-      firmware_version[ifpga] = 
-	(fpga[ifpga].status1 & CTP_FPGA_STATUS1_FIRMWARE_VERSION_MASK) >> 9;
     }
+
+
+  /* Get the firmware versions */
+  for(ifpga=U1; ifpga<NFPGA; ifpga++)
+    firmware_version[ifpga] = 
+      fpga[ifpga].status2 & CTP_FPGA_STATUS2_FIRMWARE_VERSION_MASK;
   
   /* Now printout what we've got */
-  printf("*** Crate Trigger Processor Module Status ***\n");
+  printf("STATUS for Crate Trigger Processor (CTP)\n");
+  printf("--------------------------------------------------------------------------------\n");
 
   printf("  FPGA firmware versions:\n");
-  for(ifpga=0;ifpga<NUM_CTP_FPGA;ifpga++)
+  for(ifpga=U1;ifpga<NFPGA;ifpga++)
     {
-      printf("  %d: 0x%x\n",ifpga+1,firmware_version[ifpga]);
+      printf("  %s: 0x%x\n",sfpga[ifpga],firmware_version[ifpga]);
     }
 
-  printf("   Raw Regs:\n");
-  for(ifpga=0;ifpga<NUM_CTP_FPGA;ifpga++)
+  if(pflag) 
     {
-      printf("  %d: status0 0x%04x    status1 0x%04x\n",
-	     ifpga+1,fpga[ifpga].status0,fpga[ifpga].status1);
-      printf("  %d: temp    0x%04x    vint    0x%04x\n",
-	     ifpga+1,fpga[ifpga].temp,fpga[ifpga].vint);
-      printf("  %d: config0 0x%04x\n",
-	     ifpga+1,fpga[ifpga].config0);
-      if(ifpga+1==NUM_CTP_FPGA)
+      printf("   Raw Regs:\n");
+      for(ifpga=0;ifpga<NFPGA;ifpga++)
 	{
-	  printf("  %d: thr_lsb 0x%04x    thr_msb 0x%04x\n",
-		 ifpga+1,threshold_lsb,threshold_msb);
+	  printf("  %s: status0 0x%04x    status1 0x%04x\n",
+		 sfpga[ifpga],fpga[ifpga].status0,fpga[ifpga].status1);
+	  printf("  %s: temp    0x%04x    vint    0x%04x\n",
+		 sfpga[ifpga],fpga[ifpga].temp,fpga[ifpga].vint);
+	  printf("  %s: config0 0x%04x\n",
+		 sfpga[ifpga],fpga[ifpga].config0);
+	  if(ifpga==U24)
+	    {
+	      printf("  %s: thr_lsb 0x%04x    thr_msb 0x%04x\n",
+		     sfpga[ifpga],threshold_lsb,threshold_msb);
+	    }
+	  printf("\n");
 	}
-      printf("\n");
     }
 
   printf("  Payload port lanes up: \n\t");
+  printf(" 0: ");
   for(ipport=1; ipport<17; ipport++)
     {
-      if(lane_up[ipport])
+      if(lane0_up[ipport])
 	printf("%2d ",ipport);
       else
 	printf("   ");
     }
   printf("\n");
-  printf("  Payload port lanes down: \n\t");
+  printf(" 1: ");
   for(ipport=1; ipport<17; ipport++)
     {
-      if(!lane_up[ipport])
+      if(lane1_up[ipport])
+	printf("%2d ",ipport);
+      else
+	printf("   ");
+    }
+  printf("\n");
+
+  printf("  Payload port lanes down: \n\t");
+  printf(" 0: ");
+  for(ipport=1; ipport<17; ipport++)
+    {
+      if(!lane0_up[ipport])
+	printf("%2d ",ipport);
+      else
+	printf("   ");
+    }
+  printf("\n");
+  printf(" 1: ");
+  for(ipport=1; ipport<17; ipport++)
+    {
+      if(!lane1_up[ipport])
 	printf("%2d ",ipport);
       else
 	printf("   ");
     }
 
   printf("\n");
-  printf("  Payload port channels up: \n\t");
+
+
+  printf("  Payload port Channels up: \n\t");
   for(ipport=1; ipport<17; ipport++)
     {
       if(channel_up[ipport])
@@ -244,7 +255,8 @@ ctpStatus()
 	printf("   ");
     }
   printf("\n");
-  printf("  Payload port channels down: \n\t");
+
+  printf("  Payload port Channels down: \n\t");
   for(ipport=1; ipport<17; ipport++)
     {
       if(!channel_up[ipport])
@@ -254,10 +266,10 @@ ctpStatus()
     }
   printf("\n");
 
-  printf("  Payload ports enabled: \n\t");
+  printf("  Payload ports Enabled: \n\t");
   for(ipport=1; ipport<17; ipport++)
     {
-      if(u1.config0 & (1<<(ipport-1)))
+      if(fpga[U1].config0 & (1<<(ipport-1)))
 	printf("%2d ",ipport);
       else
 	printf("   ");
@@ -268,9 +280,11 @@ ctpStatus()
   printf("  Threshold lsb = %d (0x%04x)\n",threshold_lsb,threshold_lsb);
   printf("  Threshold msb = %d (0x%04x)\n",threshold_msb,threshold_msb);
 
+  printf("--------------------------------------------------------------------------------\n");
+  printf("\n\n");
+
   return OK;
 }
-#endif /* NEEDSFIXED */
 
 /*
   ctpSetFinalSumThreshold
@@ -761,4 +775,76 @@ ctpGetTrig2Scaler()
 
   return rval;
 
+}
+
+int
+ctpGetSerialNumber(char **rval)
+{
+  int iaddr=0, byte=0;
+  int sn[8], ret_len;
+  char sn_str[20];
+  
+  for(iaddr=0; iaddr<8; iaddr++)
+    {
+      byte = ctpSROMRead(iaddr,100);
+      if(byte==-1)
+	{
+	  printf("%s: ERROR Reading SROM\n",__FUNCTION__);
+	  return ERROR;
+	}
+      sn[iaddr] = byte;
+    }
+  
+  sprintf(sn_str,"%c%c%c%c%c-%c%c%c",sn[0],sn[1],sn[2],sn[3],sn[4],sn[5],sn[6],sn[7]);
+
+  if(*rval != NULL)
+    {
+      strcpy((char *)rval,sn_str);
+      ret_len = (int)strlen(sn_str);
+    }
+  else
+    ret_len = 0;
+  
+  return ret_len;
+}
+
+
+static int
+ctpSROMRead(int addr, int ntries)
+{
+  int itry, rval, dataValid=0;
+  int maxAddr=CTP_FPGA3_CONFIG2_SROM_ADDR_MASK;
+
+  if(addr>maxAddr)
+    {
+      printf("%s: ERROR: addr (0x%x) > maxAddr (0x%x)\n",
+	     __FUNCTION__,addr,maxAddr);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga3.config2, 0);
+  vmeWrite32(&CTPp->fpga3.config2, addr | CTP_FPGA3_CONFIG2_SROM_READ);
+
+  for(itry=0; itry<ntries; itry++)
+    {
+      rval = vmeRead32(&CTPp->fpga3.status3);
+      if(rval & CTP_FPGA3_STATUS3_SROM_DATA_VALID)
+	{
+	  rval &= CTP_FPGA3_STATUS3_SROM_DATA_MASK;
+	  dataValid=1;
+	  break;
+	}
+    }
+
+  vmeWrite32(&CTPp->fpga3.config2, 0);
+  TIUNLOCK;
+
+  if(!dataValid)
+    {
+      printf("%s: Timeout on SROM Read\n",__FUNCTION__);
+      rval = ERROR;
+    }
+
+  return rval;
 }
