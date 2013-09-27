@@ -41,9 +41,12 @@ unsigned int ctpPayloadPort[NUM_CTP_FPGA][NUM_FADC_CHANNELS] =
     /* U24 */
     {  3,  1,  5,  2,  4,  6}
   };
+enum ifpga {U1, U3, U24, NFPGA};
 
 /* Static function prototypes */
 static int ctpSROMRead(int addr, int ntries);
+static int ctpCROMErase(int fpga);
+static int ctpWaitForCommandDone(int ntries);
 
 /*
   ctpInit
@@ -96,7 +99,6 @@ ctpInit()
 int
 ctpStatus(int pflag)
 {
-  enum ifpga {U1, U3, U24, NFPGA};
   struct CTP_FPGA_U1_Struct fpga[NFPGA]; // Array to handle the "common" registers
   char sfpga[NFPGA][4] = {"U1", "U3", "U24"};
   int ichan, ifpga, payloadport, ipport;
@@ -845,6 +847,87 @@ ctpSROMRead(int addr, int ntries)
       printf("%s: Timeout on SROM Read\n",__FUNCTION__);
       rval = ERROR;
     }
+
+  return rval;
+}
+
+static int
+ctpCROMErase(int fpga)
+{
+  int iblock=0, stat=0;
+  unsigned int eraseCommand=0;
+
+  switch(fpga)
+    {
+    case U1: 
+      eraseCommand=CTP_FPGA1_CONFIG2_U1_CONFIG | CTP_FPGA1_CONFIG2_ERASE_EPROM_U1;
+      break;
+
+    case U3:
+      eraseCommand=CTP_FPGA1_CONFIG2_U3_CONFIG | CTP_FPGA1_CONFIG2_ERASE_EPROM_U3;
+      break;
+
+    case U24:
+      eraseCommand=CTP_FPGA1_CONFIG2_U24_CONFIG | CTP_FPGA1_CONFIG2_ERASE_EPROM_U24;
+      break;
+
+    default:
+      printf("%s: ERROR: Invalid fpga (%d)\n",__FUNCTION__,fpga);
+      return ERROR;
+    }
+
+  TILOCK;
+  for(iblock=0; iblock<1024; iblock++)
+    {
+      /* Write block number to erase */
+      vmeWrite32(&CTPp->fpga1.config3, iblock);
+
+      /* Beginning of opCode */
+      eraseCommand |= CTP_FPGA1_CONFIG2_EXEC_OPCODE;
+      vmeWrite32(&CTPp->fpga1.config2,eraseCommand);
+      stat = ctpWaitForCommandDone(1000);
+      if(stat==ERROR)
+	{
+	  printf("%s: ERROR Sending Opcode when erasing fpga (%d)\n",__FUNCTION__,fpga);
+	  TIUNLOCK;
+	  return ERROR;
+	}
+
+      /* End of opCode */
+      eraseCommand &= ~CTP_FPGA1_CONFIG2_EXEC_OPCODE;
+      vmeWrite32(&CTPp->fpga1.config2,eraseCommand);
+      
+      /* Wait for at least 220 milliseconds */
+      taskDelay(1);
+    }
+  TIUNLOCK;
+
+  return OK;
+}
+
+static int
+ctpWaitForCommandDone(int ntries)
+{
+  int itries=0, done=0;
+  unsigned int rval=0;
+  
+  for(itries=0; itries<ntries; itries++)
+    {
+#ifdef NOTDEFINEDYET
+      rval = vmeRead32(&CTPp->fpga1.register12);
+#endif
+      if(rval & (1<<15))
+	{
+	  done=1;
+	  break;
+	}
+      /* May want to put delay in here... and some output to show progress */
+    }
+
+  if(!done)
+    rval = ERROR;
+  else
+    rval = OK;
 
   return rval;
 }
