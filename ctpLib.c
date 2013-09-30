@@ -877,7 +877,7 @@ ctpSROMRead(int addr, int ntries)
  *************************************************************/
 
 int
-ctpFirmwareUpdate(char *fw_filename, int ifpga, int reboot)
+ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot)
 {
   int stat;
 #ifdef SKIPCHECK
