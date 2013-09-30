@@ -203,5 +203,5 @@ int  ctpGetTrig1Scaler();
 int  ctpGetTrig2Scaler();
 
 int  ctpGetSerialNumber(char **rval);
-
+int  ctpFirmwareUpdate(char *fw_filename, int ifpga, int reboot);
 #endif /* CTPLIB_H */

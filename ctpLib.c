@@ -21,7 +21,7 @@
  *
  *----------------------------------------------------------------------------*/
 
-#define DEBUG
+#include <ctype.h>
 
 /* This is the CTP base relative to the TI base VME address */
 #define CTPBASE 0x30000 
@@ -43,11 +43,23 @@ unsigned int ctpPayloadPort[NUM_CTP_FPGA][NUM_FADC_CHANNELS] =
   };
 enum ifpga {U1, U3, U24, NFPGA};
 
+/* Firmware updating variables/functions */
+#define MAX_FIRMWARE_SIZE 200000
+static unsigned char fw_data[MAX_FIRMWARE_SIZE];
+static unsigned int fw_data_size=0;
+static int fw_file_loaded=0;
+
 /* Static function prototypes */
 static int ctpSROMRead(int addr, int ntries);
+static int hex2num(char c);
+static int ctpReadFirmwareFile(char *fw_filename);
 static int ctpCROMErase(int fpga);
 static int ctpWaitForCommandDone(int ntries);
-
+static int ctpWriteFirmwareToSRAM();
+static int ctpVerifySRAMData();
+static int ctpProgramCROMfromSRAM(int ifpga);
+static int ctpWriteCROMToSRAM(int ifpga);
+static int ctpRebootAllFPGA();
 /*
   ctpInit
   - Initialize the Crate Trigger Processor
@@ -785,6 +797,11 @@ ctpGetSerialNumber(char **rval)
   int iaddr=0, byte=0;
   int sn[8], ret_len;
   char sn_str[20];
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
   
   for(iaddr=0; iaddr<8; iaddr++)
     {
@@ -810,12 +827,16 @@ ctpGetSerialNumber(char **rval)
   return ret_len;
 }
 
-
 static int
 ctpSROMRead(int addr, int ntries)
 {
   int itry, rval, dataValid=0;
   int maxAddr=CTP_FPGA3_CONFIG2_SROM_ADDR_MASK;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
 
   if(addr>maxAddr)
     {
@@ -851,11 +872,207 @@ ctpSROMRead(int addr, int ntries)
   return rval;
 }
 
+/*************************************************************
+ * Firmware Updating Tools
+ *************************************************************/
+
+int
+ctpFirmwareUpdate(char *fw_filename, int ifpga, int reboot)
+{
+  int stat;
+#ifdef SKIPCHECK
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+#endif
+
+  if((ifpga<U1) | (ifpga>U24))
+    {
+      printf("%s: Invalid FPGA choice (%d)\n",__FUNCTION__,ifpga);
+      return ERROR;
+    }
+  
+  stat = ctpReadFirmwareFile(fw_filename);
+  if(stat==ERROR)
+    return ERROR;
+
+  return OK; // Temporary bail out.
+  
+  /* Erase CROM */
+  printf("%s: Erasing CROM \n",__FUNCTION__);
+  stat = ctpCROMErase(ifpga);
+  if(stat==ERROR)
+    return ERROR;
+  
+  /* Data to SRAM */
+  printf("%s: Loading SRAM with data \n",__FUNCTION__);
+  stat = ctpWriteFirmwareToSRAM();
+  if(stat==ERROR)
+    return ERROR;
+
+  /* Compare SRAM to Data Array */
+  printf("%s: Verifying data \n",__FUNCTION__);
+  stat = ctpVerifySRAMData();
+  if(stat==ERROR)
+    return ERROR;
+
+  /* SRAM TO CROM */
+  printf("%s: Loading CROM with SRAM data \n",__FUNCTION__);
+  stat = ctpProgramCROMfromSRAM(ifpga);
+  if(stat==ERROR)
+    return ERROR;
+
+  /* CROM TO SRAM (For verification) */
+  printf("%s: Loading SRAM with CROM data \n",__FUNCTION__);
+  stat = ctpWriteCROMToSRAM(ifpga);
+  if(stat==ERROR)
+    return ERROR;
+
+  /* Compare SRAM to Data Array */
+  printf("%s: Verifying data \n",__FUNCTION__);
+  stat = ctpVerifySRAMData();
+  if(stat==ERROR)
+    return ERROR;
+
+  if(reboot)
+    {
+      /* CROM to FPGA (Reboot FPGA) */
+      printf("%s: Rebooting FPGAs \n",__FUNCTION__);
+      stat = ctpRebootAllFPGA();
+      if(stat==ERROR)
+	return ERROR;
+    }
+
+  printf("%s: Done programming CTP FPGA %d\n",
+	 __FUNCTION__,ifpga);
+
+  return OK;
+}
+
+static int
+hex2num(char c)
+{
+  c = toupper(c);
+
+  if(c > 'F')
+    return 0;
+
+  if(c >= 'A')
+    return 10 + c - 'A';
+
+  if((c > '9') || (c < '0') )
+    return 0;
+
+  return c - '0';
+}
+
+
+static int
+ctpReadFirmwareFile(char *fw_filename)
+{
+  FILE *fwFile=NULL;
+  char ihexLine[200], *pData;
+  int len=0, datalen=0;
+  unsigned int line=0, nbytes=0, hiChar=0, loChar=0;
+  unsigned int readFWfile=0;
+
+  /* Initialize global variables */
+  memset((char *)fw_data,0,sizeof(fw_data));
+  fw_data_size=0;
+  fw_file_loaded=0;
+
+  memset((char *)ihexLine,0,sizeof(ihexLine));
+
+  fwFile = fopen(fw_filename,"r");
+  if(fwFile==NULL)
+    {
+      perror("fopen");
+      printf("%s: ERROR opening file (%s) for reading\n",
+	     __FUNCTION__,fw_filename);
+      return ERROR;
+    }
+
+  while(!feof(fwFile))
+    {
+      /* Get the current line */
+      if(!fgets(ihexLine, sizeof(ihexLine), fwFile))
+	break;
+      
+      /* Get the the length of this line */
+      len = strlen(ihexLine);
+
+      if(len >= 5)
+	{
+	  /* Check for the start code */
+	  if(ihexLine[0] != ':')
+	    {
+	      printf("%s: ERROR parsing file at line %d\n",
+		     __FUNCTION__,line);
+	      return ERROR;
+	    }
+
+	  /* Get the byte count */
+	  hiChar = hex2num(ihexLine[1]);
+	  loChar = hex2num(ihexLine[2]);
+	  datalen = (hiChar)<<4 | loChar;
+
+	  if(strncmp("00",&ihexLine[7], 2) == 0) /* Data Record */
+	    {
+	      pData = &ihexLine[9]; /* point to the beginning of the data */
+	      while(datalen--)
+		{
+		  hiChar = hex2num(*pData++);
+		  loChar = hex2num(*pData++);
+		  fw_data[readFWfile] = 
+		    ((hiChar)<<4) | (loChar);
+		  if(readFWfile>=MAX_FIRMWARE_SIZE)
+		    {
+		      printf("%s: ERROR: TOO BIG!\n",__FUNCTION__);
+		      return ERROR;
+		    }
+		  readFWfile++;
+		  nbytes++;
+		}
+	    }
+
+	}
+      line++;
+    }
+
+  fw_data_size = readFWfile;
+  
+#ifdef DEBUGFILE
+  printf("fw_data_size = %d\n",fw_data_size);
+
+  for(ichar=0; ichar<16*10; ichar++)
+    {
+      if((ichar%16) == 0)
+	printf("\n");
+      printf("0x%02x ",fw_data[ichar]);
+    }
+  printf("\n\n");
+#endif
+  fw_file_loaded = 1;
+
+  fclose(fwFile);
+  return OK;
+
+
+}
+
+
 static int
 ctpCROMErase(int fpga)
 {
   int iblock=0, stat=0;
   unsigned int eraseCommand=0;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
 
   switch(fpga)
     {
@@ -910,19 +1127,32 @@ ctpWaitForCommandDone(int ntries)
 {
   int itries=0, done=0;
   unsigned int rval=0;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
   
   for(itries=0; itries<ntries; itries++)
     {
-#ifdef NOTDEFINEDYET
-      rval = vmeRead32(&CTPp->fpga1.register12);
-#endif
-      if(rval & (1<<15))
+      rval = vmeRead32(&CTPp->fpga1.status2);
+      if(rval & CTP_FPGA1_STATUS2_READY_FOR_OPCODE)
 	{
 	  done=1;
 	  break;
 	}
-      /* May want to put delay in here... and some output to show progress */
+      taskDelay(1);
+      if((itries%100)==0)
+	{
+	  printf("."); fflush(stdout);
+	}
     }
+
+#ifdef DEBUGCOMMAND
+  printf("\n");
+  printf("%s: done = %d  itries = %d  ntries = %d\n",__FUNCTION__,
+	 done, itries, ntries);
+#endif
 
   if(!done)
     rval = ERROR;
@@ -930,4 +1160,228 @@ ctpWaitForCommandDone(int ntries)
     rval = OK;
 
   return rval;
+}
+
+static int
+ctpWriteFirmwareToSRAM()
+{
+  unsigned int stat=0;
+  int iaddr=0;
+  unsigned short data=0;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!fw_file_loaded | (fw_data_size==0))
+    {
+      printf("%s: ERROR: Firmware file not loaded.\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+  
+  TILOCK;
+  /* Make sure opCode ready */
+  stat = ctpWaitForCommandDone(100);
+  if(!stat)
+    {
+      printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+      TIUNLOCK;
+      return ERROR;
+    }
+  
+  /* Enter in the Download opCode */
+  vmeWrite32(&CTPp->fpga1.config2, CTP_FPGA1_CONFIG2_SRAM_WRITE);
+
+  for(iaddr = 0; iaddr<fw_data_size; iaddr+=2)
+    {
+      data = (fw_data[iaddr]<<8) | fw_data[iaddr];
+      vmeWrite32(&CTPp->fpga1.config4, data);
+      vmeWrite32(&CTPp->fpga1.config5, iaddr | CTP_FPGA1_CONFIG5_SRAM_ADDR_MASK);
+      vmeWrite32(&CTPp->fpga1.config6, CTP_FPGA1_CONFIG6_SRAM_WRITE | 
+		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
+
+      stat = ctpWaitForCommandDone(1000);
+      if(!stat)
+	{
+	  printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+	  TIUNLOCK;
+	  return ERROR;
+	}
+
+      vmeWrite32(&CTPp->fpga1.config6, 
+		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
+
+    }
+  TIUNLOCK;
+
+  return OK;
+}
+
+static int
+ctpVerifySRAMData()
+{
+  int iaddr=0, stat=0;
+  unsigned int data=0, rdata=0;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!fw_file_loaded | (fw_data_size==0))
+    {
+      printf("%s: ERROR: Firmware file not loaded.\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  /* Select SRAM to READ */
+  vmeWrite32(&CTPp->fpga1.config2, CTP_FPGA1_CONFIG2_SRAM_WRITE);
+
+  for(iaddr=0; iaddr<fw_data_size; iaddr+=2)
+    {
+      data = (fw_data[iaddr]<<8) | fw_data[iaddr];
+      vmeWrite32(&CTPp->fpga1.config5, iaddr & CTP_FPGA1_CONFIG5_SRAM_ADDR_MASK);
+      vmeWrite32(&CTPp->fpga1.config6, CTP_FPGA1_CONFIG6_SRAM_READ |
+		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
+		 
+      stat = ctpWaitForCommandDone(1000);
+      if(!stat)
+	{
+	  printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+	  TIUNLOCK;
+	  return ERROR;
+	}
+      
+      vmeWrite32(&CTPp->fpga1.config6, 
+		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
+
+      rdata = vmeRead32(&CTPp->fpga1.status3) & CTP_FPGA1_STATUS3_SRAM_DATA_MASK;
+      if(rdata != data)
+	{
+	  printf("%s: ERROR: Invalid data read from SRAM (iaddr = 0x%x).  Expected (0x%x) != 0x%x\n",
+		 __FUNCTION__,iaddr,data,rdata);
+	  TIUNLOCK;
+	  return ERROR;
+	}
+
+    }
+
+  TIUNLOCK;
+
+  return OK;
+}
+
+
+static int
+ctpProgramCROMfromSRAM(int ifpga)
+{
+  unsigned int opCode=0;
+  int stat=0;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  switch(ifpga)
+    {
+    case U1:
+      opCode = CTP_FPGA1_CONFIG2_U1_CONFIG | CTP_FPGA1_CONFIG2_PROG_DATA_U1;
+      break;
+
+    case U3:
+      opCode = CTP_FPGA1_CONFIG2_U3_CONFIG | CTP_FPGA1_CONFIG2_PROG_DATA_U3;
+      break;
+
+    case U24:
+      opCode = CTP_FPGA1_CONFIG2_U24_CONFIG | CTP_FPGA1_CONFIG2_PROG_DATA_U24;
+      break;
+
+    default:
+      printf("%s: Invalid FPGA choice (%d).\n",__FUNCTION__,ifpga);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga1.config2, opCode | CTP_FPGA1_CONFIG2_EXEC_OPCODE);
+
+  stat = ctpWaitForCommandDone(1000);
+  if(!stat)
+    {
+      printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+      TIUNLOCK;
+      return ERROR;
+    }
+
+  vmeWrite32(&CTPp->fpga1.config2, opCode);
+  TIUNLOCK;
+
+  return OK;
+}
+
+static int
+ctpWriteCROMToSRAM(int ifpga)
+{
+  unsigned int opCode=0;
+  int stat=0;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  switch(ifpga)
+    {
+    case U1:
+      opCode = CTP_FPGA1_CONFIG2_U1_CONFIG | CTP_FPGA1_CONFIG2_READ_DATA_U1;
+      break;
+
+    case U3:
+      opCode = CTP_FPGA1_CONFIG2_U3_CONFIG | CTP_FPGA1_CONFIG2_READ_DATA_U3;
+      break;
+
+    case U24:
+      opCode = CTP_FPGA1_CONFIG2_U24_CONFIG | CTP_FPGA1_CONFIG2_READ_DATA_U24;
+      break;
+
+    default:
+      printf("%s: Invalid FPGA choice (%d).\n",__FUNCTION__,ifpga);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga1.config2, opCode | CTP_FPGA1_CONFIG2_EXEC_OPCODE);
+
+  stat = ctpWaitForCommandDone(1000);
+  if(!stat)
+    {
+      printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+      TIUNLOCK;
+      return ERROR;
+    }
+
+  vmeWrite32(&CTPp->fpga1.config2, opCode);
+  TIUNLOCK;
+
+  return OK;
+}
+
+static int
+ctpRebootAllFPGA()
+{
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&CTPp->fpga3.config3,CTP_FPGA3_CONFIG3_REBOOT_ALL_FPGA);
+  TIUNLOCK;
+
+  return OK;
 }
