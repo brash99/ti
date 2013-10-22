@@ -25,7 +25,8 @@
 #include "dmaBankTools.h"
 #include "tiprimary_list.c" /* source required for CODA */
 
-#define BLOCKLEVEL 1
+/* Default block level */
+unsigned int BLOCKLEVEL=1;
 #define BUFFERLEVEL 3
 
 /* Redefine tsCrate according to TI_MASTER or TI_SLAVE */
@@ -94,8 +95,10 @@ rocDownload()
 
 /*   tiSetFiberDelay(10,0xcf); */
 
+#ifdef TI_MASTER
   /* Set number of events per block */
   tiSetBlockLevel(BLOCKLEVEL);
+#endif
 
   tiSetEventFormat(1);
 
@@ -133,6 +136,13 @@ rocGo()
 {
   int islot;
   /* Enable modules, if needed, here */
+
+  /* Get the current block level */
+  BLOCKLEVEL = tiGetCurrentBlockLevel();
+  printf("%s: Current Block Level = %d\n",
+	 __FUNCTION__,BLOCKLEVEL);
+
+  /* Use this info to change block level is all modules */
 
 }
 
