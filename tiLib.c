@@ -670,8 +670,19 @@ tiStatus()
   printf("  busytime       (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->busytime) - TIBase, busytime);
   printf("\n");
 
-  printf(" Crate ID = 0x%02x\n",boardID&TI_BOARDID_CRATEID_MASK);
-  printf(" Block size = %d\n",blocklevel & TI_BLOCKLEVEL_MASK);
+  printf(" Block Level = %d ", (blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16);
+  if(tiMaster)
+    {
+      if(tiBlockLevel!=((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
+	printf("(To be set = %d)\n", tiBlockLevel);
+    }
+  else
+    {
+      if( ((blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24)
+	  != ((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
+	printf(" (To be set = %d)\n",
+	       (blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24);
+    }
 
   fibermask = fiber;
   if(fibermask)
@@ -1066,6 +1077,7 @@ tiSetCrateID(unsigned int crateID)
 int
 tiSetBlockLevel(unsigned int blockLevel)
 {
+  unsigned int trigger=0;
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -1079,13 +1091,76 @@ tiSetBlockLevel(unsigned int blockLevel)
     }
 
   TILOCK;
-  vmeWrite32(&TIp->blocklevel, blockLevel);
+  trigger = vmeRead32(&TIp->trigsrc);
+
+  if(!(trigger & TI_TRIGSRC_VME)) /* Turn on the VME trigger, if not enabled */
+    vmeWrite32(&TIp->trigsrc, TI_TRIGSRC_VME | trigger);
+
+  vmeWrite32(&TIp->triggerCommand, TI_TRIGGERCOMMAND_SET_BLOCKLEVEL | blockLevel);
+
+  if(!(trigger & TI_TRIGSRC_VME)) /* Turn off the VME trigger, if it was initially disabled */
+    vmeWrite32(&TIp->trigsrc, trigger);
+
   tiBlockLevel = blockLevel;
   TIUNLOCK;
 
   return OK;
 
 }
+
+/*******************************************************************************
+ *
+ * tiGetNextBlockLevel - Get the block level that will be updated on the end
+ *                       of the block readout.
+ *
+ * RETURNS: Next Block Level if successful, ERROR otherwise
+ *
+ */
+
+int
+tiGetNextBlockLevel()
+{
+  int bl=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  bl = (vmeRead32(&TIp->blocklevel) & TI_BLOCKLEVEL_RECEIVED_MASK)>>24;
+  TIUNLOCK;
+
+  return bl;
+}
+
+/*******************************************************************************
+ *
+ * tiGetCurrentBlockLevel - Get the current block level
+ *
+ * RETURNS: Next Block Level if successful, ERROR otherwise
+ *
+ */
+
+
+int
+tiGetCurrentBlockLevel()
+{
+  int bl=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  bl = (vmeRead32(&TIp->blocklevel) & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
+  tiBlockLevel = bl;
+  TIUNLOCK;
+
+  return bl;
+}
+
 
 /*******************************************************************************
  *
@@ -2098,6 +2173,21 @@ tiPayloadPort2VMESlot(int payloadport)
   return rval;
 }
 
+unsigned int
+tiPayloadPortMask2VMESlotMask(unsigned int ppmask)
+{
+  int ipp=0;
+  unsigned int vmemask=0;
+
+  for(ipp=0; ipp<18; ipp++)
+    {
+      if(ppmask & (1<<ipp))
+	vmemask |= tiPayloadPort2VMESlot(ipp+1);
+    }
+
+  return vmemask;
+}
+
 /*******************************************************************************
  *
  *  tiVMESlot2PayloadPort
@@ -2125,7 +2215,21 @@ tiVMESlot2PayloadPort(int vmeslot)
     }
 
   return rval;
+}
 
+unsigned int
+tiVMESlotMask2PayloadPortMask(unsigned int vmemask)
+{
+  int islot=0;
+  unsigned int ppmask=0;
+
+  for(islot=0; islot<22; islot++)
+    {
+      if(vmemask & (1<<islot))
+	ppmask |= tiVMESlot2PayloadPort(islot);
+    }
+
+  return ppmask;
 }
 
 
@@ -2335,10 +2439,15 @@ tiTrigLinkReset()
  *  - Generate a Sync Reset signal.  This signal is sent to the loopback and
  *    all configured TI Slaves.
  *
+ *  ARGs: blflag - Option to change block level, after SyncReset issued
+ *         0: Do not change block level
+ *        >0: Broadcast block level to all connected slaves (including self)
+ *            BlockLevel broadcasted will be set to library value
+ *            (Set with tiSetBlockLevel)
  */
 
 void
-tiSyncReset()
+tiSyncReset(int blflag)
 {
   if(TIp == NULL) 
     {
@@ -2351,6 +2460,13 @@ tiSyncReset()
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM); 
   taskDelay(1);
   TIUNLOCK;
+  
+  if(blflag) /* Set the block level from "Next" to Current */
+    {
+      printf("%s: INFO: Setting Block Level to %d\n",
+	     __FUNCTION__,tiBlockLevel);
+      tiSetBlockLevel(tiBlockLevel);
+    }
 
 }
 
@@ -3966,6 +4082,36 @@ tiGetSyncResetRequest()
   TIUNLOCK;
 
   return request;
+}
+
+/*******************************************************************************
+ *
+ *  tiTriggerReadyReset
+ *  - Reset the registers in attached TDs (through SD) that record
+ *    the triggers enabled status of TI Slaves.
+ *
+ */
+
+void
+tiTriggerReadyReset()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return;
+    }
+  
+  TILOCK;
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_TRIGGER_READY_RESET); 
+  TIUNLOCK;
+
+
 }
 
 /********************************************************************************

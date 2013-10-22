@@ -127,7 +127,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x142
+#define TI_SUPPORTED_FIRMWARE 0x152
 
 /* 0x0 boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -190,6 +190,9 @@ struct TI_A24RegStruct
 
 /* 0x14 blocklevel bits and masks */
 #define TI_BLOCKLEVEL_MASK           0x000000FF
+#define TI_BLOCKLEVEL_CURRENT_MASK   0x00FF0000
+#define TI_BLOCKLEVEL_RECEIVED_MASK  0xFF000000
+
 
 /* 0x18 dataFormat bits and masks */
 #define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
@@ -335,6 +338,7 @@ struct TI_A24RegStruct
 #define TI_SYNCCOMMAND_TRIGGERLINK_ENABLE  0x55
 #define TI_SYNCCOMMAND_TRIGGERLINK_DISABLE 0x77
 #define TI_SYNCCOMMAND_SYNCRESET_HIGH      0x99
+#define TI_SYNCCOMMAND_TRIGGER_READY_RESET 0xAA
 #define TI_SYNCCOMMAND_RESET_EVNUM         0xBB
 #define TI_SYNCCOMMAND_SYNCRESET_LOW       0xCC
 #define TI_SYNCCOMMAND_SYNCRESET           0xDD
@@ -348,7 +352,12 @@ struct TI_A24RegStruct
 #define TI_SYNCWIDTH_LONGWIDTH_ENABLE  (1<<7)
 
 /* 0x84 triggerCommand bits and masks */
-#define TI_TRIGGERCOMMAND_CODE_MASK    0x00000FFF
+#define TI_TRIGGERCOMMAND_VALUE_MASK     0x000000FF
+#define TI_TRIGGERCOMMAND_CODE_MASK      0x00000F00
+#define TI_TRIGGERCOMMAND_TRIG1          0x00000100
+#define TI_TRIGGERCOMMAND_TRIG2          0x00000200
+#define TI_TRIGGERCOMMAND_SYNC_EVENT     0x00000300
+#define TI_TRIGGERCOMMAND_SET_BLOCKLEVEL 0x00000800
 
 /* 0x88 randomPulser bits and masks */
 #define TI_RANDOMPULSER_TRIG1_RATE_MASK 0x0000000F
@@ -486,6 +495,8 @@ int  tiClockResync();
 int  tiReset();
 int  tiSetCrateID(unsigned int crateID);
 int  tiSetBlockLevel(unsigned int blockLevel);
+int  tiSetBlockLevel(unsigned int blockLevel);
+int  tiGetNextBlockLevel();
 int  tiSetTriggerSource(int trig);
 int  tiSetTriggerSourceMask(int trigmask);
 int  tiEnableTriggerSource();
@@ -503,9 +514,9 @@ int  tiSetBusySource(unsigned int sourcemask, int rFlag);
 void tiEnableBusError();
 void tiDisableBusError();
 int  tiPayloadPort2VMESlot(int payloadport);
-int  tiPayloadPortMask2VMESlotMask(int payloadport_mask);
+unsigned int  tiPayloadPortMask2VMESlotMask(unsigned int ppmask);
 int  tiVMESlot2PayloadPort(int vmeslot);
-int  tiVMESlotMask2PayloadPortMask(int vmeslot_mask);
+unsigned int  tiVMESlotMask2PayloadPortMask(unsigned int vmemask);
 int  tiSetPrescale(int prescale);
 int  tiGetPrescale();
 int  tiSetTriggerPulse(int trigger, int delay, int width);
@@ -563,6 +574,7 @@ int  tiSetSyncEventInterval(int blk_interval);
 int  tiForceSyncEvent();
 int  tiSyncResetRequest();
 int  tiGetSyncResetRequest();
+void tiTriggerReadyReset();
 int  tiFillToEndBlock();
 unsigned int tiGetGTPBufferLength(int pflag);
 

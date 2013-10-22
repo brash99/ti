@@ -57,7 +57,7 @@ HDRS			= $(SRC:.c=.h)
 OBJ			= tiLib.o
 
 ifeq ($(ARCH),Linux)
-all: echoarch $(LIBS) links
+all: echoarch $(LIBS) install
 else
 all: echoarch $(OBJ) copy
 endif
@@ -75,6 +75,11 @@ links: $(LIBS)
 	@ln -vsf $(PWD)/$< $(LINUXVME_LIB)/$<
 	@ln -vsf $(PWD)/$(<:%.a=%.so) $(LINUXVME_LIB)/$(<:%.a=%.so)
 	@ln -vsf ${PWD}/*Lib.h $(LINUXVME_INC)
+
+install: $(LIBS)
+	@cp -v $(PWD)/$< $(LINUXVME_LIB)/$<
+	@cp -v $(PWD)/$(<:%.a=%.so) $(LINUXVME_LIB)/$(<:%.a=%.so)
+	@cp -v ${PWD}/*Lib.h $(LINUXVME_INC)
 
 tiFirmwareUpdate: tiFirmwareUpdate.c
 	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) $(LIBS_$@) -lrt -ljvme -lti

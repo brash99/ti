@@ -183,7 +183,7 @@ static void __prestart()
 #ifdef TI_MASTER
   printf("%s: Sending sync as TI master\n",__FUNCTION__);
   sleep(1);
-  tiSyncReset();
+  tiSyncReset(1);
   taskDelay(2);
 #endif
 
