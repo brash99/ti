@@ -377,7 +377,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     vmeWrite32(&TIp->fiberSyncDelay,0x1f1f1f1f);
 
   /* Set Default Block Level to 1, and default crateID */
-  tiSetBlockLevel(1);
+  if(tiMaster==1)
+    tiSetBlockLevel(1);
+
   tiSetCrateID(tiCrateID);
 
   /* Set Event format 2 */
@@ -1087,6 +1089,12 @@ tiSetBlockLevel(unsigned int blockLevel)
   if( (blockLevel>TI_BLOCKLEVEL_MASK) || (blockLevel==0) )
     {
       printf("%s: ERROR: Invalid Block Level (%d)\n",__FUNCTION__,blockLevel);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
     }
 
