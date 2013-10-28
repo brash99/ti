@@ -44,15 +44,18 @@ unsigned int ctpPayloadPort[NUM_CTP_FPGA][NUM_FADC_CHANNELS] =
 enum ifpga {U1, U3, U24, NFPGA};
 
 /* Firmware updating variables/functions */
-#define MAX_FIRMWARE_SIZE 200000
+#define MAX_FIRMWARE_SIZE 8000000
 static unsigned char fw_data[MAX_FIRMWARE_SIZE];
 static unsigned int fw_data_size=0;
+static unsigned int my_fw_data_size=0;
+static int my_erase_n_sectors=0;
 static int fw_file_loaded=0;
+
 
 /* Static function prototypes */
 static int ctpSROMRead(int addr, int ntries);
 static int hex2num(char c);
-static int ctpReadFirmwareFile(char *fw_filename);
+int ctpReadFirmwareFile(char *fw_filename);
 static int ctpCROMErase(int fpga);
 static int ctpWaitForCommandDone(int ntries);
 static int ctpWriteFirmwareToSRAM();
@@ -103,7 +106,34 @@ ctpInit()
 
 }
 
+static
+int
+ppArray2vsArray(int *inarray)
+{
+  int iport=0, vmeslot=0;
+  int tempArray[22];
+  if(inarray==NULL)
+    {
+      printf("%s: ERROR: Invalid Input Array\n",__FUNCTION__);
+      return ERROR;
+    }
 
+  /* Fill in the blank slots with zeros */
+  tempArray[0] = tempArray[1] = tempArray[2] = tempArray[11] = tempArray[12] = 0;
+
+  for(iport=1; iport<=16; iport++)
+    {
+      vmeslot = tiPayloadPort2VMESlot(iport);
+      tempArray[vmeslot] = inarray[iport];
+    }
+
+  for(vmeslot=0; vmeslot<22; vmeslot++)
+    {
+      inarray[vmeslot] = tempArray[vmeslot];
+    }
+
+  return OK;
+}
 /*
   ctpStatus
   - Display the status of the CTP registers 
@@ -113,11 +143,12 @@ ctpStatus(int pflag)
 {
   struct CTP_FPGA_U1_Struct fpga[NFPGA]; // Array to handle the "common" registers
   char sfpga[NFPGA][4] = {"U1", "U3", "U24"};
-  int ichan, ifpga, payloadport, ipport;
-  int lane0_up[16+1], lane1_up[16+1];    /* Stored payload port that has it's "lane up" */
-  int channel_up[16+1]; /* Stored payload port that has it's "channel up" */
+  int ichan, ifpga, payloadport, ii, ibegin=0, iend=0;
+  int lane0_up[22], lane1_up[22];    /* Stored payload port that has it's "lane up" */
+  int channel_up[22]; /* Stored payload port that has it's "channel up" */
   int firmware_version[NFPGA];
   unsigned int threshold_lsb, threshold_msb;
+  unsigned int vmeslotmask=0;
 
   if(CTPp==NULL)
     {
@@ -182,6 +213,18 @@ ctpStatus(int pflag)
 	}
     }
 
+  if(pflag==1)
+    {
+      /* Convert the payload port arrays into vme slot arrays */
+      ibegin=3; iend=21;
+      ppArray2vsArray((int *)&lane0_up);
+      ppArray2vsArray((int *)&lane1_up);
+      ppArray2vsArray((int *)&channel_up);
+    }
+  else
+    {
+      ibegin=1; iend=17;
+    }
 
   /* Get the firmware versions */
   for(ifpga=U1; ifpga<NFPGA; ifpga++)
@@ -218,41 +261,49 @@ ctpStatus(int pflag)
 	}
     }
 
-  printf("  Payload port lanes up: \n\t");
+  if(pflag==1)
+    printf("  VME Slots lanes up: \n\t");
+  else
+    printf("  Payload port lanes up: \n\t");
+
   printf(" 0: ");
-  for(ipport=1; ipport<17; ipport++)
+  for(ii=1; ii<17; ii++)
     {
-      if(lane0_up[ipport])
-	printf("%2d ",ipport);
+      if(lane0_up[ii])
+	printf("%2d ",ii);
       else
 	printf("   ");
     }
   printf("\n");
   printf(" 1: ");
-  for(ipport=1; ipport<17; ipport++)
+  for(ii=ibegin; ii<iend; ii++)
     {
-      if(lane1_up[ipport])
-	printf("%2d ",ipport);
+      if(lane1_up[ii])
+	printf("%2d ",ii);
       else
 	printf("   ");
     }
   printf("\n");
 
-  printf("  Payload port lanes down: \n\t");
+  if(pflag==1)
+    printf("  VME Slots lanes down: \n\t");
+  else
+    printf("  Payload port lanes down: \n\t");
+
   printf(" 0: ");
-  for(ipport=1; ipport<17; ipport++)
+  for(ii=ibegin; ii<iend; ii++)
     {
-      if(!lane0_up[ipport])
-	printf("%2d ",ipport);
+      if(!lane0_up[ii])
+	printf("%2d ",ii);
       else
 	printf("   ");
     }
   printf("\n");
   printf(" 1: ");
-  for(ipport=1; ipport<17; ipport++)
+  for(ii=ibegin; ii<iend; ii++)
     {
-      if(!lane1_up[ipport])
-	printf("%2d ",ipport);
+      if(!lane1_up[ii])
+	printf("%2d ",ii);
       else
 	printf("   ");
     }
@@ -260,33 +311,56 @@ ctpStatus(int pflag)
   printf("\n");
 
 
-  printf("  Payload port Channels up: \n\t");
-  for(ipport=1; ipport<17; ipport++)
+  if(pflag==1)
+    printf("  VME Slots Channels up: \n\t");
+  else
+    printf("  Payload port Channels up: \n\t");
+
+  for(ii=ibegin; ii<iend; ii++)
     {
-      if(channel_up[ipport])
-	printf("%2d ",ipport);
+      if(channel_up[ii])
+	printf("%2d ",ii);
       else
 	printf("   ");
     }
   printf("\n");
 
-  printf("  Payload port Channels down: \n\t");
-  for(ipport=1; ipport<17; ipport++)
+  if(pflag==1)
+    printf("  VME Slots Channels down: \n\t");
+  else
+    printf("  Payload port Channels down: \n\t");
+
+  for(ii=ibegin; ii<iend; ii++)
     {
-      if(!channel_up[ipport])
-	printf("%2d ",ipport);
+      if(!channel_up[ii])
+	printf("%2d ",ii);
       else
 	printf("   ");
     }
   printf("\n");
 
-  printf("  Payload ports Enabled: \n\t");
-  for(ipport=1; ipport<17; ipport++)
+  if(pflag==1)
+    printf("  VME Slots Enabled: \n\t");
+  else
+    printf("  Payload ports Enabled: \n\t");
+
+  vmeslotmask = tiPayloadPortMask2VMESlotMask(fpga[U1].config0);
+  for(ii=ibegin; ii<iend; ii++)
     {
-      if(fpga[U1].config0 & (1<<(ipport-1)))
-	printf("%2d ",ipport);
+      if(pflag==1)
+	{
+	  if(fpga[U1].config0 & (1<<(ii-1)))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
       else
-	printf("   ");
+	{
+	  if(vmeslotmask & (1<<ii))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
     }
 
   printf("\n\n");
@@ -805,10 +879,10 @@ ctpGetSerialNumber(char **rval)
   
   for(iaddr=0; iaddr<8; iaddr++)
     {
-      byte = ctpSROMRead(iaddr,100);
+      byte = ctpSROMRead(iaddr,1000);
       if(byte==-1)
 	{
-	  printf("%s: ERROR Reading SROM\n",__FUNCTION__);
+	  printf("%s: ERROR Reading SROM (addr = %d)\n",__FUNCTION__,iaddr);
 	  return ERROR;
 	}
       sn[iaddr] = byte;
@@ -848,6 +922,7 @@ ctpSROMRead(int addr, int ntries)
   TILOCK;
   vmeWrite32(&CTPp->fpga3.config2, 0);
   vmeWrite32(&CTPp->fpga3.config2, addr | CTP_FPGA3_CONFIG2_SROM_READ);
+  vmeWrite32(&CTPp->fpga3.config2, addr);
 
   for(itry=0; itry<ntries; itry++)
     {
@@ -875,6 +950,41 @@ ctpSROMRead(int addr, int ntries)
 /*************************************************************
  * Firmware Updating Tools
  *************************************************************/
+int
+ctpSetFWSize(int size)
+{
+  if(size<=MAX_FIRMWARE_SIZE)
+    {
+      printf("%s: INFO: Setting override firmware size to %d\n",
+	     __FUNCTION__,size);
+      my_fw_data_size=size;
+    }
+  else
+    {
+      printf("%s: ERROR: Override size (%d) greater than maximum size (%d)\n",
+	     __FUNCTION__,size,MAX_FIRMWARE_SIZE);
+      return ERROR;
+    }
+  return OK;
+}
+
+int
+ctpSetNSectorErase(int nsectors)
+{
+  if(nsectors<=1024)
+    {
+      printf("%s: INFO: Setting override erase sectors to %d\n",
+	     __FUNCTION__,nsectors);
+      my_erase_n_sectors=nsectors;
+    }
+  else
+    {
+      printf("%s: ERROR: Override erase # sectors (%d) greater than 1024\n",
+	     __FUNCTION__,nsectors);
+      return ERROR;
+    }
+  return OK;
+}
 
 int
 ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot)
@@ -893,45 +1003,59 @@ ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot)
       printf("%s: Invalid FPGA choice (%d)\n",__FUNCTION__,ifpga);
       return ERROR;
     }
-  
+
+#ifdef SKIPTHIS  
   stat = ctpReadFirmwareFile(fw_filename);
   if(stat==ERROR)
     return ERROR;
 
-  return OK; // Temporary bail out.
-  
+  if(my_fw_data_size!=0)
+    {
+      if(my_fw_data_size>fw_data_size)
+	{
+	  printf("%s: ERROR: Override firmware size (%d) > original size (%d)\n",
+		 __FUNCTION__,
+		 fw_data_size, my_fw_data_size);
+	  return ERROR;
+	}
+      printf("%s: INFO: Overriding firmware size (%d) with %d\n",
+	     __FUNCTION__,
+	     fw_data_size, my_fw_data_size);
+      fw_data_size = my_fw_data_size;
+    }
+ 
   /* Erase CROM */
-  printf("%s: Erasing CROM \n",__FUNCTION__);
+  printf("\n%s: Erasing CROM \n",__FUNCTION__);
   stat = ctpCROMErase(ifpga);
   if(stat==ERROR)
     return ERROR;
   
   /* Data to SRAM */
-  printf("%s: Loading SRAM with data \n",__FUNCTION__);
+  printf("\n%s: Loading SRAM with data \n",__FUNCTION__);
   stat = ctpWriteFirmwareToSRAM();
   if(stat==ERROR)
     return ERROR;
 
   /* Compare SRAM to Data Array */
-  printf("%s: Verifying data \n",__FUNCTION__);
+  printf("\n%s: Verifying data \n",__FUNCTION__);
   stat = ctpVerifySRAMData();
   if(stat==ERROR)
     return ERROR;
 
   /* SRAM TO CROM */
-  printf("%s: Loading CROM with SRAM data \n",__FUNCTION__);
+  printf("\n%s: Loading CROM with SRAM data \n",__FUNCTION__);
   stat = ctpProgramCROMfromSRAM(ifpga);
   if(stat==ERROR)
     return ERROR;
 
   /* CROM TO SRAM (For verification) */
-  printf("%s: Loading SRAM with CROM data \n",__FUNCTION__);
+  printf("\n%s: Loading SRAM with CROM data \n",__FUNCTION__);
   stat = ctpWriteCROMToSRAM(ifpga);
   if(stat==ERROR)
     return ERROR;
 
   /* Compare SRAM to Data Array */
-  printf("%s: Verifying data \n",__FUNCTION__);
+  printf("\n%s: Verifying data \n",__FUNCTION__);
   stat = ctpVerifySRAMData();
   if(stat==ERROR)
     return ERROR;
@@ -939,13 +1063,14 @@ ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot)
   if(reboot)
     {
       /* CROM to FPGA (Reboot FPGA) */
-      printf("%s: Rebooting FPGAs \n",__FUNCTION__);
+      printf("\n%s: Rebooting FPGAs \n",__FUNCTION__);
       stat = ctpRebootAllFPGA();
       if(stat==ERROR)
 	return ERROR;
     }
+#endif /* SKIPTHIS */
 
-  printf("%s: Done programming CTP FPGA %d\n",
+  printf("\n%s: Done programming CTP FPGA %d\n",
 	 __FUNCTION__,ifpga);
 
   return OK;
@@ -969,7 +1094,7 @@ hex2num(char c)
 }
 
 
-static int
+int
 ctpReadFirmwareFile(char *fw_filename)
 {
   FILE *fwFile=NULL;
@@ -1043,9 +1168,11 @@ ctpReadFirmwareFile(char *fw_filename)
 
   fw_data_size = readFWfile;
   
+#define DEBUGFILE
 #ifdef DEBUGFILE
-  printf("fw_data_size = %d\n",fw_data_size);
+  printf("fw_data_size = %d (0x%x)\n",fw_data_size, fw_data_size);
 
+  int ichar=0;
   for(ichar=0; ichar<16*10; ichar++)
     {
       if((ichar%16) == 0)
@@ -1067,6 +1194,7 @@ static int
 ctpCROMErase(int fpga)
 {
   int iblock=0, stat=0;
+  int nsectors = 1024; /* NOTE U1: U3: 400, U24: 583 */
   unsigned int eraseCommand=0;
   if(CTPp==NULL)
     {
@@ -1093,15 +1221,23 @@ ctpCROMErase(int fpga)
       return ERROR;
     }
 
+  if(my_erase_n_sectors!=0)
+    {
+      printf("%s: INFO: Overriding Erase sectors to %d\n",
+	     __FUNCTION__,
+	     my_erase_n_sectors);
+      nsectors = my_erase_n_sectors;
+    }
+
   TILOCK;
-  for(iblock=0; iblock<1024; iblock++)
+  for(iblock=0; iblock<nsectors; iblock++)
     {
       /* Write block number to erase */
       vmeWrite32(&CTPp->fpga1.config3, iblock);
 
       /* Beginning of opCode */
-      eraseCommand |= CTP_FPGA1_CONFIG2_EXEC_OPCODE;
       vmeWrite32(&CTPp->fpga1.config2,eraseCommand);
+      vmeWrite32(&CTPp->fpga1.config2,eraseCommand | CTP_FPGA1_CONFIG2_EXEC_OPCODE);
       stat = ctpWaitForCommandDone(1000);
       if(stat==ERROR)
 	{
@@ -1111,11 +1247,15 @@ ctpCROMErase(int fpga)
 	}
 
       /* End of opCode */
-      eraseCommand &= ~CTP_FPGA1_CONFIG2_EXEC_OPCODE;
       vmeWrite32(&CTPp->fpga1.config2,eraseCommand);
+
+      if((iblock%10)==0)
+	{
+	  printf("*"); fflush(stdout);
+	}
       
       /* Wait for at least 220 milliseconds */
-      taskDelay(1);
+      taskDelay(13);
     }
   TIUNLOCK;
 
@@ -1136,13 +1276,14 @@ ctpWaitForCommandDone(int ntries)
   for(itries=0; itries<ntries; itries++)
     {
       rval = vmeRead32(&CTPp->fpga1.status2);
+/*       printf("%s: rval = 0x%04x\n",__FUNCTION__,rval); */
       if(rval & CTP_FPGA1_STATUS2_READY_FOR_OPCODE)
 	{
 	  done=1;
 	  break;
 	}
       taskDelay(1);
-      if((itries%100)==0)
+      if((itries%200)==0)
 	{
 	  printf("."); fflush(stdout);
 	}
@@ -1162,11 +1303,12 @@ ctpWaitForCommandDone(int ntries)
   return rval;
 }
 
+
 static int
 ctpWriteFirmwareToSRAM()
 {
   unsigned int stat=0;
-  int iaddr=0;
+  int ibyte=0, iaddr=0;
   unsigned short data=0;
   if(CTPp==NULL)
     {
@@ -1184,9 +1326,9 @@ ctpWriteFirmwareToSRAM()
   TILOCK;
   /* Make sure opCode ready */
   stat = ctpWaitForCommandDone(100);
-  if(!stat)
+  if(stat!=OK)
     {
-      printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+      printf("%s: ERROR: OPCode wait timeout.\n",__FUNCTION__);
       TIUNLOCK;
       return ERROR;
     }
@@ -1194,24 +1336,28 @@ ctpWriteFirmwareToSRAM()
   /* Enter in the Download opCode */
   vmeWrite32(&CTPp->fpga1.config2, CTP_FPGA1_CONFIG2_SRAM_WRITE);
 
-  for(iaddr = 0; iaddr<fw_data_size; iaddr+=2)
+  for(ibyte = 0; ibyte<fw_data_size; ibyte+=2)
     {
-      data = (fw_data[iaddr]<<8) | fw_data[iaddr];
+      data = (fw_data[ibyte]<<8) | fw_data[ibyte+1];
       vmeWrite32(&CTPp->fpga1.config4, data);
-      vmeWrite32(&CTPp->fpga1.config5, iaddr | CTP_FPGA1_CONFIG5_SRAM_ADDR_MASK);
+      vmeWrite32(&CTPp->fpga1.config5, iaddr & CTP_FPGA1_CONFIG5_SRAM_ADDR_MASK);
       vmeWrite32(&CTPp->fpga1.config6, CTP_FPGA1_CONFIG6_SRAM_WRITE | 
 		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
 
       stat = ctpWaitForCommandDone(1000);
-      if(!stat)
+      if(stat!=OK)
 	{
-	  printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+	  printf("%s: ERROR: OPCode wait timeout.\n",__FUNCTION__);
 	  TIUNLOCK;
 	  return ERROR;
 	}
 
       vmeWrite32(&CTPp->fpga1.config6, 
 		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
+      iaddr++;
+
+      if((ibyte%10000)==0)
+	printf("*"); fflush(stdout);
 
     }
   TIUNLOCK;
@@ -1222,8 +1368,9 @@ ctpWriteFirmwareToSRAM()
 static int
 ctpVerifySRAMData()
 {
-  int iaddr=0, stat=0;
+  int ibyte=0, iaddr=0, stat=0;
   unsigned int data=0, rdata=0;
+  int errorCount=0, zeroCount=0;
   if(CTPp==NULL)
     {
       printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
@@ -1241,17 +1388,17 @@ ctpVerifySRAMData()
   /* Select SRAM to READ */
   vmeWrite32(&CTPp->fpga1.config2, CTP_FPGA1_CONFIG2_SRAM_WRITE);
 
-  for(iaddr=0; iaddr<fw_data_size; iaddr+=2)
+  for(ibyte=0; ibyte<fw_data_size; ibyte+=2)
     {
-      data = (fw_data[iaddr]<<8) | fw_data[iaddr];
+      data = (fw_data[ibyte]<<8) | fw_data[ibyte+1];
       vmeWrite32(&CTPp->fpga1.config5, iaddr & CTP_FPGA1_CONFIG5_SRAM_ADDR_MASK);
       vmeWrite32(&CTPp->fpga1.config6, CTP_FPGA1_CONFIG6_SRAM_READ |
 		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
 		 
       stat = ctpWaitForCommandDone(1000);
-      if(!stat)
+      if(stat!=OK)
 	{
-	  printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+	  printf("%s: ERROR: OPCode wait timeout.\n",__FUNCTION__);
 	  TIUNLOCK;
 	  return ERROR;
 	}
@@ -1260,17 +1407,42 @@ ctpVerifySRAMData()
 		 ((iaddr>>16) & CTP_FPGA1_CONFIG6_SRAM_ADDR_MASK));
 
       rdata = vmeRead32(&CTPp->fpga1.status3) & CTP_FPGA1_STATUS3_SRAM_DATA_MASK;
+      if(rdata==0)
+	zeroCount++;
+
       if(rdata != data)
 	{
-	  printf("%s: ERROR: Invalid data read from SRAM (iaddr = 0x%x).  Expected (0x%x) != 0x%x\n",
-		 __FUNCTION__,iaddr,data,rdata);
-	  TIUNLOCK;
-	  return ERROR;
+	  errorCount++;
+	  if(errorCount<=20)
+	    {
+	      printf("%s: ERROR: Invalid data read from SRAM (iaddr = 0x%x).\n\tExpected (0x%x) != Readback (0x%x)\n",
+		     __FUNCTION__,iaddr,data,rdata);
+	      if(errorCount==20)
+		printf("%s: ERROR: Further errors are suppressed\n",
+		       __FUNCTION__);
+	    }
+/* 	  TIUNLOCK; */
+/* 	  return ERROR; */
+	}
+      iaddr++;
+
+      if((ibyte%10000)==0)
+	{
+	  printf("."); fflush(stdout);
 	}
 
     }
 
   TIUNLOCK;
+
+  if(errorCount>0)
+    {
+      printf("%s: ERROR: Total data read errors = %d (out of %d)\n",
+	     __FUNCTION__,errorCount,fw_data_size/2);
+      return ERROR;
+    }
+
+  printf("%s: INFO: Zero Count = %d\n",__FUNCTION__,zeroCount);
 
   return OK;
 }
@@ -1307,17 +1479,20 @@ ctpProgramCROMfromSRAM(int ifpga)
     }
 
   TILOCK;
+  vmeWrite32(&CTPp->fpga1.config2, opCode);
   vmeWrite32(&CTPp->fpga1.config2, opCode | CTP_FPGA1_CONFIG2_EXEC_OPCODE);
 
-  stat = ctpWaitForCommandDone(1000);
-  if(!stat)
+  /* Wait for "13 minutes"... 50000 = ~13.9minutes */
+  stat = ctpWaitForCommandDone(100000);
+  if(stat!=OK)
     {
-      printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+      printf("%s: ERROR: OPCode (0x%x) wait timeout.\n",__FUNCTION__,opCode);
       TIUNLOCK;
       return ERROR;
     }
 
   vmeWrite32(&CTPp->fpga1.config2, opCode);
+
   TIUNLOCK;
 
   return OK;
@@ -1354,12 +1529,13 @@ ctpWriteCROMToSRAM(int ifpga)
     }
 
   TILOCK;
+  vmeWrite32(&CTPp->fpga1.config2, opCode);
   vmeWrite32(&CTPp->fpga1.config2, opCode | CTP_FPGA1_CONFIG2_EXEC_OPCODE);
 
-  stat = ctpWaitForCommandDone(1000);
-  if(!stat)
+  stat = ctpWaitForCommandDone(100000);
+  if(stat!=OK)
     {
-      printf("%s: ERROR: U1 not ready\n",__FUNCTION__);
+      printf("%s: ERROR: OPCode (0x%x) wait timeout.\n",__FUNCTION__,opCode);
       TIUNLOCK;
       return ERROR;
     }
@@ -1380,6 +1556,8 @@ ctpRebootAllFPGA()
     }
 
   TILOCK;
+  vmeWrite32(&CTPp->fpga3.config3,CTP_FPGA3_CONFIG3_REBOOT_ALL_FPGA);
+  vmeWrite32(&CTPp->fpga3.config3,CTP_FPGA3_CONFIG3_REBOOT_SAFETY);
   vmeWrite32(&CTPp->fpga3.config3,CTP_FPGA3_CONFIG3_REBOOT_ALL_FPGA);
   TIUNLOCK;
 

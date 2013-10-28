@@ -23,36 +23,36 @@
 
 struct CTP_FPGA_U1_Struct
 {
-  /* 0xn00 */ volatile unsigned int status0;   /* Address 0 */
-  /* 0xn04 */ volatile unsigned int status1;   /* Address 1 */
-  /* 0xn08 */ volatile unsigned int config0;   /* Address 2 */
-  /* 0xn0C */ volatile unsigned int config1;   /* Address 3 */
-  /* 0xn10 */ volatile unsigned int temp;      /* Address 4 */
-  /* 0xn14 */ volatile unsigned int vint;      /* Address 5 */
-  /* 0xn18 */ volatile unsigned int config2;   /* Address 6 */
-  /* 0xn1C */ volatile unsigned int config3;   /* Address 7 */
-  /* 0xn20 */ volatile unsigned int config4;   /* Address 8 */
-  /* 0xn24 */ volatile unsigned int config5;   /* Address 9 */
-  /* 0xn28 */ volatile unsigned int config6;   /* Address 10 */
-  /* 0xn2C */ volatile unsigned int status3;   /* Address 11 */
-  /* 0xn30 */          unsigned int blank0[(0x44-0x30)/4];   /* Address 12-16 */
-  /* 0xn44 */ volatile unsigned int status2;   /* Address 17 */
+  /* 0xn00 */ volatile unsigned int status0;   			/* Address 0 */
+  /* 0xn04 */ volatile unsigned int status1;   			/* Address 1 */
+  /* 0xn08 */ volatile unsigned int config0;   			/* Address 2 */
+  /* 0xn0C */ volatile unsigned int config1;   			/* Address 3 */
+  /* 0xn10 */ volatile unsigned int temp;      			/* Address 4 */
+  /* 0xn14 */ volatile unsigned int vint;      			/* Address 5 */
+  /* 0xn18 */ volatile unsigned int config2;   			/* Address 6 */
+  /* 0xn1C */ volatile unsigned int config3;   			/* Address 7 */
+  /* 0xn20 */ volatile unsigned int config4;   			/* Address 8 */
+  /* 0xn24 */ volatile unsigned int config5;   			/* Address 9 */
+  /* 0xn28 */ volatile unsigned int config6;   			/* Address 10 */
+  /* 0xn2C */ volatile unsigned int status3;   			/* Address 11 */
+  /* 0xn30 */          unsigned int blank0[(0x44-0x30)/4];   	/* Address 12-16 */
+  /* 0xn44 */ volatile unsigned int status2;   			/* Address 17 */
 };
 
 struct CTP_FPGA_U3_Struct
 {
-  /* 0xn00 */ volatile unsigned int status0;   /* Address 0 */
-  /* 0xn04 */ volatile unsigned int status1;   /* Address 1 */
-  /* 0xn08 */ volatile unsigned int config0;   /* Address 2 */
-  /* 0xn0C */ volatile unsigned int config1;   /* Address 3 */
-  /* 0xn10 */ volatile unsigned int temp;      /* Address 4 */
-  /* 0xn14 */ volatile unsigned int vint;      /* Address 5 */
-  /* 0xn18 */ volatile unsigned int config2;   /* Address 6 */
-  /* 0xn1C */ volatile unsigned int config3;   /* Address 7 */
-  /* 0xn20 */          unsigned int blank0[(0x2C-0x20)/4];   /* Address 8-10 */
-  /* 0xn2C */ volatile unsigned int status3;   /* Address 11 */
-  /* 0xn30 */          unsigned int blank1[(0x44-0x30)/4];   /* Address 12-16 */
-  /* 0xn44 */ volatile unsigned int status2;   /* Address 17 */
+  /* 0xn00 */ volatile unsigned int status0;   			/* Address 0 */
+  /* 0xn04 */ volatile unsigned int status1;   			/* Address 1 */
+  /* 0xn08 */ volatile unsigned int config0;   			/* Address 2 */
+  /* 0xn0C */ volatile unsigned int config1;   			/* Address 3 */
+  /* 0xn10 */ volatile unsigned int temp;      			/* Address 4 */
+  /* 0xn14 */ volatile unsigned int vint;      			/* Address 5 */
+  /* 0xn18 */ volatile unsigned int config2;   			/* Address 6 */
+  /* 0xn1C */ volatile unsigned int config3;   			/* Address 7 */
+  /* 0xn20 */          unsigned int blank0[(0x2C-0x20)/4];   	/* Address 8-10 */
+  /* 0xn2C */ volatile unsigned int status3;   			/* Address 11 */
+  /* 0xn30 */          unsigned int blank1[(0x44-0x30)/4];   	/* Address 12-16 */
+  /* 0xn44 */ volatile unsigned int status2;   			/* Address 17 */
 };
 
 struct CTP_FPGA_U24_Struct
@@ -81,9 +81,9 @@ struct CTPStruct
 {
   /* 0x0000 */          unsigned int blank0[(0x3C00-0x0000)/4];
   /* 0x3C00 */ struct   CTP_FPGA_U1_Struct fpga1;    /* I2C Device 1 */
-  /* 0x3C18 */          unsigned int blank1[(0x5C00-0x3C48)/4];
+  /* 0x3C48 */          unsigned int blank1[(0x5C00-0x3C48)/4];
   /* 0x5C00 */ struct   CTP_FPGA_U3_Struct fpga3;    /* I2C Device 2 */
-  /* 0x5C18 */          unsigned int blank2[(0x7C00-0x5C48)/4];
+  /* 0x5C48 */          unsigned int blank2[(0x7C00-0x5C48)/4];
   /* 0x7C00 */ struct   CTP_FPGA_U24_Struct fpga24;  /* I2C Device 3 */
   /* 0x7C48 */          unsigned int blank3[(0x10000-0x7C48)/4];
 };
@@ -149,6 +149,7 @@ struct CTPStruct
 
 /* U3: config3 bits */
 #define CTP_FPGA3_CONFIG3_REBOOT_ALL_FPGA  (5<<0)
+#define CTP_FPGA3_CONFIG3_REBOOT_SAFETY    (2<<0)
 
 /* U3: status3 bits and masks */
 #define CTP_FPGA3_STATUS3_SROM_DATA_MASK     0xFF
@@ -203,5 +204,7 @@ int  ctpGetTrig1Scaler();
 int  ctpGetTrig2Scaler();
 
 int  ctpGetSerialNumber(char **rval);
+int  ctpSetFWSize(int size);
+int  ctpSetNSectorErase(int nsectors);
 int  ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot);
 #endif /* CTPLIB_H */
