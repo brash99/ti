@@ -101,6 +101,7 @@ struct CTPStruct
 #define CTP_FPGA_STATUS1_CHANUP_EXTRA2           (1<<2)
 
 #define CTP_FGPA_CONFIG1_INIT_ALL_MGT            (1<<1)
+#define CTP_FPGA_CONFIG1_ALIGN_AT_SYNCRESET      (1<<3)
 
 #define CTP_FPGA_STATUS2_FIRMWARE_VERSION_MASK   0x7FFF
 
@@ -162,6 +163,7 @@ struct CTPStruct
 #define CTP_FPGA24_STATUS1_FIBER_LANE_REMOTE_UP   (1<<6)
 #define CTP_FPGA24_STATUS1_FIBER_CHAN_READY       (1<<7)
 #define CTP_FPGA24_STATUS1_ERROR_LATCH_FS         (1<<8)
+#define CTP_FPGA24_STATUS1_ALIGNMENT_SUCCESS      (1<<9)
 
 /* U24: config1 bits */
 #define CTP_FPGA24_CONFIG1_RESET_FIBER_MGT         (1<<2)
@@ -188,6 +190,8 @@ int  ctpEnableSlotMask(unsigned int inMask);
 int  ctpResetGTP();
 int  ctpGetAllChanUp();
 int  ctpGetErrorLatchFS(int pflag);
+int  ctpGetAlignmentStatus(int pflag, int ntries);
+int  ctpAlignAtSyncReset(int enable);
 int  ctpArmHistoryBuffer();
 int  ctpDReady();
 int  ctpReadEvent(volatile unsigned int *data, int nwrds);

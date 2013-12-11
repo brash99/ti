@@ -267,14 +267,14 @@ ctpStatus(int pflag)
     printf("  Payload port lanes up: \n\t");
 
   printf(" 0: ");
-  for(ii=1; ii<17; ii++)
+  for(ii=ibegin; ii<iend; ii++)
     {
       if(lane0_up[ii])
 	printf("%2d ",ii);
       else
 	printf("   ");
     }
-  printf("\n");
+  printf("\n\t");
   printf(" 1: ");
   for(ii=ibegin; ii<iend; ii++)
     {
@@ -298,7 +298,7 @@ ctpStatus(int pflag)
       else
 	printf("   ");
     }
-  printf("\n");
+  printf("\n\t");
   printf(" 1: ");
   for(ii=ibegin; ii<iend; ii++)
     {
@@ -316,6 +316,7 @@ ctpStatus(int pflag)
   else
     printf("  Payload port Channels up: \n\t");
 
+  printf("    ");
   for(ii=ibegin; ii<iend; ii++)
     {
       if(channel_up[ii])
@@ -330,6 +331,7 @@ ctpStatus(int pflag)
   else
     printf("  Payload port Channels down: \n\t");
 
+  printf("    ");
   for(ii=ibegin; ii<iend; ii++)
     {
       if(!channel_up[ii])
@@ -345,6 +347,7 @@ ctpStatus(int pflag)
     printf("  Payload ports Enabled: \n\t");
 
   vmeslotmask = tiPayloadPortMask2VMESlotMask(fpga[U1].config0);
+  printf("    ");
   for(ii=ibegin; ii<iend; ii++)
     {
       if(pflag==1)
@@ -603,6 +606,78 @@ ctpGetErrorLatchFS(int pflag)
     }
 
   return (rval);
+
+}
+
+int
+ctpGetAlignmentStatus(int pflag, int ntries)
+{
+  int itry=0, rval=0;
+
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  for(itry=0; itry<ntries; itry++)
+    {
+      rval = vmeRead32(&CTPp->fpga24.status1) & CTP_FPGA24_STATUS1_ALIGNMENT_SUCCESS;
+      
+      if(rval)
+	{
+	  rval=1;
+	  break;
+	}
+    }
+
+  TIUNLOCK;
+
+  if(pflag)
+    {
+      if(rval==0)
+	printf("%s: ERROR: Bad Alignment Status!\n",__FUNCTION__);
+      else
+	printf("%s: Alignment Status is OK.\n",__FUNCTION__);
+    }
+
+  return (rval);
+
+}
+
+
+int
+ctpAlignAtSyncReset(int enable)
+{
+  unsigned int reg1=0, reg3=0, reg24=0;
+  if(CTPp==NULL)
+    {
+      printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg1  = vmeRead32(&CTPp->fpga1.config1) & 0xFFFF;
+  reg3  = vmeRead32(&CTPp->fpga3.config1) & 0xFFFF;
+  reg24 = vmeRead32(&CTPp->fpga24.config1) & 0xFFFF;
+
+  if(enable)
+    {
+      vmeWrite32(&CTPp->fpga1.config1, reg1  | CTP_FPGA_CONFIG1_ALIGN_AT_SYNCRESET);
+      vmeWrite32(&CTPp->fpga3.config1, reg3  | CTP_FPGA_CONFIG1_ALIGN_AT_SYNCRESET);
+      vmeWrite32(&CTPp->fpga24.config1,reg24 | CTP_FPGA_CONFIG1_ALIGN_AT_SYNCRESET);
+    }
+  else
+    {
+      vmeWrite32(&CTPp->fpga1.config1, reg1  & ~CTP_FPGA_CONFIG1_ALIGN_AT_SYNCRESET);
+      vmeWrite32(&CTPp->fpga3.config1, reg3  & ~CTP_FPGA_CONFIG1_ALIGN_AT_SYNCRESET);
+      vmeWrite32(&CTPp->fpga24.config1,reg24 & ~CTP_FPGA_CONFIG1_ALIGN_AT_SYNCRESET);
+    }
+  TIUNLOCK;
+
+  return OK;
+
 
 }
 
@@ -887,7 +962,8 @@ ctpGetSerialNumber(char **rval)
 	}
       sn[iaddr] = byte;
     }
-  
+  printf("\n");
+
   sprintf(sn_str,"%c%c%c%c%c-%c%c%c",sn[0],sn[1],sn[2],sn[3],sn[4],sn[5],sn[6],sn[7]);
 
   if(*rval != NULL)
@@ -898,6 +974,8 @@ ctpGetSerialNumber(char **rval)
   else
     ret_len = 0;
   
+  printf("%s: CTP Serial Number: %s\n",__FUNCTION__,sn_str);
+
   return ret_len;
 }
 
@@ -990,13 +1068,11 @@ int
 ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot)
 {
   int stat;
-#ifdef SKIPCHECK
   if(CTPp==NULL)
     {
       printf("%s: ERROR: CTP not initialized\n",__FUNCTION__);
       return ERROR;
     }
-#endif
 
   if((ifpga<U1) | (ifpga>U24))
     {
@@ -1004,7 +1080,6 @@ ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot)
       return ERROR;
     }
 
-#ifdef SKIPTHIS  
   stat = ctpReadFirmwareFile(fw_filename);
   if(stat==ERROR)
     return ERROR;
@@ -1068,7 +1143,6 @@ ctpFirmwareUpload(char *fw_filename, int ifpga, int reboot)
       if(stat==ERROR)
 	return ERROR;
     }
-#endif /* SKIPTHIS */
 
   printf("\n%s: Done programming CTP FPGA %d\n",
 	 __FUNCTION__,ifpga);
