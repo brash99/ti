@@ -75,18 +75,9 @@ struct TI_A24RegStruct
   /* 0x00038 */ volatile unsigned int triggerRule;
   /* 0x0003C */ volatile unsigned int triggerWindow;
   /* 0x00040 */          unsigned int blank0[(0x48-0x40)/4];
-#ifdef TSONLY
-  /* 0x00040 */ volatile unsigned int GTPtrigger;
-  /* 0x00044 */ volatile unsigned int fpInput;
-#endif
   /* 0x00048 */ volatile unsigned int tsInput;
   /* 0x0004C */ volatile unsigned int output;
   /* 0x00050 */ volatile unsigned int fiberSyncDelay;
-#ifdef TSONLY
-  /* 0x00054 */ volatile unsigned int GTPprescale[4];
-  /* 0x00064 */ volatile unsigned int fpInputPrescale[4];
-  /* 0x00074 */ volatile unsigned int genInputPrescale;
-#endif
   /* 0x00054 */          unsigned int blank_prescale[(0x78-0x54)/4];
   /* 0x00078 */ volatile unsigned int syncCommand;
   /* 0x0007C */ volatile unsigned int syncDelay;
@@ -109,8 +100,10 @@ struct TI_A24RegStruct
   /* 0x000C0 */ volatile unsigned int blockStatus[4];
   /* 0x000D0 */ volatile unsigned int adr24;
   /* 0x000D4 */ volatile unsigned int syncEventCtrl;
-  /* 0x000D8 */          unsigned int blank2[(0xFC-0xD8)/4];
-  /* 0x000FC */ volatile unsigned int scalerCtrl;
+  /* 0x000D8 */ volatile unsigned int eventNumber_hi;
+  /* 0x000DC */ volatile unsigned int eventNumber_lo;
+  /* 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
+  /* 0x000FC */ volatile unsigned int blocklimit;
   /* 0x00100 */ volatile unsigned int reset;
   /* 0x00104 */          unsigned int blank3[(0x8C0-0x104)/4];
   /* 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
@@ -134,9 +127,9 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x102
+#define TI_SUPPORTED_FIRMWARE 0x153
 
-/* boardID bits and masks */
+/* 0x0 boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
 #define TI_BOARDID_TYPE_TI           0x7100
 #define TI_BOARDID_TYPE_TS           0x7500
@@ -146,42 +139,67 @@ struct TI_A24RegStruct
 #define TI_BOARDID_GEOADR_MASK   0x00001F00
 #define TI_BOARDID_CRATEID_MASK  0x000000FF
 
-/* fiber bits and masks */
-#define TI_FIBER_1 (1<<0)
-#define TI_FIBER_2 (1<<1)
-#define TI_FIBER_3 (1<<2)
-#define TI_FIBER_4 (1<<3)
-#define TI_FIBER_5 (1<<4)
-#define TI_FIBER_6 (1<<5)
-#define TI_FIBER_7 (1<<6)
-#define TI_FIBER_8 (1<<7)
-#define TI_FIBER_ENABLE_P0 (1<<8)
+/* 0x4 fiber bits and masks */
+#define TI_FIBER_1                        (1<<0)
+#define TI_FIBER_2                        (1<<1)
+#define TI_FIBER_3                        (1<<2)
+#define TI_FIBER_4                        (1<<3)
+#define TI_FIBER_5                        (1<<4)
+#define TI_FIBER_6                        (1<<5)
+#define TI_FIBER_7                        (1<<6)
+#define TI_FIBER_8                        (1<<7)
+#define TI_FIBER_ENABLE_P0                (1<<8)
+#define TI_FIBER_ENABLED(x)           (1<<(x+1))
+#define TI_FIBER_MASK                 0x000000FF
+#define TI_FIBER_CONNECTED_1             (1<<16)
+#define TI_FIBER_CONNECTED_2             (1<<17)
+#define TI_FIBER_CONNECTED_3             (1<<18)
+#define TI_FIBER_CONNECTED_4             (1<<19)
+#define TI_FIBER_CONNECTED_5             (1<<20)
+#define TI_FIBER_CONNECTED_6             (1<<21)
+#define TI_FIBER_CONNECTED_7             (1<<22)
+#define TI_FIBER_CONNECTED_8             (1<<23)
+#define TI_FIBER_CONNECTED_TI(x)     (1<<(x+15))
+#define TI_FIBER_CONNECTED_MASK       0x00FF0000
+#define TI_FIBER_TRIGSRC_ENABLED_1       (1<<24)
+#define TI_FIBER_TRIGSRC_ENABLED_2       (1<<25)
+#define TI_FIBER_TRIGSRC_ENABLED_3       (1<<26)
+#define TI_FIBER_TRIGSRC_ENABLED_4       (1<<27)
+#define TI_FIBER_TRIGSRC_ENABLED_5       (1<<28)
+#define TI_FIBER_TRIGSRC_ENABLED_6       (1<<29)
+#define TI_FIBER_TRIGSRC_ENABLED_7       (1<<30)
+#define TI_FIBER_TRIGSRC_ENABLED_8       (1<<31)
+#define TI_FIBER_TRIGSRC_ENABLED_TI(x) (1<<(x+23))
+#define TI_FIBER_TRIGSRC_ENABLED_MASK 0xFF000000
 
-/* intsetup bits and masks */
+/* 0x8 intsetup bits and masks */
 #define TI_INTSETUP_VECTOR_MASK   0x000000FF
 #define TI_INTSETUP_LEVEL_MASK    0x00000F00
 #define TI_INTSETUP_ENABLE        (1<<16)
 
-/* trigDelay bits and masks */
+/* 0xC trigDelay bits and masks */
 #define TI_TRIGDELAY_TRIG1_DELAY_MASK 0x000000FF
 #define TI_TRIGDELAY_TRIG1_WIDTH_MASK 0x0000FF00
 #define TI_TRIGDELAY_TRIG2_DELAY_MASK 0x00FF0000
 #define TI_TRIGDELAY_TRIG2_WIDTH_MASK 0xFF000000
 
-/* adr32 bits and masks */
+/* 0x10 adr32 bits and masks */
 #define TI_ADR32_MBLK_ADDR_MAX_MASK  0x000003FE
 #define TI_ADR32_MBLK_ADDR_MIN_MASK  0x003FC000
 #define TI_ADR32_BASE_MASK       0xFF800000
 
-/* blocklevel bits and masks */
+/* 0x14 blocklevel bits and masks */
 #define TI_BLOCKLEVEL_MASK           0x000000FF
+#define TI_BLOCKLEVEL_CURRENT_MASK   0x00FF0000
+#define TI_BLOCKLEVEL_RECEIVED_MASK  0xFF000000
 
-/* dataFormat bits and masks */
+
+/* 0x18 dataFormat bits and masks */
 #define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
 #define TI_DATAFORMAT_TIMING_WORD          (1<<1)
 #define TI_DATAFORMAT_STATUS_WORD          (1<<2)
 
-/* vmeControl bits and masks */
+/* 0x1C vmeControl bits and masks */
 #define TI_VMECONTROL_BERR           (1<<0)
 #define TI_VMECONTROL_TOKEN_TESTMODE (1<<1)
 #define TI_VMECONTROL_MBLK           (1<<2)
@@ -194,7 +212,7 @@ struct TI_A24RegStruct
 #define TI_VMECONTROL_LAST_BOARD     (1<<11)
 #define TI_VMECONTROL_BUFFER_DISABLE (1<<15)
 
-/* trigsrc bits and masks */
+/* 0x20 trigsrc bits and masks */
 #define TI_TRIGSRC_SOURCEMASK       0x0000F3FF
 #define TI_TRIGSRC_P0               (1<<0)
 #define TI_TRIGSRC_HFBR1            (1<<1)
@@ -210,7 +228,7 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_PART_4           (1<<15)
 #define TI_TRIGSRC_MONITOR_MASK     0xFFFF0000
 
-/* sync bits and masks */
+/* 0x24 sync bits and masks */
 #define TI_SYNC_SOURCEMASK              0x000000FF
 #define TI_SYNC_P0                      (1<<0)
 #define TI_SYNC_HFBR1                   (1<<1)
@@ -227,7 +245,7 @@ struct TI_A24RegStruct
 #define TI_SYNC_HISTORY_FIFO_FULL       (1<<22)
 #define TI_SYNC_MONITOR_MASK            0xFF000000
 
-/* busy bits and masks */
+/* 0x28 busy bits and masks */
 #define TI_BUSY_SOURCEMASK      0x0000FFFF
 #define TI_BUSY_SWA              (1<<0)
 #define TI_BUSY_SWB              (1<<1)
@@ -246,34 +264,51 @@ struct TI_A24RegStruct
 #define TI_BUSY_HFBR7            (1<<14)
 #define TI_BUSY_HFBR8            (1<<15)
 #define TI_BUSY_MONITOR_MASK     0xFFFF0000
+#define TI_BUSY_MONITOR_SWA      (1<<16)
+#define TI_BUSY_MONITOR_SWB      (1<<17)
+#define TI_BUSY_MONITOR_P2       (1<<18)
+#define TI_BUSY_MONITOR_FP_FTDC  (1<<19)
+#define TI_BUSY_MONITOR_FP_FADC  (1<<20)
+#define TI_BUSY_MONITOR_FP       (1<<21)
+#define TI_BUSY_MONITOR_LOOPBACK (1<<23)
+#define TI_BUSY_MONITOR_HFBR1    (1<<24)
+#define TI_BUSY_MONITOR_HFBR2    (1<<25)
+#define TI_BUSY_MONITOR_HFBR3    (1<<26)
+#define TI_BUSY_MONITOR_HFBR4    (1<<27)
+#define TI_BUSY_MONITOR_HFBR5    (1<<28)
+#define TI_BUSY_MONITOR_HFBR6    (1<<29)
+#define TI_BUSY_MONITOR_HFBR7    (1<<30)
+#define TI_BUSY_MONITOR_HFBR8    (1<<31)
 
-/* clock bits and mask  */
+/* 0x2C clock bits and mask  */
 #define TI_CLOCK_INTERNAL    (0)
 #define TI_CLOCK_HFBR5       (1)
 #define TI_CLOCK_HFBR1       (2)
 #define TI_CLOCK_FP          (3)
 #define TI_CLOCK_MASK        0x0000000F
 
-/* trig1Prescale bits and masks */
+/* 0x30 trig1Prescale bits and masks */
 #define TI_TRIG1PRESCALE_MASK          0x0000FFFF
 
-/* blockBuffer bits and masks */
+/* 0x34 blockBuffer bits and masks */
 #define TI_BLOCKBUFFER_BUFFERLEVEL_MASK      0x000000FF
 #define TI_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
 #define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
 #define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
+#define TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT    (1<<28)
+#define TI_BLOCKBUFFER_SYNCRESET_REQUESTED   (1<<30)
 #define TI_BLOCKBUFFER_SYNCEVENT             (1<<31)
 
-/* triggerRule bits and masks */
+/* 0x38 triggerRule bits and masks */
 #define TI_TRIGGERRULE_RULE1_MASK 0x000000FF
 #define TI_TRIGGERRULE_RULE2_MASK 0x0000FF00
 #define TI_TRIGGERRULE_RULE3_MASK 0x00FF0000
 #define TI_TRIGGERRULE_RULE4_MASK 0xFF000000
 
-/* triggerWindow bits and masks */
+/* 0x3C triggerWindow bits and masks */
 #define TI_TRIGGERWINDOW_COINC_MASK 0x0000FFFF
 
-/* tsInput bits and masks */
+/* 0x48 tsInput bits and masks */
 #define TI_TSINPUT_MASK      0x0000003F
 #define TI_TSINPUT_1         (1<<0)
 #define TI_TSINPUT_2         (1<<1)
@@ -284,18 +319,18 @@ struct TI_A24RegStruct
 #define TI_TSINPUT_ALL       (0x3F)
 
 
-/* output bits and masks */
+/* 0x4C output bits and masks */
 #define TI_OUTPUT_MASK                 0x0000FFFF
 #define TI_OUTPUT_BLOCKS_READY_MASK    0x00FF0000
 #define TI_OUTPUT_EVENTS_IN_BLOCK_MASK 0xFF000000
 
-/* fiberSyncDelay bits and masks */
+/* 0x50 fiberSyncDelay bits and masks */
 #define TI_FIBERSYNCDELAY_HFBR1_SYNCPHASE_MASK    0x000000FF
 #define TI_FIBERSYNCDELAY_HFBR1_SYNCDELAY_MASK    0x0000FF00
 #define TI_FIBERSYNCDELAY_LOOPBACK_SYNCDELAY_MASK 0x00FF0000
 #define TI_FIBERSYNCDELAY_HFBR5_SYNCDELAY_MASK    0xFF000000
 
-/* syncCommand bits and masks */
+/* 0x78 syncCommand bits and masks */
 #define TI_SYNCCOMMAND_VME_CLOCKRESET      0x11
 #define TI_SYNCCOMMAND_CLK250_RESYNC       0x22
 #define TI_SYNCCOMMAND_AD9510_RESYNC       0x33
@@ -303,40 +338,48 @@ struct TI_A24RegStruct
 #define TI_SYNCCOMMAND_TRIGGERLINK_ENABLE  0x55
 #define TI_SYNCCOMMAND_TRIGGERLINK_DISABLE 0x77
 #define TI_SYNCCOMMAND_SYNCRESET_HIGH      0x99
+#define TI_SYNCCOMMAND_TRIGGER_READY_RESET 0xAA
+#define TI_SYNCCOMMAND_RESET_EVNUM         0xBB
 #define TI_SYNCCOMMAND_SYNCRESET_LOW       0xCC
 #define TI_SYNCCOMMAND_SYNCRESET           0xDD
 #define TI_SYNCCOMMAND_SYNCCODE_MASK       0x000000FF
 
-/* syncDelay bits and masks */
+/* 0x7C syncDelay bits and masks */
 #define TI_SYNCDELAY_MASK              0x0000007F
 
-/* syncWidth bits and masks */
+/* 0x80 syncWidth bits and masks */
 #define TI_SYNCWIDTH_MASK              0x7F
 #define TI_SYNCWIDTH_LONGWIDTH_ENABLE  (1<<7)
 
-/* triggerCommand bits and masks */
-#define TI_TRIGGERCOMMAND_CODE_MASK    0x00000FFF
+/* 0x84 triggerCommand bits and masks */
+#define TI_TRIGGERCOMMAND_VALUE_MASK     0x000000FF
+#define TI_TRIGGERCOMMAND_CODE_MASK      0x00000F00
+#define TI_TRIGGERCOMMAND_TRIG1          0x00000100
+#define TI_TRIGGERCOMMAND_TRIG2          0x00000200
+#define TI_TRIGGERCOMMAND_SYNC_EVENT     0x00000300
+#define TI_TRIGGERCOMMAND_SET_BLOCKLEVEL 0x00000800
 
-/* randomPulser bits and masks */
-#define TI_RANDOMPULSER_TRIG1_RATE_MASK 0x00000007
-#define TI_RANDOMPULSER_TRIG1_ENABLE    (1<<3)
-#define TI_RANDOMPULSER_TRIG2_RATE_MASK 0x00000700
-#define TI_RANDOMPULSER_TRIG2_ENABLE    (1<<11)
+/* 0x88 randomPulser bits and masks */
+#define TI_RANDOMPULSER_TRIG1_RATE_MASK 0x0000000F
+#define TI_RANDOMPULSER_TRIG1_ENABLE    (1<<7)
+#define TI_RANDOMPULSER_TRIG2_RATE_MASK 0x00000F00
+#define TI_RANDOMPULSER_TRIG2_ENABLE    (1<<15)
 
-/* fixedPulser1 bits and masks */
+/* 0x8C fixedPulser1 bits and masks */
 #define TI_FIXEDPULSER1_NTRIGGERS_MASK 0x0000FFFF
 #define TI_FIXEDPULSER1_PERIOD_MASK    0x7FFF0000
 #define TI_FIXEDPULSER1_PERIOD_RANGE   (1<<31)
 
-/* fixedPulser2 bits and masks */
+/* 0x90 fixedPulser2 bits and masks */
 #define TI_FIXEDPULSER2_NTRIGGERS_MASK 0x0000FFFF
 #define TI_FIXEDPULSER2_PERIOD_MASK    0x7FFF0000
 #define TI_FIXEDPULSER2_PERIOD_RANGE   (1<<31)
 
-/* nblocks bits and masks */
-#define TI_NBLOCKS_BLOCK_COUNT_MASK    0x00FFFFFF
+/* 0x94 nblocks bits and masks */
+#define TI_NBLOCKS_COUNT_MASK           0x00FFFFFF
+#define TI_NBLOCKS_EVENTS_IN_BLOCK_MASK 0xFF000000
 
-/* syncHistory bits and masks */
+/* 0x98 syncHistory bits and masks */
 #define TI_SYNCHISTORY_HFBR1_CODE_MASK     0x0000000F
 #define TI_SYNCHISTORY_HFBR1_CODE_VALID    (1<<4)
 #define TI_SYNCHISTORY_HFBR5_CODE_MASK     0x000001E0
@@ -346,62 +389,41 @@ struct TI_A24RegStruct
 #define TI_SYNCHISTORY_TIMESTAMP_OVERFLOW  (1<<15)
 #define TI_SYNCHISTORY_TIMESTAMP_MASK      0xFFFF0000
 
-/* runningMode settings */
+/* 0x9C runningMode settings */
 #define TI_RUNNINGMODE_ENABLE          0x71
 #define TI_RUNNINGMODE_DISABLE         0x0
 
-/* fiberLatencyMeasurement bits and masks */
+/* 0xA0 fiberLatencyMeasurement bits and masks */
 #define TI_FIBERLATENCYMEASUREMENT_CARRYCHAIN_MASK 0x0000FFFF
 #define TI_FIBERLATENCYMEASUREMENT_IODELAY_MASK    0x00FF0000
 #define TI_FIBERLATENCYMEASUREMENT_DATA_MASK       0xFF000000
 
-/* fiberAlignment bits and masks */
+/* 0xA4 fiberAlignment bits and masks */
 #define TI_FIBERALIGNMENT_HFBR1_IODELAY_MASK   0x000000FF
 #define TI_FIBERALIGNMENT_HFBR1_SYNCDELAY_MASK 0x0000FF00
 #define TI_FIBERALIGNMENT_HFBR5_IODELAY_MASK   0x00FF0000
 #define TI_FIBERALIGNMENT_HFBR5_SYNCDELAY_MASK 0xFF000000
 
-#ifdef TSONLY
-/* GTPStatusA bits and masks */
-#define TI_GTPSTATUSA_RESET_DONE_MASK 0x000000FF
-#define TI_GTPSTATUSA_PLL_LOCK_MASK   0x00000F00
-
-/* GTPStatusB bits and masks */
-#define TI_GTPSTATUSB_CHANNEL_BONDING_MASK         0x000000FF
-#define TI_GTPSTATUSB_DATA_ERROR_MASK              0x0000FF00
-#define TI_GTPSTATUSB_DISPARITY_ERROR_MASK         0x00FF0000
-#define TI_GTPSTATUSB_DATA_NOT_IN_TABLE_ERROR_MASK 0xFF000000
-
-/* GTPtriggerBufferLength bits and masks */
-#define TI_GTPTRIGGERBUFFERLENGTH_GLOBAL_LENGTH_MASK 0x000007FF
-#define TI_GTPTRIGGERBUFFERLENGTH_SUBSYS_LENGTH_MASK 0x07FF0000
-#define TI_GTPTRIGGERBUFFERLENGTH_HFBR1_MGT_ERROR    (1<<28)
-#define TI_GTPTRIGGERBUFFERLENGTH_CLK250_DCM_LOCK    (1<<29)
-#define TI_GTPTRIGGERBUFFERLENGTH_CLK125_DCM_LOCK    (1<<30)
-#define TI_GTPTRIGGERBUFFERLENGTH_VMECLK_DCM_LOCK    (1<<31)
-#endif /* TSONLY */
-
-/* blockStatus bits and masks */
+/* 0xC0 blockStatus bits and masks */
 #define TI_BLOCKSTATUS_NBLOCKS_READY0    0x000000FF
 #define TI_BLOCKSTATUS_NBLOCKS_NEEDACK0  0x0000FF00
 #define TI_BLOCKSTATUS_NBLOCKS_READY1    0x00FF0000
 #define TI_BLOCKSTATUS_NBLOCKS_NEEDACK1  0xFF000000
 
-/* adr24 bits and masks */
+/* 0xD0 adr24 bits and masks */
 #define TI_ADR24_ADDRESS_MASK         0x0000001F
 #define TI_ADR24_HARDWARE_SET_MASK    0x000003E0
 #define TI_ADR24_TM_NBLOCKS_READY1    0x00FF0000
 #define TI_ADR24_TM_NBLOCKS_NEEDACK1  0xFF000000
 
-/* syncEventCtrl bits and masks */
+/* 0xD4 syncEventCtrl bits and masks */
 #define TI_SYNCEVENTCTRL_NBLOCKS_MASK 0x0000FFFF
 #define TI_SYNCEVENTCTRL_ENABLE       0x005A0000
 
-/* scalerLatchControl bits and masks */
-#define TI_SCALERCTRL_FP_LATCH_ENABLE  (1<<0)
-#define TI_SCALERCTRL_FP_RESET_ENABLE  (1<<1)
+/* 0xD8 eventNumber_hi bits and masks */
+#define TI_EVENTNUMBER_HI_MASK        0xFFFF0000
 
-/* reset bits and masks */
+/* 0x100 reset bits and masks */
 #define TI_RESET_I2C                  (1<<1)
 #define TI_RESET_JTAG                 (1<<2)
 #define TI_RESET_SFM                  (1<<3)
@@ -421,8 +443,10 @@ struct TI_A24RegStruct
 #define TI_RESET_TAKE_TOKEN           (1<<16)
 #define TI_RESET_BLOCK_READOUT        (1<<17)
 #define TI_RESET_FORCE_SYNCEVENT      (1<<20)
+#define TI_RESET_SYNCRESET_REQUEST    (1<<23)
 #define TI_RESET_SCALERS_LATCH        (1<<24)
 #define TI_RESET_SCALERS_RESET        (1<<25)
+#define TI_RESET_FILL_TO_END_BLOCK    (1<<31)
 
 /* Trigger Sources, used by tiSetTriggerSource  */
 #define TI_TRIGGER_P0        0
@@ -447,7 +471,10 @@ struct TI_A24RegStruct
 #define TI_I2C_8BIT_DATA_MASK        0x000000ff
 
 /* Data buffer bits and masks */
-#define TI_DUMMY_DATA                      0xDECEA5ED
+#define TI_DATA_TYPE_DEFINE_MASK           0x80000000
+#define TI_WORD_TYPE_MASK                  0x78000000
+#define TI_FILLER_WORD_TYPE                0xF8000000
+#define TI_BLOCK_HEADER_WORD_TYPE          0x80000000
 #define TI_EMPTY_FIFO                      0xF0BAD0F0
 #define TI_BLOCK_HEADER_CRATEID_MASK       0xFF000000
 #define TI_BLOCK_HEADER_SLOTS_MASK         0x001F0000
@@ -468,34 +495,42 @@ int  tiClockResync();
 int  tiReset();
 int  tiSetCrateID(unsigned int crateID);
 int  tiSetBlockLevel(unsigned int blockLevel);
+int  tiSetBlockLevel(unsigned int blockLevel);
+int  tiGetNextBlockLevel();
 int  tiSetTriggerSource(int trig);
 int  tiSetTriggerSourceMask(int trigmask);
 int  tiEnableTriggerSource();
-int  tiDisableTriggerSource();
+int  tiDisableTriggerSource(int fflag);
 int  tiSetSyncSource(unsigned int sync);
 int  tiSetEventFormat(int format);
 int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range);
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
+int  tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
 void tiEnableBusError();
 void tiDisableBusError();
 int  tiPayloadPort2VMESlot(int payloadport);
-int  tiPayloadPortMask2VMESlotMask(int payloadport_mask);
+unsigned int  tiPayloadPortMask2VMESlotMask(unsigned int ppmask);
 int  tiVMESlot2PayloadPort(int vmeslot);
-int  tiVMESlotMask2PayloadPortMask(int vmeslot_mask);
+unsigned int  tiVMESlotMask2PayloadPortMask(unsigned int vmemask);
 int  tiSetPrescale(int prescale);
 int  tiGetPrescale();
 int  tiSetTriggerPulse(int trigger, int delay, int width);
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
 void tiSyncReset();
+void tiSyncResetResync();
 void tiClockReset();
 int  tiSetAdr32(unsigned int a32base);
 int  tiDisableA32();
+int  tiResetEventCounter();
+unsigned long long int tiGetEventCounter();
+int  tiSetBlockLimit(unsigned int limit);
+unsigned int  tiGetBlockLimit();
 unsigned int  tiBReady();
 int  tiGetSyncEventFlag();
 int  tiGetSyncEventReceived();
@@ -517,9 +552,10 @@ int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
 int  tiLoadTriggerTable(int mode);
+int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
-
+int  tiLive(int sflag);
 unsigned int tiGetDaqStatus();
 int  tiVmeTrigger1();
 int  tiVmeTrigger2();
@@ -534,6 +570,14 @@ int  tiGetSyncHistoryBufferStatus(int pflag);
 void tiResetSyncHistory();
 void tiUserSyncReset(int enable);
 void tiPrintSyncHistory();
+int  tiSetSyncEventInterval(int blk_interval);
+int  tiForceSyncEvent();
+int  tiSyncResetRequest();
+int  tiGetSyncResetRequest();
+void tiTriggerReadyReset();
+int  tiFillToEndBlock();
+unsigned int tiGetGTPBufferLength(int pflag);
+
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
@@ -544,5 +588,8 @@ int  tiIntEnable(int iflag);
 void tiIntDisable();
 unsigned int  tiGetIntCount();
 
+/* Some token testing routines */
+int  tiSetTokenTestMode(int mode);
+int  tiSetTokenOutTest(int level);
 
 #endif /* TILIB_H */

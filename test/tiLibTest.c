@@ -21,6 +21,10 @@ DMA_MEM_ID vmeIN,vmeOUT;
 extern DMANODE *the_event;
 extern unsigned int *dma_dabufp;
 
+extern int tiA32Base;
+
+#define BLOCKLEVEL 10
+
 #define DO_READOUT
 
 /* Interrupt Service routine */
@@ -31,6 +35,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
+  int printout = 10/BLOCKLEVEL;
 
   unsigned int tiIntCount = tiGetIntCount();
 
@@ -59,9 +64,7 @@ mytiISR(int arg)
     }
 #endif
 
-  *dma_dabufp++;
-
-  dCnt = tiReadBlock(dma_dabufp,900>>2,1);
+  dCnt = tiReadTriggerBlock(dma_dabufp,3*BLOCKLEVEL+10,1);
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);
@@ -73,11 +76,11 @@ mytiISR(int arg)
     
     }
   PUTEVENT(vmeOUT);
-  
+
   outEvent = dmaPGetItem(vmeOUT);
 #define READOUT
 #ifdef READOUT
-  if(tiIntCount%4000==0)
+  if(tiIntCount%printout==0)
     {
       printf("Received %d triggers...\n",
 	     tiIntCount);
@@ -97,7 +100,7 @@ mytiISR(int arg)
   /*   tiResetBlockReadout(); */
 
 #endif /* DO_READOUT */
-  if(tiIntCount%4000==0)
+  if(tiIntCount%printout==0)
     printf("intCount = %d\n",tiIntCount );
 /*     sleep(1); */
 }
@@ -129,7 +132,7 @@ main(int argc, char *argv[]) {
   /* INIT dmaPList */
 
   dmaPFreeAll();
-  vmeIN  = dmaPCreate("vmeIN",1024,500,0);
+  vmeIN  = dmaPCreate("vmeIN",10244,500,0);
   vmeOUT = dmaPCreate("vmeOUT",0,0,0);
     
   dmaPStatsAll();
@@ -139,6 +142,7 @@ main(int argc, char *argv[]) {
   /*     gefVmeSetDebugFlags(vmeHdl,0x0); */
   /* Set the TI structure pointer */
   /*     tiInit((2<<19),TI_READOUT_EXT_POLL,0); */
+  tiA32Base=0x09000000;
   tiInit(0,TI_READOUT_EXT_POLL,0);
   tiCheckAddresses();
 
@@ -157,7 +161,7 @@ main(int argc, char *argv[]) {
   tiSetTriggerHoldoff(2,4,0);
 
   tiSetPrescale(0);
-  tiSetBlockLevel(1);
+  tiSetBlockLevel(BLOCKLEVEL);
 
   stat = tiIntConnect(TI_INT_VEC, mytiISR, 0);
   if (stat != OK) 
@@ -178,13 +182,15 @@ main(int argc, char *argv[]) {
   /*     tiSetGenInput(0xffff); */
   /*     tiSetGTPInput(0x0); */
 
-  tiSetBusySource(TI_BUSY_LOOPBACK,1);
+/*   tiSetBusySource(TI_BUSY_LOOPBACK,1); */
 
   tiSetBlockBufferLevel(1);
 
   tiSetFiberDelay(1,2);
   tiSetSyncDelayWidth(1,0x3f,1);
     
+  tiSetBlockLimit(1012);
+
   printf("Hit enter to reset stuff\n");
   getchar();
 
@@ -193,6 +199,9 @@ main(int argc, char *argv[]) {
   tiTrigLinkReset();
   taskDelay(1);
   tiEnableVXSSignals();
+
+  int again=0;
+ AGAIN:
   taskDelay(1);
   tiSyncReset();
 
@@ -208,8 +217,8 @@ main(int argc, char *argv[]) {
 #define SOFTTRIG
 #ifdef SOFTTRIG
   tiSetRandomTrigger(1,0x7);
-  taskDelay(10);
-  tiSoftTrig(1,0x1,0x700,0);
+/*   taskDelay(10); */
+/*   tiSoftTrig(1,0x1,0x700,0); */
 #endif
 
   printf("Hit any key to Disable TID and exit.\n");
@@ -227,9 +236,16 @@ main(int argc, char *argv[]) {
 
   tiIntDisconnect();
 
+  if(again==1)
+    {
+      again=0;
+      goto AGAIN;
+    }
+
 
  CLOSE:
 
+  dmaPFreeAll();
   vmeCloseDefaultWindows();
 
   exit(0);

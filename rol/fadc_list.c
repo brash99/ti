@@ -63,8 +63,8 @@ int FA_SLOT;                        /* We'll use this over and over again to pro
 unsigned int MAXFADCWORDS = 0;
 unsigned int MAXTIWORDS  = 0;
 
-/* Global Blocklevel (Number of events per block) */
-#define BLOCKLEVEL  1
+/* Default Global Blocklevel (Number of events per block) */
+unsigned int BLOCKLEVEL=1;
 #define BUFFERLEVEL 10
 
 /* function prototype */
@@ -129,8 +129,10 @@ rocDownload()
 
   tiSetFiberDelay(0x40,FIBER_LATENCY_OFFSET);
 
-  /* Set number of events per block */
+#ifdef TI_MASTER
+  /* Set number of events per block (if Master, will be broadcasted at end of Prestart)*/
   tiSetBlockLevel(BLOCKLEVEL);
+#endif
 
   tiSetEventFormat(1);
 
@@ -324,6 +326,12 @@ rocGo()
   int iwait=0;
   int islot, allchanup=0;
 
+  /* Get the current block level */
+  BLOCKLEVEL = tiGetCurrentBlockLevel();
+  printf("%s: Current Block Level = %d\n",
+	 __FUNCTION__,BLOCKLEVEL);
+
+
   ctpGetErrorLatchFS(1);
 
   for(islot=0;islot<NFADC;islot++)
@@ -331,6 +339,7 @@ rocGo()
       FA_SLOT = fadcID[islot];
       faChanDisable(FA_SLOT,0x0);
       faSetMGTTestMode(FA_SLOT,1);
+      faSetBlockLevel(FA_SLOT,BLOCKLEVEL);
     }
 
   while(allchanup  != (0x7) )
