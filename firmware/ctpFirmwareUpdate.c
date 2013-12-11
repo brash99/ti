@@ -38,7 +38,7 @@ static void tiFirmwareUsage();
 
 int
 #ifdef VXWORKS
-ctpFirmwareUpdate(unsigned int arg_vmeAddr, char *arg_filename, arg_ifpga)
+ctpFirmwareUpdate(unsigned int arg_vmeAddr, char *arg_filename, int arg_ifpga)
 #else
 main(int argc, char *argv[])
 #endif
@@ -48,7 +48,8 @@ main(int argc, char *argv[])
   char *filename;
   int inputchar=10;
   unsigned int vme_addr=0;
-  int reboot=0;
+  int reboot=1;
+  int nbytes=0; int nsectors=0;
   
   printf("\nTI firmware update via VME\n");
   printf("----------------------------\n");
@@ -81,6 +82,22 @@ main(int argc, char *argv[])
     goto CLOSE;
 #endif
 
+#ifdef SKIPTHIS
+  printf("Enter number of bytes to use from firmware file (0 for all): ");
+  scanf("%d",&nbytes);
+  if(nbytes>0)
+    ctpSetFWSize(nbytes);
+  else
+    printf(" ..will use full firmware size\n");
+
+  printf("Enter number of sectors to erase (0 for all): ");
+  scanf("%d",&nsectors);
+  if(nsectors>0)
+    ctpSetNSectorErase(nsectors);
+  else
+    printf(" ..will erase all sectors\n");
+#endif
+
   stat = tiInit(vme_addr,0,1);
   if(stat != OK)
     {
@@ -97,6 +114,33 @@ main(int argc, char *argv[])
       goto CLOSE;
     }
 
+  char ctpSN[20];
+
+  stat = ctpGetSerialNumber((char **)&ctpSN);
+  if(stat>0)
+    printf("CTP Serial Number : %s\n",ctpSN);
+  else
+    printf("ERROR getting serial number (returned %d)\n",stat);
+
+  printf("Proceed with the CTP Firmware update?\n");
+ REPEAT:
+  printf(" (y/n): ");
+  inputchar = getchar();
+  
+  if((inputchar == 'n') || (inputchar == 'N'))
+    {
+      printf("--- Exiting without update ---\n");
+      goto CLOSE;
+    }
+  else if((inputchar == 'y') || (inputchar == 'Y'))
+    {
+      printf("--- Continuing with update ---\n");
+    }
+  else
+    {
+      goto REPEAT;
+    }
+  
   stat = ctpFirmwareUpload(filename,ifpga,reboot);
   if(stat != OK)
     {
