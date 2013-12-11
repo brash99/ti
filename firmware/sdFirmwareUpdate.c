@@ -40,11 +40,13 @@ int
 main(int argc, char *argv[])
 #endif
 {
-  int res;
+  int res=0;
   char firmware_filename[50];
+#ifdef WRITESERIALNUMBER
   unsigned int serial_number=0;
   unsigned int hall_board_version=0;
   unsigned int firmware_version=0;
+#endif
   int inputchar=10;
 
   printf("\nJLAB Signal Distribution (SD) Firmware Update\n");
@@ -55,6 +57,7 @@ main(int argc, char *argv[])
 #else
   strncpy(bin_name,argv[0],50);
 
+#ifdef WRITESERIALNUMBER
   if(argc<5)
     {
       printf(" ERROR: Must specify four (4) arguments\n");
@@ -68,8 +71,21 @@ main(int argc, char *argv[])
       hall_board_version = (unsigned int) strtoll(argv[3],NULL,16)&0xffffffff;
       firmware_version = (unsigned int) strtoll(argv[4],NULL,16)&0xffffffff;
     }
+#else
+  if(argc<2)
+    {
+      printf(" ERROR: Must specify two (2) arguments\n");
+      Usage();
+      exit(-1);
+    }
+  else
+    {
+      strncpy(firmware_filename,argv[1],50);
+    }
 #endif
+#endif // VXWORKS
 
+#ifdef WRITESERIALNUMBER
   /* Check on provided items */
   if(serial_number<1 || serial_number>255)
     {
@@ -97,6 +113,9 @@ main(int argc, char *argv[])
   printf("\n");
 
   printf(" Please verify these items before continuing... \n");
+#else
+  printf("Firmware File                   = %s\n",firmware_filename);
+#endif
   printf("\n");
   printf(" <ENTER> to continue... or q and <ENTER> to quit without update\n");
 
@@ -105,7 +124,8 @@ main(int argc, char *argv[])
   if((inputchar == 113) ||
      (inputchar == 81))
     {
-      printf(" Exitting without update\n");
+      printf(" Exiting without update\n");
+      res=1;
       goto CLOSE;
     }
 
@@ -143,9 +163,11 @@ main(int argc, char *argv[])
 /*     goto CLOSE; */
 
   sdFirmwareFlushFifo();
+#ifdef WRITESERIALNUMBER
   sdFirmwareWriteSpecs(0x7F0000,serial_number,hall_board_version,firmware_version);
   sleep(3);
   sdFirmwarePrintSpecs();
+#endif
 
  CLOSE:
 
@@ -155,10 +177,11 @@ main(int argc, char *argv[])
 #endif
 
   printf("\n");
-  if(res!=OK)
+  if(res==ERROR)
     printf(" ******** SD Update ended in ERROR! ******** \n");
-  else
+  else if (res==OK)
     printf(" ++++++++ SD Update Successful! ++++++++\n");
+  
 
   printf("\n");
   return OK;
@@ -168,6 +191,7 @@ void
 Usage()
 {
   printf("\n");
+#ifdef WRITESERIALNUMBER
   printf("%s <firmware rbf file> <serial number (dec)> \\\n\t <assigned Hall & Version (hex)> <Firmware Version (hex)>\n",
 	 bin_name);
   printf("\n");
@@ -176,5 +200,14 @@ Usage()
   printf("  ... OR ...\n");
   printf("%s SD_A4_Production.rbf 8 0xB4 0xA4\n",bin_name);
   printf("\n");
+#else
+  printf("%s <firmware rbf file>\n",
+	 bin_name);
+  printf("\n");
+  printf("  For Example:\n");
+  printf("%s SD_A4_Production.rbf\n",bin_name);
+  printf("\n");
+
+#endif
 
 }
