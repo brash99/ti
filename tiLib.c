@@ -2190,7 +2190,7 @@ tiPayloadPortMask2VMESlotMask(unsigned int ppmask)
   for(ipp=0; ipp<18; ipp++)
     {
       if(ppmask & (1<<ipp))
-	vmemask |= tiPayloadPort2VMESlot(ipp+1);
+	vmemask |= (1<<tiPayloadPort2VMESlot(ipp+1));
     }
 
   return vmemask;
@@ -4230,6 +4230,53 @@ tiGetTrigSrcEnabledFiberMask()
   return rval;
 }
 
+unsigned int
+tiGetSWAStatus(int reg)
+{
+  unsigned int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  if(reg>=128)
+    {
+      printf("%s: ERROR: SWA reg (0x%x) out of range.\n",
+	     __FUNCTION__,reg);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->SWA_status[reg]);
+  TIUNLOCK;
+
+  return rval;
+}
+
+unsigned int
+tiGetSWBStatus(int reg)
+{
+  unsigned int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  if(reg>=128)
+    {
+      printf("%s: ERROR: SWB reg (0x%x) out of range.\n",
+	     __FUNCTION__,reg);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->SWB_status[reg]);
+  TIUNLOCK;
+
+  return rval;
+}
 
 /*************************************************************
  Library Interrupt/Polling routines
@@ -4764,21 +4811,26 @@ tiGetIntCount()
 }
 
 int
-tiGetSWBBusy()
+tiGetSWBBusy(int pflag)
 {
   unsigned int rval=0;
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return 0;
+      return ERROR;
     }
   
   TILOCK;
   rval = vmeRead32(&TIp->busy) & (TI_BUSY_SWB<<16);
 
-  printf("%s: busy = 0x%08x\n",
-	 __FUNCTION__,vmeRead32(&TIp->busy));
   TIUNLOCK;
+  
+  if(pflag)
+    {
+      printf("%s: SWB %s\n",
+	     __FUNCTION__,
+	     (rval)?"BUSY":"NOT BUSY");
+    }
 
   return rval;
 }

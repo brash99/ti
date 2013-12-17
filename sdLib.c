@@ -15,23 +15,20 @@
  * Description:
  *     Status and Control library for the JLAB Signal Distribution
  *     (SD) module using an i2c interface from the JLAB Trigger
- *     Interface/Distribution (TID) module.
+ *     Interface (TI) module.
  *
- *   This file is "included" in the tidLib.c
- *
- * SVN: $Rev$
+ *   This file is "included" in the tiLib.c
  *
  *----------------------------------------------------------------------------*/
 
 #include <stdlib.h>
-
-#define DEVEL
 
 /* This is the SD base relative to the TI base VME address */
 #define SDBASE 0x40000 
 
 /* Global Variables */
 volatile struct SDStruct  *SDp=NULL;    /* pointer to SD memory map */
+static int sdTestMode=0;                /* 1 if SD Jumper set to "test" mode */
 
 /* Firmware updating variables */
 #ifndef VXWORKSPPC
@@ -44,17 +41,32 @@ static size_t progFirmwareSize=0;
 /*
   sdInit
   - Initialize the Signal Distribution Module
+
+  Arguments:
+       flag  - Initialization flags
+          bits : description
+            0  : Ignore module version
+
 */
 int
-sdInit()
+sdInit(int flag)
 {
   unsigned long tiBase=0, sdBase=0;
   unsigned int version=0;
+  int testStatus=0;
+  int fIgnoreVersion=0;
 
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return ERROR;
+    }
+
+  if(flag & SD_INIT_IGNORE_VERSION)
+    {
+      fIgnoreVersion=1;
+      printf("%s: INFO: Initialization without respecting Library-Firmware version\n",
+	     __FUNCTION__);
     }
 
   /* Do something here to verify that we've got good i2c to the SD..
@@ -76,6 +88,7 @@ sdInit()
 
   TILOCK;
   version = vmeRead32(&SDp->version);
+  testStatus = (vmeRead32(&SDp->csrTest) & SD_CSRTEST_TEST_RESET)>>15;
   TIUNLOCK;
 
   if(version == 0xffff)
@@ -86,9 +99,33 @@ sdInit()
       return ERROR;
     }
 
+  if(version < SD_SUPPORTED_FIRMWARE)
+    {
+      if(fIgnoreVersion)
+	{
+	  printf("%s: WARN: SD Firmware Version (0x%x) not supported by this driver.\n",
+		 __FUNCTION__,version);
+	  printf("           Firmware version 0x%x required. (Ignored)\n",SD_SUPPORTED_FIRMWARE);
+	}
+      else
+	{
+	  printf("%s: ERROR: SD Firmware Version (0x%x) not supported by this driver.\n",
+		 __FUNCTION__,version);
+	  printf("           Firmware version 0x%x required.\n",SD_SUPPORTED_FIRMWARE);
+	  SDp = NULL;
+	  return ERROR;
+	}
+    }
+
   printf("%s: SD (version 0x%x) initialized at Local Base address 0x%lx\n",
 	 __FUNCTION__,version,(unsigned long) SDp);
-
+  if(testStatus)
+    {
+      sdTestMode=1;
+      printf("  INFO: **** TEST JUMPER IS INSTALLED ****\n");
+    }
+  else
+    sdTestMode=0;
 
   return OK;
 }
@@ -97,13 +134,21 @@ sdInit()
   sdStatus
   - Display status of SD registers
 
+  Arguments:
+      rflag : if >0 Show raw register output
+
 */
 int
-sdStatus()
+sdStatus(int rflag)
 {
   unsigned int system, status, payloadPorts, tokenPorts, 
     busyoutPorts, trigoutPorts,
     busyoutStatus, trigoutStatus;
+  unsigned int version, csrTest;
+  unsigned long tiBase, sdBase;
+  int ii=0, ibegin=0, iend=0;
+  int showVMEslots=1;
+  unsigned int vmeslotmask;
 
   if(SDp==NULL)
     {
@@ -123,71 +168,291 @@ sdStatus()
 #endif
   busyoutStatus = vmeRead32(&SDp->busyoutStatus);
   trigoutStatus = vmeRead32(&SDp->trigoutStatus);
+  version       = vmeRead32(&SDp->version);
+  csrTest       = vmeRead32(&SDp->csrTest);
+
+  tiBase = (unsigned long)TIp;
+  sdBase = (unsigned long)&(TIp->SWB[0]);
+
   TIUNLOCK;
+
+  if(showVMEslots==1)
+    {
+      ibegin=3; iend=21;
+    }
+  else
+    {
+      ibegin=1; iend=17;
+    }
   
-  printf("*** Signal Distribution Module Status ***\n");
-  printf("  Status Register = 0x%04x\n",status);
-  printf("  System Register = 0x%04x\n",system);
-#ifdef OLDMAP
-  printf("  Clock A:  ");
-  switch( (status&SD_STATUS_CLKA_FREQUENCY_MASK)>>2 )
+  printf("\n");
+  printf("STATUS for SD at TI (Local) base address 0x%08lx (0x%08lx) \n",sdBase-tiBase,sdBase);
+  printf("--------------------------------------------------------------------------------\n");
+  printf("  Firmware version = 0x%x\n",version);
+
+  if(rflag)
     {
-    case 0:
-      printf("  31.25 MHz  ");
-      break;
-    case 1:
-      printf("  62.50 MHz  ");
-      break;
-    case 2:
-      printf(" 125.00 MHz  ");
-      break;
-    case 3:
-      printf(" 250.00 MHz  ");
-      break;
+      printf("  System Register  = 0x%04x\n",system);
+      printf("  Status Register  = 0x%04x\n",status);
+      printf("  CSR Test Reg     = 0x%04x\n",csrTest);
+      printf("\n");
+  }
+
+  if(system & SD_SYSTEM_TI_LINK_ENABLE)
+    printf("  TI Fast Link INACTIVE\n");
+  else
+    printf("  TI Fast Link ACTIVE\n");
+  if(version>=0xa5)
+    {
+      if( (status & SD_STATUS_POWER_FAULT)==0 ) 
+	{
+	  printf("  *** Power Fault Detected ***\n");
+	}
     }
-  switch( (status&SD_STATUS_CLKA_BYPASS_MODE) )
+  else /* Version 0xA4 */
     {
-    case 0:
-      printf("  Attenuated Mode  ");
-      break;
-    case 1:
-      printf("  Bypass Mode  ");
-      break;
+      if( status & SD_STATUS_POWER_FAULT ) 
+	{
+	  printf("  *** Power Fault Detected ***\n");
+	}
     }
   printf("\n");
 
-  printf("  Clock B:  ");
-  switch( (status&SD_STATUS_CLKB_FREQUENCY_MASK)>>6 )
+  printf("  Clock settings:  \n");
+  printf("    A: ");
+  if(system & SD_SYSTEM_CLKA_BYPASS_MODE)
+    printf("Bypass Mode\n");
+  else
     {
-    case 0:
-      printf("  31.25 MHz  ");
-      break;
-    case 1:
-      printf("  62.50 MHz  ");
-      break;
-    case 2:
-      printf(" 125.00 MHz  ");
-      break;
-    case 3:
-      printf(" 250.00 MHz  ");
-      break;
+      printf("PLL set for ");
+
+      switch( (system&SD_SYSTEM_CLKA_FREQUENCY_MASK)>>2 )
+	{
+	case 0:
+	  printf("Undefined");
+	  break;
+	case 1:
+	  printf("31.25 MHz");
+	  break;
+	case 2:
+	  printf("125.00 MHz");
+	  break;
+	case 3:
+	  printf("250.00 MHz");
+	  break;
+	}
+      printf("\n");
     }
-  switch( (status&SD_STATUS_CLKB_BYPASS_MODE) )
+  printf("    B: ");
+  if(system & SD_SYSTEM_CLKB_BYPASS_MODE)
+    printf("Bypass Mode\n");
+  else
     {
-    case 0:
-      printf("  Attenuated Mode  ");
+      printf("PLL set for ");
+
+      switch( (system&SD_SYSTEM_CLKB_FREQUENCY_MASK)>>6 )
+	{
+	case 0:
+	  printf("Undefined");
+	  break;
+	case 1:
+	  printf("31.25 MHz");
+	  break;
+	case 2:
+	  printf("125.00 MHz");
+	  break;
+	case 3:
+	  printf("250.00 MHz");
+	  break;
+	}
+      printf("\n");
+    }
+  printf("\n");
+      
+  printf("  Detected Clock:  \n");
+  printf("    A: ");
+  switch( status&SD_STATUS_CLKA_DETECTED_MASK )
+    {
+    case SD_STATUS_CLKA_DETECTED_UNKNOWN:
+      printf("UNKNOWN");
       break;
-    case 1:
-      printf("  Bypass Mode  ");
+    case SD_STATUS_CLKA_DETECTED_31_25:
+      printf("31.25 MHz");
+      break;
+    case SD_STATUS_CLKA_DETECTED_125:
+      printf("125.00 MHz");
+      break;
+    case SD_STATUS_CLKA_DETECTED_250:
+      printf("250.00 MHz");
       break;
     }
   printf("\n");
-#endif
+  printf("    B: ");
+  switch( (status&SD_STATUS_CLKB_DETECTED_MASK) )
+    {
+    case SD_STATUS_CLKB_DETECTED_UNKNOWN:
+      printf("UNKNOWN");
+      break;
+    case SD_STATUS_CLKB_DETECTED_31_25:
+      printf("31.25 MHz");
+      break;
+    case SD_STATUS_CLKB_DETECTED_125:
+      printf("125.00 MHz");
+      break;
+    case SD_STATUS_CLKB_DETECTED_250:
+      printf("250.00 MHz");
+      break;
+    }
+  printf("\n\n");
 
-  printf("  Payload Boards Mask = 0x%08x   Token Passing Boards Mask = 0x%08x\n",
-	 payloadPorts,tokenPorts);
-  printf("  BusyOut Boards Mask = 0x%08x   TrigOut Boards Mask       = 0x%08x\n",
-	 busyoutPorts,trigoutPorts);
+  printf("  Clock STATUS:  \n");
+  printf("    A: ");
+  switch( status& (SD_STATUS_CLKA_LOSS_OF_SIGNAL | SD_STATUS_CLKA_LOSS_OF_LOCK) )
+    {
+    case 0:
+      printf("Normal");
+      break;
+    case SD_STATUS_CLKA_LOSS_OF_SIGNAL:
+      printf("*** Loss of Signal ***");
+      break;
+    case SD_STATUS_CLKA_LOSS_OF_LOCK:
+      printf("*** Loss of Lock ***");
+      break;
+    case (SD_STATUS_CLKA_LOSS_OF_SIGNAL|SD_STATUS_CLKA_LOSS_OF_LOCK):
+      printf("*** Loss of Signal and Lock ***");
+      break;
+    }
+  printf("\n");
+  printf("    B: ");
+  switch( status& (SD_STATUS_CLKB_LOSS_OF_SIGNAL | SD_STATUS_CLKB_LOSS_OF_LOCK) )
+    {
+    case 0:
+      printf("Normal");
+      break;
+    case SD_STATUS_CLKB_LOSS_OF_SIGNAL:
+      printf("*** Loss of Signal ***");
+      break;
+    case SD_STATUS_CLKB_LOSS_OF_LOCK:
+      printf("*** Loss of Lock ***");
+      break;
+    case (SD_STATUS_CLKB_LOSS_OF_SIGNAL|SD_STATUS_CLKB_LOSS_OF_LOCK):
+      printf("*** Loss of Signal and Lock ***");
+      break;
+    }
+  printf("\n\n");
+	 
+  if(rflag)
+    {
+      printf("  Payload Boards Mask = 0x%04x   Token Passing Boards Mask = 0x%04x\n",
+	     payloadPorts,tokenPorts);
+      printf("  BusyOut Boards Mask = 0x%04x   TrigOut Boards Mask       = 0x%04x\n",
+	     busyoutPorts,trigoutPorts);
+      printf("\n");
+    }
+
+  if(showVMEslots==1)
+    printf("  VME Slots Enabled: \n\t");
+  else
+    printf("  Payload ports Enabled: \n\t");
+
+  vmeslotmask = tiPayloadPortMask2VMESlotMask(payloadPorts);
+  printf("    ");
+  for(ii=ibegin; ii<iend; ii++)
+    {
+      if(showVMEslots==1)
+	{
+	  if(vmeslotmask & (1<<ii))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+      else
+	{
+	  if(payloadPorts & (1<<(ii-1)))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+    }
+  printf("\n");
+
+  if(showVMEslots==1)
+    printf("  Token VME Slots Enabled: \n\t");
+  else
+    printf("  Token Payload ports Enabled: \n\t");
+
+  vmeslotmask = tiPayloadPortMask2VMESlotMask(tokenPorts);
+  printf("    ");
+  for(ii=ibegin; ii<iend; ii++)
+    {
+      if(showVMEslots==1)
+	{
+	  if(vmeslotmask & (1<<ii))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+      else
+	{
+	  if(tokenPorts & (1<<(ii-1)))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+    }
+  printf("\n");
+
+  if(showVMEslots==1)
+    printf("  BusyOut VME Slots Enabled: \n\t");
+  else
+    printf("  BusyOut Payload ports Enabled: \n\t");
+
+  vmeslotmask = tiPayloadPortMask2VMESlotMask(busyoutPorts);
+  printf("    ");
+  for(ii=ibegin; ii<iend; ii++)
+    {
+      if(showVMEslots==1)
+	{
+	  if(vmeslotmask & (1<<ii))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+      else
+	{
+	  if(busyoutPorts & (1<<(ii-1)))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+    }
+  printf("\n");
+
+  if(showVMEslots==1)
+    printf("  Trigout VME Slots Enabled: \n\t");
+  else
+    printf("  Trigout Payload ports Enabled: \n\t");
+
+  vmeslotmask = tiPayloadPortMask2VMESlotMask(trigoutPorts);
+  printf("    ");
+  for(ii=ibegin; ii<iend; ii++)
+    {
+      if(showVMEslots==1)
+	{
+	  if(vmeslotmask & (1<<ii))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+      else
+	{
+	  if(trigoutPorts & (1<<(ii-1)))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+    }
+  printf("\n\n");
 
 #ifdef OLDMAP
   if( status2 & SD_STATUS2_POWER_FAULT ) 
@@ -227,27 +492,116 @@ sdStatus()
     }
 #endif
 
-  printf("  Busyout State Mask  = 0x%08x   TrigOut State Mask        = 0x%08x\n",
-	 busyoutStatus,trigoutStatus);
+  if(rflag)
+    {
+      printf("  Busyout State Mask  = 0x%04x   TrigOut State Mask        = 0x%04x\n",
+	     busyoutStatus,trigoutStatus);
+      printf("\n");
+    }
 
+  if(status & SD_STATUS_BUSYOUT)
+    {
+      printf("  At least one module has asserted BUSY since last read\n");
+    }
+  if(showVMEslots==1)
+    printf("  VME Slots Busy Status High: \n\t");
+  else
+    printf("  Payload ports Busy Status High: \n\t");
+
+  vmeslotmask = tiPayloadPortMask2VMESlotMask(busyoutStatus);
+  printf("    ");
+  for(ii=ibegin; ii<iend; ii++)
+    {
+      if(showVMEslots==1)
+	{
+	  if(vmeslotmask & (1<<ii))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+      else
+	{
+	  if(busyoutStatus & (1<<(ii-1)))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+    }
+  printf("\n\n");
+
+  if(status & SD_STATUS_TRIGOUT)
+    {
+      printf("  At least one module has asserted TrigOut since last read\n");
+    }
+  if(showVMEslots==1)
+    printf("  VME Slots TrigOut Status High : \n\t");
+  else
+    printf("  Payload ports TrigOut Status High: \n\t");
+
+  vmeslotmask = tiPayloadPortMask2VMESlotMask(trigoutStatus);
+  printf("    ");
+  for(ii=ibegin; ii<iend; ii++)
+    {
+      if(showVMEslots==1)
+	{
+	  if(vmeslotmask & (1<<ii))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+      else
+	{
+	  if(trigoutStatus & (1<<(ii-1)))
+	    printf("%2d ",ii);
+	  else
+	    printf("   ");
+	}
+    }
+  printf("\n\n");
+  
+
+  printf("--------------------------------------------------------------------------------\n");
+  printf("\n\n");
   return OK;
 }
 
+int
+sdGetFirmwareVersion(int pflag)
+{
+  int version=0;
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  version = vmeRead32(&SDp->version) & 0xFFFF;
+  TIUNLOCK;
+
+  if(pflag)
+    {
+      printf("%s: Firmware Version 0x%x\n",
+	     __FUNCTION__,version);
+    }
+
+  return version;
+}
+
 /*
-  sdSetClockFrequency
-  - Set the Clock Frequency of A/B/Both
+  sdSetPLLClockFrequency
+  - Set the PLL Clock Frequency of A/B/Both
     iclk  : 0 for A
             1 for B
 	    2 for Both
-    ifreq : 0 for 31.25 MHz
-            1 for 62.50 MHz
+    ifreq : 1 for 31.25 MHz
 	    2 for 125.00 MHz
 	    3 for 250.00 MHz
 
 */
 
 int
-sdSetClockFrequency(int iclk, int ifreq)
+sdSetPLLClockFrequency(int iclk, int ifreq)
 {
   if(SDp==NULL)
     {
@@ -260,22 +614,22 @@ sdSetClockFrequency(int iclk, int ifreq)
 	     __FUNCTION__,iclk);
       return ERROR;
     }
-  if(ifreq<0 || ifreq>3)
+  if(ifreq<1 || ifreq>3)
     {
-      printf("%s: ERROR: Invalid value of ifreq (%d).  Must be 0, 1, 2, or 3.\n",
+      printf("%s: ERROR: Invalid value of ifreq (%d).  Must be 1, 2, or 3.\n",
 	     __FUNCTION__,ifreq);
       return ERROR;
     }
 
   TILOCK;
   if(iclk==0 || iclk==2)
-    vmeWrite32(&SDp->status,
-	     (vmeRead32(&SDp->status) & ~(SD_STATUS_CLKA_FREQUENCY_MASK)) |
+    vmeWrite32(&SDp->system,
+	     (vmeRead32(&SDp->system) & ~(SD_SYSTEM_CLKA_FREQUENCY_MASK)) |
 	     (ifreq<<2) );
 
   if(iclk==1 || iclk==2)
-    vmeWrite32(&SDp->status,
-	     (vmeRead32(&SDp->status) & ~(SD_STATUS_CLKB_FREQUENCY_MASK)) |
+    vmeWrite32(&SDp->system,
+	     (vmeRead32(&SDp->system) & ~(SD_SYSTEM_CLKB_FREQUENCY_MASK)) |
 	     (ifreq<<6) );
   TIUNLOCK;
 
@@ -283,19 +637,18 @@ sdSetClockFrequency(int iclk, int ifreq)
 }
 
 /*
-  sdGetClockFrequency
-  - Return the clock frequency for the selected iclk
+  sdGetPLLClockFrequency
+  - Return the PLL clock frequency for the selected iclk 
     iclk  : 0 for A
             1 for B
 
-    returns : 0 for 31.25 MHz
-              1 for 62.50 MHz
+    returns : 1 for 31.25 MHz
 	      2 for 125.00 MHz
 	      3 for 250.00 MHz
 
 */
 int
-sdGetClockFrequency(int iclk)
+sdGetPLLClockFrequency(int iclk)
 {
   int rval;
   if(SDp==NULL)
@@ -312,23 +665,81 @@ sdGetClockFrequency(int iclk)
 
   TILOCK;
   if(iclk==0)
-    rval = (vmeRead32(&SDp->status) & (SD_STATUS_CLKA_FREQUENCY_MASK))>>2;
+    rval = (vmeRead32(&SDp->system) & (SD_SYSTEM_CLKA_FREQUENCY_MASK))>>2;
   else
-    rval = (vmeRead32(&SDp->status) & (SD_STATUS_CLKB_FREQUENCY_MASK))>>6;
+    rval = (vmeRead32(&SDp->system) & (SD_SYSTEM_CLKB_FREQUENCY_MASK))>>6;
   TIUNLOCK;
 
   return rval;
 }
 
 /*
-  sdSetClockMode
-  - Select whether the Clock fanned out will be jitter attenuated or
-    as received from the TI(D)
+  sdGetClockFrequency
+  - Return the detected clock frequency for the selected iclk 
     iclk  : 0 for A
             1 for B
 
-    imode : 0 for Attentuated mode
-            1 for Bypass mode    
+    returns : 0 for undefined
+              1 for 31.25 MHz
+	      2 for 125.00 MHz
+	      3 for 250.00 MHz
+
+*/
+int
+sdGetClockFrequency(int iclk, int pflag)
+{
+  int rval;
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  if(iclk<0 || iclk>1)
+    {
+      printf("%s: ERROR: Invalid value of iclk (%d).  Must be 0 or 1.\n",
+	     __FUNCTION__,iclk);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(iclk==0)
+    rval = (vmeRead32(&SDp->status) & (SD_STATUS_CLKA_DETECTED_MASK))>>8;
+  else
+    rval = (vmeRead32(&SDp->status) & (SD_STATUS_CLKB_DETECTED_MASK))>>10;
+  TIUNLOCK;
+
+  if(pflag)
+    {
+      printf("%s: Detected Clock Frequency = ",__FUNCTION__);
+      switch(rval)
+	{
+	case 1:
+	  printf(" 31.25 MHz\n");
+	  break;
+	case 2:
+	  printf(" 125 MHz\n");
+	  break;
+	case 3:
+	  printf(" 250 MHz\n");
+	  break;
+	case 0:
+	default:
+	  printf(" UNKNOWN\n");
+	}
+    }
+
+  return rval;
+}
+
+/*
+  sdSetClockMode
+  - Select whether the Clock fanned out will be jitter attenuated (PLL on) or
+    as received from the TI
+    iclk  : 0 for A
+            1 for B
+
+    imode : 0 for Bypass mode
+            1 for PLL mode
 */
 int
 sdSetClockMode(int iclk, int imode)
@@ -353,12 +764,12 @@ sdSetClockMode(int iclk, int imode)
 
   TILOCK;
   if(iclk==0)
-    vmeWrite32(&SDp->status,
-	     (vmeRead32(&SDp->status) & ~(SD_STATUS_CLKA_BYPASS_MODE)) |
+    vmeWrite32(&SDp->system,
+	     (vmeRead32(&SDp->system) & ~(SD_SYSTEM_CLKA_BYPASS_MODE)) |
 	     (imode<<0) );
   else
-    vmeWrite32(&SDp->status,
-	     (vmeRead32(&SDp->status) & ~(SD_STATUS_CLKB_BYPASS_MODE)) |
+    vmeWrite32(&SDp->system,
+	     (vmeRead32(&SDp->system) & ~(SD_SYSTEM_CLKB_BYPASS_MODE)) |
 	     (imode<<4) );
   TIUNLOCK;
 
@@ -367,13 +778,13 @@ sdSetClockMode(int iclk, int imode)
 
 /*
   sdGetClockMode
-  - Return whether the Clock fanned out will be jitter attenuated or
+  - Return whether the Clock fanned out will be jitter attenuated (PLL) or
     as received from the TI(D)
     iclk  : 0 for A
             1 for B
 
-    return : 0 for Attentuated mode
-             1 for Bypass mode    
+    return : 0 for Bypass mode
+             1 for PLL mode    
 */
 int
 sdGetClockMode(int iclk)
@@ -393,50 +804,17 @@ sdGetClockMode(int iclk)
 
   TILOCK;
   if(iclk==0)
-    rval = (vmeRead32(&SDp->status) & (SD_STATUS_CLKA_BYPASS_MODE));
+    rval = (vmeRead32(&SDp->system) & (SD_SYSTEM_CLKA_BYPASS_MODE));
   else
-    rval = (vmeRead32(&SDp->status) & (SD_STATUS_CLKB_BYPASS_MODE))>>4;
+    rval = (vmeRead32(&SDp->system) & (SD_SYSTEM_CLKB_BYPASS_MODE))>>4;
   TIUNLOCK;
 
   return rval;
 }
 
 /*
-  sdResetPLL
-  - Reset the PLL for a selected clock
-*/
-int
-sdResetPLL(int iclk)
-{
-  if(SDp==NULL)
-    {
-      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-  if(iclk<0 || iclk>1)
-    {
-      printf("%s: ERROR: Invalid value of iclk (%d).  Must be 0 or 1.\n",
-	     __FUNCTION__,iclk);
-      return ERROR;
-    }
-
-  TILOCK;
-  if(iclk==0)
-    vmeWrite32(&SDp->status,
-	     (vmeRead32(&SDp->status) & ~(SD_STATUS_CLKA_RESET)) |
-	     (SD_STATUS_CLKA_RESET) );
-  else
-    vmeWrite32(&SDp->status,
-	     (vmeRead32(&SDp->status) & ~(SD_STATUS_CLKB_RESET)) |
-	     (SD_STATUS_CLKB_RESET) );
-  TIUNLOCK;
-
-  return OK;
-}
-
-/*
   sdReset
-  - Reset the SD (System Reset)
+  - Reset the SD
 */
 int
 sdReset()
@@ -448,7 +826,11 @@ sdReset()
     }
 
   TILOCK;
-  vmeWrite32(&SDp->status,SD_STATUS_RESET);
+  vmeWrite32(&SDp->system,
+	     (vmeRead32(&SDp->system) & ~(SD_SYSTEM_TEST_RESET)) |
+	     SD_SYSTEM_TEST_RESET );
+  vmeWrite32(&SDp->system,
+	     (vmeRead32(&SDp->system) & ~(SD_SYSTEM_TEST_RESET)));
   TIUNLOCK;
 
   return OK;
@@ -613,6 +995,123 @@ sdGetBusyoutCounter(int ipayload)
 
 }
 
+int
+sdPrintBusyoutCounters()
+{
+  unsigned int counter=0;
+  int islot;
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  printf("-----------------\n");
+  printf("Slot:  Busy Count\n");
+  for(islot=3; islot<21; islot++)
+    {
+      if((islot==11) || (islot==12)) /* Skip the Switch Slots */
+	continue;
+      
+      counter = sdGetBusyoutCounter(tiVMESlot2PayloadPort(islot));
+      printf("  %2d:  %d\n",islot,counter);
+    }
+  printf("-----------------\n");
+  printf("\n");
+
+  return OK;
+}
+
+/*
+  sdGetBusyoutStatus
+  - Return the mask value of payload ports that are currently BUSY
+
+*/
+
+int
+sdGetBusyoutStatus(int pflag)
+{
+  int rval;
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&SDp->trigoutStatus) & 0xFFFF;
+  TIUNLOCK;
+
+  if(pflag)
+    {
+      printf("%s: Busyout Status = 0x%04x\n",
+	     __FUNCTION__,rval);
+    }
+
+  return rval;
+}
+
+/*
+  sdGetTrigoutCounter
+  - Return the value of the Trigout Counter for a specified payload board
+    Value of the counter is reset after read
+
+*/
+
+int
+sdGetTrigoutCounter(int ipayload)
+{
+  int rval;
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(ipayload<1 || ipayload>16)
+    {
+      printf("%s: ERROR: Invalid ipayload = %d.  Must be 1-16\n",
+	     __FUNCTION__,ipayload);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&SDp->trigoutCounter[ipayload-1]);
+  TIUNLOCK;
+
+  return rval;
+
+}
+
+int
+sdPrintTrigoutCounters()
+{
+  unsigned int counter=0;
+  int islot;
+  if(SDp==NULL)
+    {
+      printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  printf("--------------------\n");
+  printf("Slot:  Trigout Count\n");
+  for(islot=3; islot<21; islot++)
+    {
+      if((islot==11) || (islot==12)) /* Skip the Switch Slots */
+	continue;
+      
+      counter = sdGetTrigoutCounter(tiVMESlot2PayloadPort(islot));
+      printf("  %2d:  %d\n",islot,counter);
+    }
+  printf("--------------------\n");
+  printf("\n");
+
+  return OK;
+}
+
+
+
 /*************************************************************
  *  SD FIRMWARE UPDATING ROUTINES
  *  Linux only supported
@@ -639,12 +1138,11 @@ sdFirmwareWaitCmdDone(int wait)
 	}
 
       TILOCK;
-/*       vmeWrite32(&SDp->memReadCtrl,0x400); // FIXME: define */
       data_out = vmeRead32(&SDp->memCheckStatus);
       TIUNLOCK;
 
       fflush(stdout);
-      if (!(data_out & 0x100)) // FIXME: define  BUSY FLAG
+      if (!(data_out & 0x100)) 
 	{
 	  return data_out & 0xFF;
 	}
@@ -673,7 +1171,7 @@ sdFirmwareFlushFifo()
     {
       data_out = vmeRead32(&SDp->memReadCtrl);
 
-      if(data_out & 0x200) // FIXME: define macro
+      if(data_out & 0x200)
 	break;
     }
   TIUNLOCK;
@@ -780,7 +1278,7 @@ sdFirmwareVerifyPage(unsigned int mem_addr)
       vmeWrite32(&SDp->memAddrLSB, (ibyte & 0xFFFF) );
       vmeWrite32(&SDp->memAddrMSB, (ibyte & 0xFF0000)>>16 );
 
-      vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+      vmeWrite32(&SDp->memReadCtrl, 0xB00);
 
       data = vmeRead32(&SDp->memReadCtrl); 
       if(data < 0)
@@ -843,7 +1341,7 @@ sdFirmwareVerifyPageZero(unsigned int mem_addr)
       vmeWrite32(&SDp->memAddrLSB, (ibyte & 0xFFFF) );
       vmeWrite32(&SDp->memAddrMSB, (ibyte & 0xFF0000)>>16 );
 
-      vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+      vmeWrite32(&SDp->memReadCtrl, 0xB00);
 
       data = vmeRead32(&SDp->memReadCtrl); 
       if(data < 0)
@@ -902,18 +1400,18 @@ sdFirmwareWritePage(unsigned int mem_addr)
       else
 	mem_write = (memCommand | prog);
 
-      vmeWrite32(&SDp->memWriteCtrl, mem_write ); // FIXME: Replace with define
+      vmeWrite32(&SDp->memWriteCtrl, mem_write );
 
       if(ibyte==(mem_addr+255))
 	{
 	  memCommand=0x300;
 	  mem_write = (memCommand | prog);
 	      
-	  vmeWrite32(&SDp->memWriteCtrl, mem_write ); // FIXME: Replace with define
+	  vmeWrite32(&SDp->memWriteCtrl, mem_write );
 	}
 
     }
-  vmeWrite32(&SDp->memWriteCtrl, 0x0300 | prog); // FIXME: Replace with define
+  vmeWrite32(&SDp->memWriteCtrl, 0x0300 | prog);
   
 #ifdef VXWORKSPPC
   taskDelay(1);
@@ -951,7 +1449,7 @@ sdFirmwareWriteToMemory()
 	  vmeWrite32(&SDp->memAddrLSB, (mem_addr & 0xFFFF) );
 	  vmeWrite32(&SDp->memAddrMSB, (mem_addr & 0xFF0000)>>16 );
 
-	  vmeWrite32(&SDp->memWriteCtrl, (0x1200) ); // FIXME: Replace with define
+	  vmeWrite32(&SDp->memWriteCtrl, (0x1200) );
 
 	  sleep(3);
 	  TIUNLOCK;
@@ -1024,7 +1522,7 @@ sdFirmwareVerifyMemory()
       vmeWrite32(&SDp->memAddrLSB, (mem_addr & 0xFFFF) );
       vmeWrite32(&SDp->memAddrMSB, (mem_addr & 0xFF0000)>>16 );
 
-      vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+      vmeWrite32(&SDp->memReadCtrl, 0xB00);
 
       data = vmeRead32(&SDp->memReadCtrl); 
       if(data < 0)
@@ -1096,25 +1594,11 @@ sdFirmwareWriteSpecs(unsigned int addr, unsigned int serial_number,
 {
   int i;
 
-/*   TILOCK; */
-/*   vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) ); */
-/*   vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 ); */
-
-/*   vmeWrite32(&SDp->memWriteCtrl, (0x2200) ); // FIXME: Replace with define */
-
-/*   sleep(2); */
-/*   TIUNLOCK; */
-/*   if(sdFirmwareWaitCmdDone(3300)<0) */
-/*     { */
-/*       printf("%s: ERROR: sector erase timeout error\n",__FUNCTION__); */
-/*       return; */
-/*     } */
-
   TILOCK;
   vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
   vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
 
-  vmeWrite32(&SDp->memWriteCtrl, (0x2200) ); // FIXME: Replace with define
+  vmeWrite32(&SDp->memWriteCtrl, (0x2200) );
 
   sleep(3);
   TIUNLOCK;
@@ -1128,7 +1612,7 @@ sdFirmwareWriteSpecs(unsigned int addr, unsigned int serial_number,
   vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
   vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
 
-  vmeWrite32(&SDp->memWriteCtrl, (0x1200) ); // FIXME: Replace with define
+  vmeWrite32(&SDp->memWriteCtrl, (0x1200) );
 
   sleep(3);
   TIUNLOCK;
@@ -1162,11 +1646,7 @@ sdFirmwareWriteSpecs(unsigned int addr, unsigned int serial_number,
 		
     }
 
-/*   vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) ); */
-/*   vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 ); */
-
-  vmeWrite32(&SDp->memWriteCtrl, (0x2220) ); // FIXME: Replace with define
-/*   vmeWrite32(&SDp->memWriteCtrl, (0x2204) ); // FIXME: Replace with define */
+  vmeWrite32(&SDp->memWriteCtrl, (0x2220) );
 
   sleep(2);
   TIUNLOCK;
@@ -1190,15 +1670,13 @@ sdFirmwareReadAddr(unsigned int addr)
   vmeWrite32(&SDp->memAddrLSB, (addr & 0xFFFF) );
   vmeWrite32(&SDp->memAddrMSB, (addr & 0xFF0000)>>16 );
   
-  vmeWrite32(&SDp->memReadCtrl, 0xB00); // FIXME: Replace with define
+  vmeWrite32(&SDp->memReadCtrl, 0xB00);
 
   taskDelay(1);
 	
   data_out = vmeRead32(&SDp->memReadCtrl);
   TIUNLOCK;
 
-/*   printf("{%04X}", data_out); */
-/*   printf("INFO: read byte done\n"); */
   return data_out & 0xFF;
 
 }
@@ -1207,9 +1685,9 @@ void
 sdFirmwarePrintSpecs()
 {
   printf("%s:\n",__FUNCTION__);
-  printf("\tSerial Number           = %4d\n", sdFirmwareReadAddr(0x7F0000));
-  printf("\tAssigned Hall & Version = 0x%02X\n", sdFirmwareReadAddr(0x7F0001));
-  printf("\tFirmware Version        = 0x%02X\n", sdFirmwareReadAddr(0x7F0002));
+  printf("\tSerial Number            = %4d\n", sdFirmwareReadAddr(0x7F0000));
+  printf("\tAssigned Hall & Version  = 0x%02X\n", sdFirmwareReadAddr(0x7F0001));
+  printf("\tInitial Firmware Version = 0x%02X\n", sdFirmwareReadAddr(0x7F0002));
 }
 
 unsigned int
@@ -1239,7 +1717,6 @@ sdGetSerialNumber(char *rSN)
 
 }
 
-#ifdef TEST
 int
 sdTestGetBusyout()
 {
@@ -1247,6 +1724,11 @@ sdTestGetBusyout()
   if(SDp==NULL)
     {
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -1266,6 +1748,11 @@ sdTestGetSdLink()
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
+    }
 
   TILOCK;
   rval = vmeRead32(&SDp->sdLinkTest);
@@ -1283,6 +1770,11 @@ sdTestGetTokenIn()
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
+    }
 
   TILOCK;
   rval = vmeRead32(&SDp->tokenInTest);
@@ -1298,6 +1790,11 @@ sdTestGetTrigOut()
   if(SDp==NULL)
     {
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -1321,6 +1818,11 @@ sdTestSetTokenOutMask(int mask)
       printf("%s: ERROR: Mask out of range (0x%x)\n",__FUNCTION__,mask);
       return;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return;
+    }
 
   TILOCK;
   vmeWrite32(&SDp->tokenOutTest,mask);
@@ -1341,6 +1843,11 @@ sdTestSetStatBitBMask(int mask)
       printf("%s: ERROR: Mask out of range (0x%x)\n",__FUNCTION__,mask);
       return;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return;
+    }
 
   TILOCK;
   vmeWrite32(&SDp->statBitBTest,mask);
@@ -1356,6 +1863,12 @@ sdTestSetClkAPLL(int mode)
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return;
+    }
+
   if(mode>=1) mode=1;
   else mode=0;
 
@@ -1377,6 +1890,11 @@ sdTestGetClockAStatus()
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
+    }
 
   TILOCK;
   rval = (vmeRead32(&SDp->csrTest) & SD_CSRTEST_CLKA_TEST_STATUS)>>1;
@@ -1392,6 +1910,11 @@ sdTestGetClockAFreq()
   if(SDp==NULL)
     {
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -1410,6 +1933,12 @@ sdTestSetClkBPLL(int mode)
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return;
+    }
+
   if(mode>=1) mode=1;
   else mode=0;
 
@@ -1426,6 +1955,11 @@ sdTestGetClockBStatus()
   if(SDp==NULL)
     {
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
       return ERROR;
     }
 
@@ -1445,6 +1979,11 @@ sdTestGetClockBFreq()
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
+    }
 
   TILOCK;
   rval = (vmeRead32(&SDp->csrTest) & SD_CSRTEST_CLKB_FREQ)>>6;
@@ -1461,6 +2000,12 @@ sdTestSetTIBusyOut(int level)
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return;
+    }
+
   if(level>=1) level=1;
   else level=0;
 
@@ -1481,6 +2026,11 @@ sdTestGetTITokenIn()
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return ERROR;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
+    }
 
   TILOCK;
   rval = (vmeRead32(&SDp->csrTest) & SD_CSRTEST_TI_TOKENIN)>>9;
@@ -1499,6 +2049,12 @@ sdTestSetTIGTPLink(int level)
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return;
+    }
+
   if(level>=1) level=1;
   else level=0;
 
@@ -1519,6 +2075,11 @@ sdTestGetClkACounter()
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return 0;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
+    }
 
   TILOCK;
   rval = vmeRead32(&SDp->clkACounterTest);
@@ -1535,6 +2096,11 @@ sdTestGetClkBCounter()
     {
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return 0;
+    }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
     }
 
   TILOCK;
@@ -1553,6 +2119,11 @@ sdTestGetSWALoopback()
       printf("%s: ERROR: SD not initialized\n",__FUNCTION__);
       return 0;
     }
+  if(!sdTestMode)
+    {
+      printf("%s: ERROR: SD Test Mode Jumper not installed\n",__FUNCTION__);
+      return ERROR;
+    }
 
   TILOCK;
   rval = (vmeRead32(&SDp->csrTest) & SD_CSRTEST_SWA_LOOPBACK_MASK);
@@ -1561,5 +2132,3 @@ sdTestGetSWALoopback()
   return rval;
 }
 
-
-#endif

@@ -42,6 +42,7 @@ main(int argc, char *argv[])
 {
   int res=0;
   char firmware_filename[50];
+  int current_fw_version=0;
 #ifdef WRITESERIALNUMBER
   unsigned int serial_number=0;
   unsigned int hall_board_version=0;
@@ -117,17 +118,6 @@ main(int argc, char *argv[])
   printf("Firmware File                   = %s\n",firmware_filename);
 #endif
   printf("\n");
-  printf(" <ENTER> to continue... or q and <ENTER> to quit without update\n");
-
-  inputchar = getchar();
-
-  if((inputchar == 113) ||
-     (inputchar == 81))
-    {
-      printf(" Exiting without update\n");
-      res=1;
-      goto CLOSE;
-    }
 
 #ifndef VXWORKS
   vmeSetQuietFlag(1);
@@ -144,9 +134,24 @@ main(int argc, char *argv[])
   if(res!=OK)
     goto CLOSE;
   
-  res = sdInit();
+  res = sdInit(SD_INIT_IGNORE_VERSION);
   if(res!=OK)
     goto CLOSE;
+
+  current_fw_version = sdGetFirmwareVersion(0);
+  printf("\n  Current SD Firmware Version = 0x%x\n\n",current_fw_version);
+
+  printf(" <ENTER> to continue... or q and <ENTER> to quit without update\n");
+  inputchar = getchar();
+
+  if((inputchar == 113) ||
+     (inputchar == 81))
+    {
+      printf(" Exiting without update\n");
+      res=1;
+      goto CLOSE;
+    }
+
 
   res = sdFirmwareFlushFifo();
   if(res!=OK)
@@ -180,7 +185,10 @@ main(int argc, char *argv[])
   if(res==ERROR)
     printf(" ******** SD Update ended in ERROR! ******** \n");
   else if (res==OK)
-    printf(" ++++++++ SD Update Successful! ++++++++\n");
+    {
+      printf(" ++++++++ SD Update Successful! ++++++++\n");
+      printf("   Power Cycle to load new firmware\n");
+    }
   
 
   printf("\n");

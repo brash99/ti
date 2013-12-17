@@ -107,7 +107,11 @@ struct TI_A24RegStruct
   /* 0x00100 */ volatile unsigned int reset;
   /* 0x00104 */          unsigned int blank3[(0x8C0-0x104)/4];
   /* 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /* 0x00900 */          unsigned int blank4[(0xFFFC-0x900)/4];
+  /* 0x00900 */          unsigned int blank4[(0x2000-0x900)/4];
+  /* 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
+  /* 0x02200 */          unsigned int blank5[(0x2800-0x2200)/4];
+  /* 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
+  /* 0x03000 */          unsigned int blank6[(0xFFFC-0x3000)/4];
   /* 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /* 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /* 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
@@ -522,7 +526,7 @@ int  tiGetPrescale();
 int  tiSetTriggerPulse(int trigger, int delay, int width);
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
-void tiSyncReset();
+void tiSyncReset(int bflag);
 void tiSyncResetResync();
 void tiClockReset();
 int  tiSetAdr32(unsigned int a32base);
@@ -560,7 +564,7 @@ unsigned int tiGetDaqStatus();
 int  tiVmeTrigger1();
 int  tiVmeTrigger2();
 
-int  tiGetSWBBusy();
+int  tiGetSWBBusy(int pflag);
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);
 
@@ -577,7 +581,8 @@ int  tiGetSyncResetRequest();
 void tiTriggerReadyReset();
 int  tiFillToEndBlock();
 unsigned int tiGetGTPBufferLength(int pflag);
-
+unsigned int tiGetSWAStatus(int reg);
+unsigned int tiGetSWBStatus(int reg);
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
