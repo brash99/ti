@@ -122,7 +122,9 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
  *  and setup registers given user input
  *
  *  ARGs: 
- *    tAddr  - A24 VME Address of the TI
+ *    tAddr  - A24 VME Address of the TI (0x000016 - 0xffffff)
+ *             OR
+ *             Slot number of TI (1 - 21)
  *    mode   - Readout/Triggering Mode
  *          0: External Trigger - Interrupt Mode
  *          1: TI/TImaster Trigger - Interrupt Mode
@@ -164,6 +166,14 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  return ERROR;
 	}
       
+    }
+  if(tAddr<22)
+    {
+      /* User enter slot number, shift it to VME A24 address */
+      printf("%s: Initializing using slot number %d (VME address 0x%x)\n",
+	     __FUNCTION__,
+	     tAddr, tAddr<<19);
+      tAddr = tAddr<<19;
     }
 
   noBoardInit = iFlag&(0x1);
