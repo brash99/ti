@@ -35,8 +35,9 @@ endif #ARCH=VXWORKSPPC#
 # Defs and build for Linux
 ifeq ($(ARCH),Linux)
 
-LINUXVME_LIB	?= ${CODA}/extensions/linuxvme/libs
-LINUXVME_INC	?= ${CODA}/extensions/linuxvme/include
+LINUXVME_LIB	?= ../../libs
+LINUXVME_INC	?= ../../include
+LINUXVME_BIN	?= ../../bin
 
 CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
@@ -65,7 +66,9 @@ tiFirmwareUpdate.o: tiFirmwareUpdate.c
 	echo "Making $@ for $(ARCH)"
 	$(CC) $(CFLAGS) -c -DTEMPE -o $@ $(<)
 	$(CC) $(CFLAGS) -c -o $(@:.o=_univ.o) $(<)
-
+else
+install: $(PROGS)
+	cp -v $(PROGS) $(LINUXVME_BIN)/
 endif
 
 .PHONY: all clean
