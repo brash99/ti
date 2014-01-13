@@ -544,13 +544,16 @@ tiCheckAddresses()
 /*******************************************************************************
  *
  * tiStatus - Print some status information of the TI to standard out
+ * 
+ *   ARGs: 
+ *      pflag : if pflag>0, print out raw registers
  *
  * RETURNS: OK if successful, ERROR otherwise
  *
  */
 
 void
-tiStatus()
+tiStatus(int pflag)
 {
   unsigned int boardID, fiber, intsetup, trigDelay;
   unsigned int adr32, blocklevel, vmeControl, trigger, sync;
@@ -649,40 +652,51 @@ tiStatus()
   printf("   Block Limit: %d   %s\n",blocklimit,
 	 (blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"- In Progress -");
   printf("   Block Count: %d\n",nblocks & TI_NBLOCKS_COUNT_MASK);
-  printf(" Registers (offset):\n");
-  printf("  boardID        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->boardID) - TIBase, boardID);
-  printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiber) - TIBase, fiber);
-  printf("  intsetup       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->intsetup) - TIBase, intsetup);
-  printf("  trigDelay      (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->trigDelay) - TIBase, trigDelay);
-  printf("  adr32          (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->adr32) - TIBase, adr32);
-  printf("  vmeControl     (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->vmeControl) - TIBase, vmeControl);
-  printf("  trigger        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->trigsrc) - TIBase, trigger);
-  printf("  sync           (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->sync) - TIBase, sync);
-  printf("  busy           (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->busy) - TIBase, busy);
-  printf("  clock          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->clock) - TIBase, clock);
-  printf("  blockBuffer    (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->blockBuffer) - TIBase, blockBuffer);
 
-  printf("  output         (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->output) - TIBase, output);
-  printf("  fiberSyncDelay (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiberSyncDelay) - TIBase, fiberSyncDelay);
-
-  printf("  livetime       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->livetime) - TIBase, livetime);
-  printf("  busytime       (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->busytime) - TIBase, busytime);
+  if(pflag>0)
+    {
+      printf(" Registers (offset):\n");
+      printf("  boardID        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->boardID) - TIBase, boardID);
+      printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiber) - TIBase, fiber);
+      printf("  intsetup       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->intsetup) - TIBase, intsetup);
+      printf("  trigDelay      (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->trigDelay) - TIBase, trigDelay);
+      printf("  adr32          (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->adr32) - TIBase, adr32);
+      printf("  vmeControl     (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->vmeControl) - TIBase, vmeControl);
+      printf("  trigger        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->trigsrc) - TIBase, trigger);
+      printf("  sync           (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->sync) - TIBase, sync);
+      printf("  busy           (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->busy) - TIBase, busy);
+      printf("  clock          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->clock) - TIBase, clock);
+      printf("  blockBuffer    (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->blockBuffer) - TIBase, blockBuffer);
+      
+      printf("  output         (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->output) - TIBase, output);
+      printf("  fiberSyncDelay (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiberSyncDelay) - TIBase, fiberSyncDelay);
+      
+      printf("  livetime       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->livetime) - TIBase, livetime);
+      printf("  busytime       (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->busytime) - TIBase, busytime);
+    }
   printf("\n");
 
-  printf(" Block Level = %d ", (blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16);
   if(tiMaster)
     {
+      printf(" Block Level = %d ", (blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16);
       if(tiBlockLevel!=((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
 	printf("(To be set = %d)\n", tiBlockLevel);
+      else
+	printf("\n");
     }
   else
     {
-      if( ((blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24)
-	  != ((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
-	printf(" (To be set = %d)\n",
-	       (blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24);
+      if(tiBlockLevel==0)
+	  printf(" Block Level not yet received");
       else
-	printf("\n");
+	{
+	  if( ((blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24)
+	      != ((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
+	    printf(" (To be set = %d)\n",
+		   (blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24);
+	  else
+	    printf("\n");
+	}
     }
 
   fibermask = fiber;

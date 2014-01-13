@@ -483,7 +483,7 @@ struct TI_A24RegStruct
 int  tiInit(unsigned int tAddr, unsigned int mode, int force);
 unsigned int tiFind();
 int  tiCheckAddresses();
-void tiStatus();
+void tiStatus(int pflag);
 int  tiGetFirmwareVersion();
 int  tiReload();
 unsigned int tiGetSerialNumber(char **rSN);
