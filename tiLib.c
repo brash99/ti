@@ -16,8 +16,6 @@
  *     Primitive trigger control for VME CPUs using the TJNAF Trigger
  *     Supervisor (TI) card
  *
- * SVN: $Rev$
- *
  *----------------------------------------------------------------------------*/
 
 #define _GNU_SOURCE
@@ -117,17 +115,6 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
     2, 4, 6, 8, 10, 12, 14, 16, 
     18     /* VME Slot Furthest to the Right - TI */ 
   };
-
-/* Library of routines for the SD */
-#include "sdLib.c"
-
-/* Library of routines for the CTP */
-#include "ctpLib.c"
-
-#ifndef VXWORKS
-/* Library of routines for the GTP */
-#include "gtpLib.c"
-#endif
 
 /*******************************************************************************
  *
@@ -684,23 +671,28 @@ tiStatus()
 	  != ((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
 	printf(" (To be set = %d)\n",
 	       (blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24);
+      else
+	printf("\n");
     }
 
   fibermask = fiber;
-  if(fibermask)
+  if(tiMaster)
     {
-      printf(" HFBR enabled (0x%x)= \n",fibermask);
-      for(ifiber=0; ifiber<8; ifiber++)
+      if(fibermask)
 	{
-	  if( fibermask & (1<<ifiber) ) 
-	    printf("   %d: -%s-   -%s-\n",ifiber+1,
-		   (fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
-		   (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
+	  printf(" HFBR enabled (0x%x)= \n",fibermask);
+	  for(ifiber=0; ifiber<8; ifiber++)
+	    {
+	      if( fibermask & (1<<ifiber) ) 
+		printf("   %d: -%s-   -%s-\n",ifiber+1,
+		       (fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
+		       (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
+	    }
+	  printf("\n");
 	}
-      printf("\n");
+      else
+	printf(" All HFBR Disabled\n");
     }
-  else
-    printf(" All HFBR Disabled\n");
 
   if(tiMaster)
     {

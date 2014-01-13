@@ -16,17 +16,9 @@
  *     Primitive trigger control for VME CPUs using the TJNAF Trigger
  *     Supervisor (TI) card
  *
- * SVN: $Rev$
- *
  *----------------------------------------------------------------------------*/
 #ifndef TILIB_H
 #define TILIB_H
-
-#include <sdLib.h>
-#include <ctpLib.h>
-#ifndef VXWORKS
-#include <gtpLib.h>
-#endif
 
 #ifndef VXWORKS
 #include <pthread.h>
