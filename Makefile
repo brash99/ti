@@ -34,8 +34,8 @@ endif #ARCH=VXWORKSPPC#
 
 # Defs and build for Linux
 ifeq ($(ARCH),Linux)
-LINUXVME_LIB		?= ${CODA}/extensions/linuxvme/libs
-LINUXVME_INC		?= ${CODA}/extensions/linuxvme/include
+LINUXVME_LIB		?= ../libs
+LINUXVME_INC		?= ../include
 
 CC			= gcc
 AR                      = ar
