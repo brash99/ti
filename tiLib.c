@@ -16,8 +16,6 @@
  *     Primitive trigger control for VME CPUs using the TJNAF Trigger
  *     Supervisor (TI) card
  *
- * SVN: $Rev$
- *
  *----------------------------------------------------------------------------*/
 
 #define _GNU_SOURCE
@@ -117,17 +115,6 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
     2, 4, 6, 8, 10, 12, 14, 16, 
     18     /* VME Slot Furthest to the Right - TI */ 
   };
-
-/* Library of routines for the SD */
-#include "sdLib.c"
-
-/* Library of routines for the CTP */
-#include "ctpLib.c"
-
-#ifndef VXWORKS
-/* Library of routines for the GTP */
-#include "gtpLib.c"
-#endif
 
 /*******************************************************************************
  *
@@ -684,23 +671,28 @@ tiStatus()
 	  != ((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
 	printf(" (To be set = %d)\n",
 	       (blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24);
+      else
+	printf("\n");
     }
 
   fibermask = fiber;
-  if(fibermask)
+  if(tiMaster)
     {
-      printf(" HFBR enabled (0x%x)= \n",fibermask);
-      for(ifiber=0; ifiber<8; ifiber++)
+      if(fibermask)
 	{
-	  if( fibermask & (1<<ifiber) ) 
-	    printf("   %d: -%s-   -%s-\n",ifiber+1,
-		   (fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
-		   (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
+	  printf(" HFBR enabled (0x%x)= \n",fibermask);
+	  for(ifiber=0; ifiber<8; ifiber++)
+	    {
+	      if( fibermask & (1<<ifiber) ) 
+		printf("   %d: -%s-   -%s-\n",ifiber+1,
+		       (fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
+		       (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
+	    }
+	  printf("\n");
 	}
-      printf("\n");
+      else
+	printf(" All HFBR Disabled\n");
     }
-  else
-    printf(" All HFBR Disabled\n");
 
   if(tiMaster)
     {
@@ -2190,7 +2182,7 @@ tiPayloadPortMask2VMESlotMask(unsigned int ppmask)
   for(ipp=0; ipp<18; ipp++)
     {
       if(ppmask & (1<<ipp))
-	vmemask |= tiPayloadPort2VMESlot(ipp+1);
+	vmemask |= (1<<tiPayloadPort2VMESlot(ipp+1));
     }
 
   return vmemask;
@@ -4230,6 +4222,53 @@ tiGetTrigSrcEnabledFiberMask()
   return rval;
 }
 
+unsigned int
+tiGetSWAStatus(int reg)
+{
+  unsigned int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  if(reg>=128)
+    {
+      printf("%s: ERROR: SWA reg (0x%x) out of range.\n",
+	     __FUNCTION__,reg);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->SWA_status[reg]);
+  TIUNLOCK;
+
+  return rval;
+}
+
+unsigned int
+tiGetSWBStatus(int reg)
+{
+  unsigned int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  if(reg>=128)
+    {
+      printf("%s: ERROR: SWB reg (0x%x) out of range.\n",
+	     __FUNCTION__,reg);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->SWB_status[reg]);
+  TIUNLOCK;
+
+  return rval;
+}
 
 /*************************************************************
  Library Interrupt/Polling routines
@@ -4764,21 +4803,26 @@ tiGetIntCount()
 }
 
 int
-tiGetSWBBusy()
+tiGetSWBBusy(int pflag)
 {
   unsigned int rval=0;
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return 0;
+      return ERROR;
     }
   
   TILOCK;
   rval = vmeRead32(&TIp->busy) & (TI_BUSY_SWB<<16);
 
-  printf("%s: busy = 0x%08x\n",
-	 __FUNCTION__,vmeRead32(&TIp->busy));
   TIUNLOCK;
+  
+  if(pflag)
+    {
+      printf("%s: SWB %s\n",
+	     __FUNCTION__,
+	     (rval)?"BUSY":"NOT BUSY");
+    }
 
   return rval;
 }
