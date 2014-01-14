@@ -34,7 +34,7 @@ endif #ARCH=VXWORKSPPC#
 
 # Defs and build for Linux
 ifeq ($(ARCH),Linux)
-LINUXVME_LIB		?= ../libs
+LINUXVME_LIB		?= ../lib
 LINUXVME_INC		?= ../include
 
 CC			= gcc
