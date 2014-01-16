@@ -80,8 +80,8 @@ endif
 fwinstall:
 	@echo "$(FWFILES)"
 	@ln -sf $(FWFILES) current_firmware.swf
-	@install -v -d $(LINUXVME_FW)/sd
-	@install -p -m 664 -v $(FWFILES) current_firmware.swf -D $(LINUXVME_FW)/sd
+	@install -v -d $(LINUXVME_FW)/ti
+	@install -p -m 664 -v $(FWFILES) current_firmware.swf -D $(LINUXVME_FW)/ti
 
 
 .PHONY: all clean
