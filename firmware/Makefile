@@ -75,13 +75,11 @@ install: $(PROGS)
 	@install -v -d $(LINUXVME_BIN)
 	@install -v -p $(PROGS) -D $(LINUXVME_BIN)/
 
-endif
-
 fwinstall:
-	@echo "$(FWFILES)"
-	@ln -sf $(FWFILES) current_firmware.swf
+	@ln -sf $(FWFILES) current_firmware.svf
 	@install -v -d $(LINUXVME_FW)/ti
-	@install -p -m 664 -v $(FWFILES) current_firmware.swf -D $(LINUXVME_FW)/ti
+	@install -p -m 664 -v $(FWFILES) current_firmware.svf -D $(LINUXVME_FW)/ti
 
+endif
 
 .PHONY: all clean
