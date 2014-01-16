@@ -76,9 +76,9 @@ install: $(PROGS)
 	@install -v -p $(PROGS) -D $(LINUXVME_BIN)/
 
 fwinstall:
-	@ln -sf $(FWFILES) current_firmware.svf
+	@ln -sf $(FWFILES) ti_current_firmware.svf
 	@install -v -d $(LINUXVME_FW)/ti
-	@install -p -m 664 -v $(FWFILES) current_firmware.svf -D $(LINUXVME_FW)/ti
+	@install -p -m 664 -v $(FWFILES) ti_current_firmware.svf -D $(LINUXVME_FW)/ti
 
 endif
 
