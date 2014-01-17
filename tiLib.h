@@ -193,7 +193,7 @@ struct TI_A24RegStruct
 /* 0x18 dataFormat bits and masks */
 #define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
 #define TI_DATAFORMAT_TIMING_WORD          (1<<1)
-#define TI_DATAFORMAT_STATUS_WORD          (1<<2)
+#define TI_DATAFORMAT_HIGHERBITS_WORD      (1<<2)
 
 /* 0x1C vmeControl bits and masks */
 #define TI_VMECONTROL_BERR           (1<<0)

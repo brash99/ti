@@ -1473,10 +1473,11 @@ tiSetSyncSource(unsigned int sync)
  *  format - integer number indicating the event format
  *
  *           Description
- *           0: Shortest words per trigger
- *           1: Timing word enabled
- *           2: Status word enabled
- *           3: Timing and Status words enabled
+ *           0: 32 bit event number only
+ *           1: 32 bit event number + 32 bit timestamp
+ *           2: 32 bit event number + higher 16 bits of timestamp + higher 16 bits of eventnumber
+ *           3: 32 bit event number + 32 bit timestamp
+ *              + higher 16 bits of timestamp + higher 16 bits of eventnumber
  *
  * RETURNS: OK if successful, ERROR otherwise
  *
@@ -1502,7 +1503,6 @@ tiSetEventFormat(int format)
     }
 
   TILOCK;
-/*   formatset = TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER; */
 
   switch(format)
     {
@@ -1514,11 +1514,11 @@ tiSetEventFormat(int format)
       break;
 
     case 2:
-      formatset |= TI_DATAFORMAT_STATUS_WORD;
+      formatset |= TI_DATAFORMAT_HIGHERBITS_WORD;
       break;
 
     case 3:
-      formatset |= (TI_DATAFORMAT_TIMING_WORD | TI_DATAFORMAT_STATUS_WORD);
+      formatset |= (TI_DATAFORMAT_TIMING_WORD | TI_DATAFORMAT_HIGHERBITS_WORD);
       break;
 
     }
