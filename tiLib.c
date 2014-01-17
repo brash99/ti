@@ -1068,7 +1068,7 @@ tiSetCrateID(unsigned int crateID)
       return ERROR;
     }
 
-  if( (crateID>0xff) || (crateID==0) )
+  if(crateID>0xff)
     {
       printf("%s: ERROR: Invalid crate id (0x%x)\n",__FUNCTION__,crateID);
       return ERROR;
