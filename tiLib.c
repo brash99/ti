@@ -79,6 +79,7 @@ static int          tiSyncEventReceived = 0; /* Indicates reception of sync even
 static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
 static int          tiSlotNumber=0;          /* Slot number in which the TI resides */
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
+static int          tiBusError=0;            /* Bus Error block termination */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -1126,6 +1127,7 @@ tiSetBlockLevel(unsigned int blockLevel)
     vmeWrite32(&TIp->trigsrc, trigger);
 
   tiBlockLevel = blockLevel;
+
   TIUNLOCK;
 
   return OK;
@@ -1181,6 +1183,16 @@ tiGetCurrentBlockLevel()
   bl = (vmeRead32(&TIp->blocklevel) & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
   tiBlockLevel = bl;
   TIUNLOCK;
+
+  /* Change Bus Error block termination, based on blocklevel */
+  if(tiBlockLevel>2)
+    {
+      tiEnableBusError();
+    }
+  else
+    {
+      tiDisableBusError();
+    }
 
   return bl;
 }
@@ -1728,7 +1740,14 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
   TILOCK;
   if(rflag >= 1)
     { /* Block transfer */
-
+      if(tiBusError==0)
+	{
+	  printf("%s: WARN: Bus Error Block Termination was disabled.  Re-enabling\n",
+		 __FUNCTION__);
+	  TIUNLOCK;
+	  tiEnableBusError();
+	  TILOCK;
+	}
       /* Assume that the DMA programming is already setup. 
 	 Don't Bother checking if there is valid data - that should be done prior
 	 to calling the read routine */
@@ -1809,6 +1828,15 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
     }
   else
     { /* Programmed IO */
+      if(tiBusError==1)
+	{
+	  printf("%s: WARN: Bus Error Block Termination was enabled.  Disabling\n",
+		 __FUNCTION__);
+	  TIUNLOCK;
+	  tiDisableBusError();
+	  TILOCK;
+	}
+
       dCnt = 0;
       ii=0;
 
@@ -1818,8 +1846,15 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 #ifndef VXWORKS
 	  val = LSWAP(val);
 #endif
-	  if(val==TI_EMPTY_FIFO)
-	    break;
+	  if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE 
+		     | (tiSlotNumber<<22) | (ii+1)) )
+	    {
+#ifndef VXWORKS
+	      val = LSWAP(val);
+#endif
+	      data[ii] = val;
+	      break;
+	    }
 #ifndef VXWORKS
 	  val = LSWAP(val);
 #endif
@@ -1844,11 +1879,6 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
  *                      CODA Trigger Bank
  *
  *    data  - local memory address to place data
- *    nwrds - Max number of words to transfer
- *    rflag - Readout Flag
- *              0 - programmed I/O from the specified board
- *              1 - DMA transfer using Universe/Tempe DMA Engine 
- *                    (DMA VME transfer Mode must be setup prior)
  *
  * RETURNS: Number of words transferred to data if successful, ERROR otherwise
  *
@@ -1856,9 +1886,9 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 
 
 int
-tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag)
+tiReadTriggerBlock(volatile unsigned int *data)
 {
-  int rval=0;
+  int rval=0, nwrds=0, rflag=0;
   int iword=0;
   unsigned int word=0;
   int iblkhead=-1, iblktrl=-1;
@@ -1868,6 +1898,19 @@ tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag)
     {
       logMsg("\ntiReadTriggerBlock: ERROR: Invalid Destination address\n",0,0,0,0,0,0);
       return(ERROR);
+    }
+
+  /* Determine the maximum number of words to expect, from the block level */
+  nwrds = (3*tiBlockLevel) + 8;
+
+  /* Optimize the transfer type based on the blocklevel */
+  if(tiBlockLevel>2)
+    { /* Use DMA */
+      rflag = 1;
+    }
+  else
+    { /* Use programmed I/O (Single cycle reads) */
+      rflag = 0;
     }
 
   /* Obtain the trigger bank by just making a call the tiReadBlock */
@@ -1882,7 +1925,7 @@ tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag)
       /* No data returned */
       return 0; 
     }
-    
+
   /* Work down to find index of block header */
   while(iword<rval)
     { 
@@ -1891,9 +1934,10 @@ tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag)
 #ifndef VXWORKS
       word = LSWAP(word);
 #endif
+
       if(word & TI_DATA_TYPE_DEFINE_MASK)
 	{
-	  if(((word & TI_WORD_TYPE_MASK)>>27) == 0)
+	  if(((word & TI_WORD_TYPE_MASK)) == TI_BLOCK_HEADER_WORD_TYPE)
 	    {
 	      iblkhead = iword;
 	      break;
@@ -1926,7 +1970,7 @@ tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag)
 #endif
       if(word & TI_DATA_TYPE_DEFINE_MASK)
 	{
-	  if(((word & TI_WORD_TYPE_MASK)>>27) == 1)
+	  if(((word & TI_WORD_TYPE_MASK)) == TI_BLOCK_TRAILER_WORD_TYPE)
 	    {
 #ifdef CDEBUG
 	      printf("%s: block trailer? 0x%08x\n",
@@ -2136,6 +2180,7 @@ tiEnableBusError()
   TILOCK;
   vmeWrite32(&TIp->vmeControl,
 	   vmeRead32(&TIp->vmeControl) | (TI_VMECONTROL_BERR) );
+  tiBusError=1;
   TIUNLOCK;
 
 }
@@ -2154,6 +2199,7 @@ tiDisableBusError()
   TILOCK;
   vmeWrite32(&TIp->vmeControl,
 	   vmeRead32(&TIp->vmeControl) & ~(TI_VMECONTROL_BERR) );
+  tiBusError=0;
   TIUNLOCK;
 
 }

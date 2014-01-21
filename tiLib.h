@@ -470,7 +470,8 @@ struct TI_A24RegStruct
 #define TI_DATA_TYPE_DEFINE_MASK           0x80000000
 #define TI_WORD_TYPE_MASK                  0x78000000
 #define TI_FILLER_WORD_TYPE                0xF8000000
-#define TI_BLOCK_HEADER_WORD_TYPE          0x80000000
+#define TI_BLOCK_HEADER_WORD_TYPE          0x00000000
+#define TI_BLOCK_TRAILER_WORD_TYPE         0x08000000
 #define TI_EMPTY_FIFO                      0xF0BAD0F0
 #define TI_BLOCK_HEADER_CRATEID_MASK       0xFF000000
 #define TI_BLOCK_HEADER_SLOTS_MASK         0x001F0000
@@ -503,7 +504,7 @@ int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int 
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
-int  tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag);
+int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
