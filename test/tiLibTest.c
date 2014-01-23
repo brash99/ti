@@ -23,7 +23,7 @@ extern unsigned int *dma_dabufp;
 
 extern int tiA32Base;
 
-#define BLOCKLEVEL 10
+#define BLOCKLEVEL 1
 
 #define DO_READOUT
 
@@ -64,7 +64,8 @@ mytiISR(int arg)
     }
 #endif
 
-  dCnt = tiReadTriggerBlock(dma_dabufp,3*BLOCKLEVEL+10,1);
+/*   dCnt = tiReadTriggerBlock(dma_dabufp,3*BLOCKLEVEL+10,1); */
+  dCnt = tiReadTriggerBlock(dma_dabufp);
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);
@@ -90,7 +91,7 @@ mytiISR(int arg)
       for(idata=0;idata<len;idata++)
 	{
 	  if((idata%5)==0) printf("\n\t");
-	  printf("  0x%08x ",(unsigned int)LSWAP(outEvent->data[idata]));
+	  printf("  0x%08x ",(unsigned int)(outEvent->data[idata]));
 	}
       printf("\n\n");
     }
@@ -146,6 +147,8 @@ main(int argc, char *argv[]) {
   tiInit(0,TI_READOUT_EXT_POLL,0);
   tiCheckAddresses();
 
+  tiSetEventFormat(3);
+
   char mySN[20];
   printf("0x%08x\n",tiGetSerialNumber((char **)&mySN));
   printf("mySN = %s\n",mySN);
@@ -189,7 +192,7 @@ main(int argc, char *argv[]) {
   tiSetFiberDelay(1,2);
   tiSetSyncDelayWidth(1,0x3f,1);
     
-  tiSetBlockLimit(1012);
+  tiSetBlockLimit(10);
 
   printf("Hit enter to reset stuff\n");
   getchar();
@@ -203,17 +206,17 @@ main(int argc, char *argv[]) {
   int again=0;
  AGAIN:
   taskDelay(1);
-  tiSyncReset();
+  tiSyncReset(1);
 
   taskDelay(1);
     
-  tiStatus();
+  tiStatus(1);
 
   printf("Hit enter to start triggers\n");
   getchar();
 
   tiIntEnable(0);
-  tiStatus();
+  tiStatus(1);
 #define SOFTTRIG
 #ifdef SOFTTRIG
   tiSetRandomTrigger(1,0x7);
@@ -223,7 +226,7 @@ main(int argc, char *argv[]) {
 
   printf("Hit any key to Disable TID and exit.\n");
   getchar();
-  tiStatus();
+  tiStatus(1);
 
 #ifdef SOFTTRIG
   /* No more soft triggers */

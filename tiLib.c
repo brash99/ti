@@ -380,8 +380,8 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
   tiSetCrateID(tiCrateID);
 
-  /* Set Event format 2 */
-  tiSetEventFormat(1);
+  /* Set Event format for CODA 3.0 */
+  tiSetEventFormat(3);
 
   /* Set Default Trig1 and Trig2 delay=4ns (0+1)*4ns, width=64ns (15+1)*4ns */
   tiSetTriggerPulse(1,0,15);
@@ -859,6 +859,8 @@ tiStatus(int pflag)
   
   if(vmeControl&TI_VMECONTROL_BERR)
     printf(" Bus Errors Enabled\n");
+  else
+    printf(" Bus Errors Disabled\n");
 
   printf(" Blocks ready for readout: %d\n",(blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8);
   if(tiMaster)
@@ -1125,8 +1127,6 @@ tiSetBlockLevel(unsigned int blockLevel)
 
   if(!(trigger & TI_TRIGSRC_VME)) /* Turn off the VME trigger, if it was initially disabled */
     vmeWrite32(&TIp->trigsrc, trigger);
-
-  tiBlockLevel = blockLevel;
 
   TIUNLOCK;
 
@@ -1756,9 +1756,9 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
       if((unsigned long) (data)&0x7) 
 	{
 #ifdef VXWORKS
-	  *data = (TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22);
+	  *data = (TI_DATA_TYPE_DEFINE_MASK) | (TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22);
 #else
-	  *data = LSWAP((TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22));
+	  *data = LSWAP((TI_DATA_TYPE_DEFINE_MASK) | (TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22));
 #endif
 	  dummy = 1;
 	  laddr = (data + 1);
@@ -1830,8 +1830,8 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
     { /* Programmed IO */
       if(tiBusError==1)
 	{
-	  printf("%s: WARN: Bus Error Block Termination was enabled.  Disabling\n",
-		 __FUNCTION__);
+	  logMsg("tiReadBlock: WARN: Bus Error Block Termination was enabled.  Disabling\n",
+		 __FUNCTION__,2,3,4,5,6);
 	  TIUNLOCK;
 	  tiDisableBusError();
 	  TILOCK;
@@ -1853,6 +1853,20 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	      val = LSWAP(val);
 #endif
 	      data[ii] = val;
+	      if(((ii+1)%2)!=0)
+		{
+		  /* Read out an extra word (filler) in the fifo */
+		  val = (unsigned int) *TIpd;
+#ifndef VXWORKS
+		  val = LSWAP(val);
+#endif
+		  if(((val & TI_DATA_TYPE_DEFINE_MASK) != TI_DATA_TYPE_DEFINE_MASK) ||
+		     ((val & TI_WORD_TYPE_MASK) != TI_FILLER_WORD_TYPE))
+		    {
+		      logMsg("\ntiReadBlock: ERROR: Unexpected word after block trailer (0x%08x)\n",
+			     val,2,3,4,5,6);
+		    }
+		}
 	      break;
 	    }
 #ifndef VXWORKS
@@ -1901,7 +1915,7 @@ tiReadTriggerBlock(volatile unsigned int *data)
     }
 
   /* Determine the maximum number of words to expect, from the block level */
-  nwrds = (3*tiBlockLevel) + 8;
+  nwrds = (4*tiBlockLevel) + 8;
 
   /* Optimize the transfer type based on the blocklevel */
   if(tiBlockLevel>2)
@@ -1998,7 +2012,7 @@ tiReadTriggerBlock(volatile unsigned int *data)
 #endif
   if((iblktrl - iblkhead + 1) != (word & 0x3fffff))
     {
-      printf("%s: Number of words inconsistent (index count = %d, block trailer count = %d",
+      printf("%s: Number of words inconsistent (index count = %d, block trailer count = %d\n",
 	     __FUNCTION__,(iblktrl - iblkhead + 1), word & 0x3fffff);
       return ERROR;
     }

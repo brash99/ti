@@ -469,7 +469,7 @@ struct TI_A24RegStruct
 /* Data buffer bits and masks */
 #define TI_DATA_TYPE_DEFINE_MASK           0x80000000
 #define TI_WORD_TYPE_MASK                  0x78000000
-#define TI_FILLER_WORD_TYPE                0xF8000000
+#define TI_FILLER_WORD_TYPE                0x78000000
 #define TI_BLOCK_HEADER_WORD_TYPE          0x00000000
 #define TI_BLOCK_TRAILER_WORD_TYPE         0x08000000
 #define TI_EMPTY_FIFO                      0xF0BAD0F0
