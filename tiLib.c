@@ -491,12 +491,6 @@ tiCheckAddresses()
     printf("%s: ERROR TIp->triggerSource not at offset = 0x%x (@ 0x%x)\n",
 	   __FUNCTION__,expected,offset);
 
-/*   offset = ((unsigned int) &TIp->GTPtrigger) - base; */
-/*   expected = 0x40; */
-/*   if(offset != expected) */
-/*     printf("%s: ERROR TIp->GTPtrigger not at offset = 0x%x (@ 0x%x)\n", */
-/* 	   __FUNCTION__,expected,offset); */
-    
   offset = ((unsigned int) &TIp->syncWidth) - base;
   expected = 0x80;
   if(offset != expected)
@@ -1569,7 +1563,7 @@ tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range
 
   if(TIp==NULL)
     {
-      logMsg("\ntsSoftTrig: ERROR: TI not initialized\n",1,2,3,4,5,6);
+      logMsg("\ntiSoftTrig: ERROR: TI not initialized\n",1,2,3,4,5,6);
       return ERROR;
     }
 
