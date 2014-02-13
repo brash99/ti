@@ -424,10 +424,14 @@ tiFind()
   int islot, stat, tiFound=0;
   unsigned int tAddr, laddr, rval;
 
-  for(islot = 2; islot<22; islot++)
+  for(islot = 1; islot<21; islot++)
     {
-      /* Form VME base address from slot number */
-      tAddr = (islot<<19);
+      /* Form VME base address from slot number 
+       Start from slot 21, then go from 2 to 20 */
+      if(islot==1)
+	tAddr = (21<<19);
+      else
+	tAddr = (islot<<19);
       
 #ifdef VXWORKS
       stat = sysBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
