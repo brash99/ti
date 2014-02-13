@@ -23,7 +23,7 @@ extern unsigned int *dma_dabufp;
 
 extern int tiA32Base;
 
-#define BLOCKLEVEL 1
+#define BLOCKLEVEL 10
 
 #define DO_READOUT
 
@@ -104,6 +104,15 @@ mytiISR(int arg)
   if(tiIntCount%printout==0)
     printf("intCount = %d\n",tiIntCount );
 /*     sleep(1); */
+
+  static int bl = BLOCKLEVEL;
+  if(tiGetSyncEventFlag())                                                      
+    {                                                                           
+      tiSetBlockLevel(bl++);                                              
+      printf("SE: Curr BL = %d\n",tiGetCurrentBlockLevel());                    
+      printf("SE: Next BL = %d\n",tiGetNextBlockLevel());                       
+    }                                                                           
+ 
 }
 
 
@@ -146,6 +155,8 @@ main(int argc, char *argv[]) {
   tiA32Base=0x09000000;
   tiInit(0,TI_READOUT_EXT_POLL,0);
   tiCheckAddresses();
+
+  tiSetSyncEventInterval(10);
 
   tiSetEventFormat(3);
 
@@ -192,7 +203,7 @@ main(int argc, char *argv[]) {
   tiSetFiberDelay(1,2);
   tiSetSyncDelayWidth(1,0x3f,1);
     
-  tiSetBlockLimit(10);
+  tiSetBlockLimit(1024);
 
   printf("Hit enter to reset stuff\n");
   getchar();

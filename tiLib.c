@@ -55,7 +55,8 @@ int tiA32Base  =0x08000000;                   /* Minimum VME A32 Address for use
 int tiA32Offset=0;                            /* Difference in CPU A32 Base and VME A32 Base */
 int tiMaster=1;                               /* Whether or not this TI is the Master */
 int tiCrateID=0x59;                           /* Crate ID */
-int tiBlockLevel=0;                           /* Block level for TI */
+int tiBlockLevel=0;                           /* Current Block level for TI */
+int tiNextBlockLevel=0;                       /* Next Block level for TI */
 unsigned int        tiIntCount    = 0;
 unsigned int        tiAckCount    = 0;
 unsigned int        tiDaqCount    = 0;       /* Block count from previous update (in daqStatus) */
@@ -573,6 +574,7 @@ tiStatus(int pflag)
   /* latch live and busytime scalers */
   tiLatchTimers();
   l1a_count    = tiGetEventCounter();
+  tiGetCurrentBlockLevel();
 
   TILOCK;
   boardID      = vmeRead32(&TIp->boardID);
@@ -656,6 +658,7 @@ tiStatus(int pflag)
       printf("  intsetup       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->intsetup) - TIBase, intsetup);
       printf("  trigDelay      (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->trigDelay) - TIBase, trigDelay);
       printf("  adr32          (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->adr32) - TIBase, adr32);
+      printf("  blocklevel     (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->blocklevel) - TIBase, blocklevel);
       printf("  vmeControl     (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->vmeControl) - TIBase, vmeControl);
       printf("  trigger        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->trigsrc) - TIBase, trigger);
       printf("  sync           (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->sync) - TIBase, sync);
@@ -671,27 +674,17 @@ tiStatus(int pflag)
     }
   printf("\n");
 
-  if(tiMaster)
+  if((!tiMaster) && (tiBlockLevel==0))
     {
-      printf(" Block Level = %d ", (blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16);
-      if(tiBlockLevel!=((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
-	printf("(To be set = %d)\n", tiBlockLevel);
-      else
-	printf("\n");
-    }
+      printf(" Block Level not yet received\n");
+    }      
   else
     {
-      if(tiBlockLevel==0)
-	  printf(" Block Level not yet received");
+      printf(" Block Level = %d ", tiBlockLevel);
+      if(tiBlockLevel != tiNextBlockLevel)
+	printf("(To be set = %d)\n", tiNextBlockLevel);
       else
-	{
-	  if( ((blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24)
-	      != ((blocklevel & TI_BLOCKLEVEL_CURRENT_MASK)>>16))
-	    printf(" (To be set = %d)\n",
-		   (blocklevel & TI_BLOCKLEVEL_RECEIVED_MASK)>>24);
-	  else
-	    printf("\n");
-	}
+	printf("\n");
     }
 
   fibermask = fiber;
@@ -1090,7 +1083,23 @@ tiSetCrateID(unsigned int crateID)
  */
 
 int
-tiSetBlockLevel(unsigned int blockLevel)
+tiSetBlockLevel(int blockLevel)
+{
+  return tiBroadcastNextBlockLevel(blockLevel);
+}
+
+/*******************************************************************************
+ *
+ * tiBroadcastNextBlockLevel - Broadcast the next block level (to be changed at
+ *                             the end of the next sync event, or during a call
+ *                             to tiSyncReset(1) )
+ *
+ * RETURNS: OK if successful, ERROR otherwise
+ *
+ */
+
+int
+tiBroadcastNextBlockLevel(int blockLevel)
 {
   unsigned int trigger=0;
   if(TIp==NULL)
@@ -1124,6 +1133,8 @@ tiSetBlockLevel(unsigned int blockLevel)
 
   TIUNLOCK;
 
+  tiGetNextBlockLevel();
+
   return OK;
 
 }
@@ -1140,6 +1151,7 @@ tiSetBlockLevel(unsigned int blockLevel)
 int
 tiGetNextBlockLevel()
 {
+  unsigned int reg_bl=0;
   int bl=0;
   if(TIp==NULL)
     {
@@ -1148,7 +1160,11 @@ tiGetNextBlockLevel()
     }
 
   TILOCK;
-  bl = (vmeRead32(&TIp->blocklevel) & TI_BLOCKLEVEL_RECEIVED_MASK)>>24;
+  reg_bl = vmeRead32(&TIp->blocklevel);
+  bl = (reg_bl & TI_BLOCKLEVEL_RECEIVED_MASK)>>24;
+  tiNextBlockLevel = bl;
+
+  tiBlockLevel = (reg_bl & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
   TIUNLOCK;
 
   return bl;
@@ -1166,6 +1182,7 @@ tiGetNextBlockLevel()
 int
 tiGetCurrentBlockLevel()
 {
+  unsigned int reg_bl=0;
   int bl=0;
   if(TIp==NULL)
     {
@@ -1174,8 +1191,10 @@ tiGetCurrentBlockLevel()
     }
 
   TILOCK;
-  bl = (vmeRead32(&TIp->blocklevel) & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
+  reg_bl = vmeRead32(&TIp->blocklevel);
+  bl = (reg_bl & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
   tiBlockLevel = bl;
+  tiNextBlockLevel = (reg_bl & TI_BLOCKLEVEL_RECEIVED_MASK)>>24;
   TIUNLOCK;
 
   /* Change Bus Error block termination, based on blocklevel */
@@ -2542,8 +2561,8 @@ tiSyncReset(int blflag)
   if(blflag) /* Set the block level from "Next" to Current */
     {
       printf("%s: INFO: Setting Block Level to %d\n",
-	     __FUNCTION__,tiBlockLevel);
-      tiSetBlockLevel(tiBlockLevel);
+	     __FUNCTION__,tiNextBlockLevel);
+      tiBroadcastNextBlockLevel(tiNextBlockLevel);
     }
 
 }
