@@ -97,13 +97,18 @@ struct TI_A24RegStruct
   /* 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
   /* 0x000FC */ volatile unsigned int blocklimit;
   /* 0x00100 */ volatile unsigned int reset;
-  /* 0x00104 */          unsigned int blank3[(0x8C0-0x104)/4];
+  /* 0x00104 */          unsigned int blank3[(0x180-0x104)/4];
+  /* 0x00180 */ volatile unsigned int ts_scaler[6];
+  /* 0x00198 */          unsigned int blank4[(0x0x1D0-0x198)/4];
+  /* 0x001D0 */ volatile unsigned int hfbr_tiID[8];
+  /* 0x001F0 */ volatile unsigned int master_tiID;
+  /* 0x001F4 */          unsigned int blank5[(0x0x8C0-0x1F4)/4];
   /* 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /* 0x00900 */          unsigned int blank4[(0x2000-0x900)/4];
+  /* 0x00900 */          unsigned int blank6[(0x2000-0x900)/4];
   /* 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
-  /* 0x02200 */          unsigned int blank5[(0x2800-0x2200)/4];
+  /* 0x02200 */          unsigned int blank7[(0x2800-0x2200)/4];
   /* 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
-  /* 0x03000 */          unsigned int blank6[(0xFFFC-0x3000)/4];
+  /* 0x03000 */          unsigned int blank8[(0xFFFC-0x3000)/4];
   /* 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /* 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /* 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
@@ -123,7 +128,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x153
+#define TI_SUPPORTED_FIRMWARE 0x172
 
 /* 0x0 boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -444,6 +449,10 @@ struct TI_A24RegStruct
 #define TI_RESET_SCALERS_RESET        (1<<25)
 #define TI_RESET_FILL_TO_END_BLOCK    (1<<31)
 
+/* 0x1D0-0x1F0 TI ID bits and masks */
+#define TI_ID_TRIGSRC_ENABLE_MASK     0x000000FF
+#define TI_ID_CRATEID_MASK            0x0000FF00
+
 /* Trigger Sources, used by tiSetTriggerSource  */
 #define TI_TRIGGER_P0        0
 #define TI_TRIGGER_HFBR1     1
@@ -491,6 +500,8 @@ unsigned int tiGetSerialNumber(char **rSN);
 int  tiClockResync();
 int  tiReset();
 int  tiSetCrateID(unsigned int crateID);
+int  tiGetCrateID(int port);
+int  tiGetPortTrigSrcEnabled(int port);
 int  tiSetBlockLevel(int blockLevel);
 int  tiBroadcastNextBlockLevel(int blockLevel);
 int  tiGetNextBlockLevel();
@@ -554,9 +565,8 @@ int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
 int  tiLive(int sflag);
-unsigned int tiGetDaqStatus();
-int  tiVmeTrigger1();
-int  tiVmeTrigger2();
+unsigned int tiGetTSscaler(int input, int latch);
+unsigned int tiBlockStatus(int fiber, int pflag);
 
 int  tiGetSWBBusy(int pflag);
 int  tiSetTokenTestMode(int mode);

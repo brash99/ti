@@ -1080,6 +1080,99 @@ tiSetCrateID(unsigned int crateID)
 
 /*******************************************************************************
  *
+ * tiGetCrateID - Get the crate ID of the selected port
+ *    ARG: port
+ *         0 - Self (master)
+ *       1-8 - Fiber port 1-8
+ *
+ * RETURNS: port Crate ID if successful, ERROR otherwise
+ *
+ */
+
+int
+tiGetCrateID(int port)
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((port<0) || (port>8))
+    {
+      printf("%s: ERROR: Invalid port (%d)\n",
+	     __FUNCTION__,port);
+    }
+
+  TILOCK;
+  if(port==0)
+    {
+      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_CRATEID_MASK)>>8;
+    }
+  else
+    {
+      rval = (vmeRead32(&TIp->master_tiID) & TI_ID_CRATEID_MASK)>>8;
+    }
+  TIUNLOCK;
+
+  return rval;
+}
+
+/*******************************************************************************
+ *
+ * tiGetPortTrigSrcEnabled - Get the trigger sources enabled bits 
+ *                           of the selected port
+ *    ARG: port
+ *         0 - Self (master)
+ *       1-8 - Fiber port 1-8
+ *
+ *    RETURNED BITS:
+ *         0 - P0 
+ *         1 - Fiber 1
+ *         2 - Loopback
+ *         3 - TRG (FP)
+ *         4 - VME
+ *         5 - TS Inputs (FP)
+ *         6 - TS (rev 2)
+ *         7 - Internal Pulser
+ *
+ * RETURNS: trigger sources enabled if successful, ERROR otherwise
+ *
+ */
+
+int
+tiGetPortTrigSrcEnabled(int port)
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((port<0) || (port>8))
+    {
+      printf("%s: ERROR: Invalid port (%d)\n",
+	     __FUNCTION__,port);
+    }
+
+  TILOCK;
+  if(port==0)
+    {
+      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_TRIGSRC_ENABLE_MASK)
+    }
+  else
+    {
+      rval = (vmeRead32(&TIp->master_tiID) & TI_ID_TRIGSRC_ENABLE_MASK);
+    }
+  TIUNLOCK;
+
+  return rval;
+}
+
+/*******************************************************************************
+ *
  * tiSetBlockLevel - Set the number of events per block
  *
  * RETURNS: OK if successful, ERROR otherwise
@@ -3719,6 +3812,66 @@ tiLive(int sflag)
 }
 
 
+/*******************************************************************************
+ *
+ * tiGetTSscaler
+ *   - Get the current counter for the specified TS Input
+ *
+ *  ARGs: input: 
+ *         1-6 : TS Input (1-6)
+ *        latch:
+ *          0  : Do not latch before readout
+ *          1  : Latch before readout
+ *          2  : Latch and reset before readout
+ *      
+ *
+ *  RETURNS: live time as a 3 digit integer % (e.g. 987 = 98.7%)
+ *
+ */
+
+unsigned int
+tiGetTSscaler(int input, int latch)
+{
+  unsigned int rval=0;
+  if(TIp == NULL) 
+    {
+      logMsg("%s: ERROR: TI not initialized\n",__FUNCTION__,2,3,4,5,6);
+      return ERROR;
+    }
+
+  if((input<1)||(input>6))
+    {
+      logMsg("%s: ERROR: Invalid input (%d).\n",
+	     __FUNCTION__,input,3,4,5,6);
+      return ERROR;
+    }
+
+  if((latch<0) || (latch>2))
+    {
+      logMsg("%s: ERROR: Invalid latch (%d).\n",
+	     __FUNCTION__,
+	     latch,3,4,5,6);
+      return ERROR;
+    }
+
+  TILOCK;
+  switch(latch)
+    {
+    case 1: 
+      vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
+      break;
+
+    case 2:
+      vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH | TI_RESET_SCALERS_RESET);
+      break;
+    }
+
+  rval = vmeRead32(&TIp->ts_scaler[input-1]);
+  TIUNLOCK;
+
+  return rval;
+}
+
 unsigned int
 tiBlockStatus(int fiber, int pflag)
 {
@@ -3778,56 +3931,6 @@ tiBlockStatus(int fiber, int pflag)
 
   return rval;
 }
-
-
-#ifdef NOTDONE
-/*******************************************************************************
- *
- * tidVmeTrigger1
- *    - fire a single trigger 1 via VME
- *
- */
-
-int
-tidVmeTrigger1()
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-  
-  TILOCK;
-  vmeWrite32(&TIp->triggerCmdCode, 0x0018);
-  TIUNLOCK;
-  return OK;
-
-}
-
-/*******************************************************************************
- *
- * tidVmeTrigger2
- *    - fire a single trigger 2 via VME
- *
- */
-
-int
-tidVmeTrigger2()
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-  
-  TILOCK;
-/*   vmeWrite32(&TIp->triggerCmdCode, 0x0180); */
-  vmeWrite32(&TIp->softTrig2,0x1| (1<<16));
-  TIUNLOCK;
-  return OK;
-
-}
-#endif
 
 static void 
 FiberMeas()
@@ -4973,3 +5076,4 @@ tiSetTokenOutTest(int level)
   return OK;
 
 }
+
