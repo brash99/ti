@@ -891,6 +891,125 @@ tiStatus(int pflag)
 
 }
 
+/*******************************************************************************
+ *
+ * tiSlaveStatus (tiMaster only)
+ *   - Print a summary of all fiber port connections to potential TI Slaves
+ *
+ *   ARGs:
+ *      pflag:  0  - Default output
+ *              1  - Print Raw Registers
+ *
+ */
+
+void
+tiSlaveStatus(int pflag)
+{
+  int iport=0, ibs=0, ifiber=0;
+  unsigned int hfbr_tiID[8];
+  unsigned int master_tiID;
+  unsigned int fiber=0, busy=0, trigsrc=0, blockStatus[4];
+  int nblocksReady=0, nblocksNeedAck=0, slaveCount=0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  for(iport=0; iport<8; iport++)
+    {
+      hfbr_tiID[iport] = vmeRead32(&TIp->hfbr_tiID[iport]);
+    }
+  master_tiID = vmeRead32(&TIp->master_tiID);
+  fiber       = vmeRead32(&TIp->fiber);
+  busy        = vmeRead32(&TIp->busy);
+  trigsrc     = vmeRead32(&TIp->trigsrc);
+  for(ibs=0; ibs<5; ibs++)
+    {
+      blockStatus[ibs] = vmeRead32(&TIp->blockStatus[ibs]);
+    }
+  
+  TIUNLOCK;
+
+  printf("TI-Master Port STATUS Summary\n");
+  printf("                                                      Block Status\n");
+  printf("Port  ROCID   Connected   TrigSrcEn   Busy Status    Ready / NeedAck\n");
+  printf("--------------------------------------------------------------------------------\n");
+  /* Master first */
+  /* Slot and Port number */
+  printf("L     ");
+  
+  /* Port Name */
+  printf("%5d      ",
+	 (master_tiID&TI_ID_CRATEID_MASK)>>8);
+  
+  /* Connection Status */
+  printf("%s      %s       ",
+	 "YES",
+	 (trigsrc & TI_TRIGSRC_LOOPBACK)?"ENABLED ":"DISABLED");
+  
+  /* Busy Status */
+  printf("%s       ",
+	 (busy & TI_BUSY_MONITOR_LOOPBACK)?"BUSY":"    ");
+  
+  /* Block Status */
+  nblocksReady   = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
+  nblocksNeedAck = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
+  printf("   %3d / %3d",nblocksReady, nblocksNeedAck);
+  printf("\n");
+
+  /* Slaves last */
+  for(iport=1; iport<9; iport++)
+    {
+      /* Only continue of this port has been configured as a slave */
+      if((tiSlaveMask & (1<<(iport-1)))==0) continue;
+      
+      /* Slot and Port number */
+      printf("%d     ", iport);
+
+      /* Port Name */
+      printf("%5d      ",
+	     (hfbr_tiID[iport-1]&TI_ID_CRATEID_MASK)>>8);
+	  
+      /* Connection Status */
+      printf("%s      %s       ",
+	     (fiber & TI_FIBER_CONNECTED_TI(iport))?"YES":"NO ",
+	     (fiber & TI_FIBER_TRIGSRC_ENABLED_TI(iport))?"ENABLED ":"DISABLED");
+
+      /* Busy Status */
+      printf("%s       ",
+	     (busy & TI_BUSY_MONITOR_FIBER_BUSY(iport))?"BUSY":"    ");
+
+      /* Block Status */
+      ifiber=iport-1;
+      if( (ifiber % 2) == 0)
+	{
+	  nblocksReady   = blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_READY0;
+	  nblocksNeedAck = (blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK0)>>8;
+	}
+      else
+	{
+	  nblocksReady   = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
+	  nblocksNeedAck = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
+	}
+      printf("   %3d / %3d",nblocksReady, nblocksNeedAck);
+	  
+      printf("\n");
+      slaveCount++;
+    }
+  printf("\n");
+  printf("Total Slaves Added = %d\n",slaveCount);
+
+}
+
 
 /*******************************************************************************
  *
@@ -1160,7 +1279,7 @@ tiGetPortTrigSrcEnabled(int port)
   TILOCK;
   if(port==0)
     {
-      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_TRIGSRC_ENABLE_MASK)
+      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_TRIGSRC_ENABLE_MASK);
     }
   else
     {
