@@ -1294,11 +1294,11 @@ tiGetCrateID(int port)
   TILOCK;
   if(port==0)
     {
-      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_CRATEID_MASK)>>8;
+      rval = (vmeRead32(&TIp->master_tiID) & TI_ID_CRATEID_MASK)>>8;
     }
   else
     {
-      rval = (vmeRead32(&TIp->master_tiID) & TI_ID_CRATEID_MASK)>>8;
+      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_CRATEID_MASK)>>8;
     }
   TIUNLOCK;
 
@@ -1346,11 +1346,11 @@ tiGetPortTrigSrcEnabled(int port)
   TILOCK;
   if(port==0)
     {
-      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_TRIGSRC_ENABLE_MASK);
+      rval = (vmeRead32(&TIp->master_tiID) & TI_ID_TRIGSRC_ENABLE_MASK);
     }
   else
     {
-      rval = (vmeRead32(&TIp->master_tiID) & TI_ID_TRIGSRC_ENABLE_MASK);
+      rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_TRIGSRC_ENABLE_MASK);
     }
   TIUNLOCK;
 
