@@ -118,6 +118,55 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
     18     /* VME Slot Furthest to the Right - TI */ 
   };
 
+
+/********************************************************************************
+ *
+ * tiSetFiberLatencyOffset_preInit
+ *
+ *  - Set the Fiber Latency Offset to be used during initialization
+ *
+ * RETURNS: OK if successful, otherwise ERROR
+ */
+
+int
+tiSetFiberLatencyOffset_preInit(int flo)
+{
+  if((flo<0) || (flo>0x1ff))
+    {
+      printf("%s: ERROR: Invalid Fiber Latency Offset (%d)\n",
+	     __FUNCTION__,flo);
+      return ERROR;
+    }
+
+  tiFiberLatencyOffset = flo;
+
+  return OK;
+}
+
+/********************************************************************************
+ *
+ * tsSetCrateID_preInit
+ *
+ *  - Set the CrateID to be used during initialization
+ *
+ * RETURNS: OK if successful, otherwise ERROR
+ */
+
+int
+tiSetCrateID_preInit(int cid)
+{
+  if((cid<0) || (cid>0xff))
+    {
+      printf("%s: ERROR: Invalid Crate ID (%d)\n",
+	     __FUNCTION__,cid);
+      return ERROR;
+    }
+
+  tiCrateID = cid;
+
+  return OK;
+}
+
 /*******************************************************************************
  *
  *  tiInit - Initialize the TIp register space into local memory,
@@ -3719,6 +3768,66 @@ tiLive(int sflag)
 }
 
 
+/*******************************************************************************
+ *
+ * tiGetTSscaler
+ *   - Get the current counter for the specified TS Input
+ *
+ *  ARGs: input: 
+ *         1-6 : TS Input (1-6)
+ *        latch:
+ *          0  : Do not latch before readout
+ *          1  : Latch before readout
+ *          2  : Latch and reset before readout
+ *      
+ *
+ *  RETURNS: live time as a 3 digit integer % (e.g. 987 = 98.7%)
+ *
+ */
+
+unsigned int
+tiGetTSscaler(int input, int latch)
+{
+  unsigned int rval=0;
+  if(TIp == NULL) 
+    {
+      logMsg("%s: ERROR: TI not initialized\n",__FUNCTION__,2,3,4,5,6);
+      return ERROR;
+    }
+
+  if((input<1)||(input>6))
+    {
+      logMsg("%s: ERROR: Invalid input (%d).\n",
+	     __FUNCTION__,input,3,4,5,6);
+      return ERROR;
+    }
+
+  if((latch<0) || (latch>2))
+    {
+      logMsg("%s: ERROR: Invalid latch (%d).\n",
+	     __FUNCTION__,
+	     latch,3,4,5,6);
+      return ERROR;
+    }
+
+  TILOCK;
+  switch(latch)
+    {
+    case 1: 
+      vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
+      break;
+
+    case 2:
+      vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH | TI_RESET_SCALERS_RESET);
+      break;
+    }
+
+  rval = vmeRead32(&TIp->ts_scaler[input-1]);
+  TIUNLOCK;
+
+  return rval;
+}
+
 unsigned int
 tiBlockStatus(int fiber, int pflag)
 {
@@ -3742,7 +3851,7 @@ tiBlockStatus(int fiber, int pflag)
   switch(fiber)
     {
     case 0:
-      rval = (vmeRead32(&TIp->blockStatus[4]) & 0xFFFF0000)>>16;
+      rval = (vmeRead32(&TIp->adr24) & 0xFFFF0000)>>16;
       break;
 
     case 1:
@@ -3778,56 +3887,6 @@ tiBlockStatus(int fiber, int pflag)
 
   return rval;
 }
-
-
-#ifdef NOTDONE
-/*******************************************************************************
- *
- * tidVmeTrigger1
- *    - fire a single trigger 1 via VME
- *
- */
-
-int
-tidVmeTrigger1()
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-  
-  TILOCK;
-  vmeWrite32(&TIp->triggerCmdCode, 0x0018);
-  TIUNLOCK;
-  return OK;
-
-}
-
-/*******************************************************************************
- *
- * tidVmeTrigger2
- *    - fire a single trigger 2 via VME
- *
- */
-
-int
-tidVmeTrigger2()
-{
-  if(TIp == NULL) 
-    {
-      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-  
-  TILOCK;
-/*   vmeWrite32(&TIp->triggerCmdCode, 0x0180); */
-  vmeWrite32(&TIp->softTrig2,0x1| (1<<16));
-  TIUNLOCK;
-  return OK;
-
-}
-#endif
 
 static void 
 FiberMeas()
@@ -4973,3 +5032,4 @@ tiSetTokenOutTest(int level)
   return OK;
 
 }
+
