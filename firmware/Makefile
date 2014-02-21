@@ -18,6 +18,8 @@ ifndef ARCH
 	endif
 endif
 
+FWFILES	= $(shell cat .currentfw)
+
 # Defs and build for VxWorks
 ifeq ($(ARCH),VXWORKSPPC)
 VXWORKS_ROOT = /site/vxworks/5.5/ppc/target
@@ -38,6 +40,7 @@ ifeq ($(ARCH),Linux)
 LINUXVME_LIB	?= ../../libs
 LINUXVME_INC	?= ../../include
 LINUXVME_BIN	?= ../../bin
+LINUXVME_FW	?= ../../firmware
 
 CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
@@ -58,17 +61,25 @@ clean:
 	@rm -vf $(PROGS) $(OBJS) *~
 
 %: %.c
-	echo "Making $@ for $(ARCH)"
+	@echo "Making $@ for $(ARCH)"
 	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) -lrt -ljvme -lti 
 
 ifeq ($(ARCH),VXWORKSPPC)
 tiFirmwareUpdate.o: tiFirmwareUpdate.c
-	echo "Making $@ for $(ARCH)"
+	@echo "Making $@ for $(ARCH)"
 	$(CC) $(CFLAGS) -c -DTEMPE -o $@ $(<)
 	$(CC) $(CFLAGS) -c -o $(@:.o=_univ.o) $(<)
 else
 install: $(PROGS)
-	cp -v $(PROGS) $(LINUXVME_BIN)/
+	@echo "Installing $(PROGS)"
+	@install -v -d $(LINUXVME_BIN)
+	@install -v -p $(PROGS) -D $(LINUXVME_BIN)/
+
+fwinstall:
+	@ln -sf $(FWFILES) ti_current_firmware.svf
+	@install -v -d $(LINUXVME_FW)/ti
+	@install -p -m 664 -v $(FWFILES) ti_current_firmware.svf -D $(LINUXVME_FW)/ti
+
 endif
 
 .PHONY: all clean

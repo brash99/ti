@@ -40,7 +40,7 @@ main(int argc, char *argv[]) {
     vmeOpenDefaultWindows();
 
     /* Set the TI structure pointer */
-    tiInit((slot<<19),TI_READOUT_EXT_POLL,1);
+    tiInit(slot,TI_READOUT_EXT_POLL,1);
     tiCheckAddresses();
     printf("Firmware version = 0x%x\n",tiGetFirmwareVersion());
     tiStatus();

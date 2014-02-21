@@ -97,13 +97,18 @@ struct TI_A24RegStruct
   /* 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
   /* 0x000FC */ volatile unsigned int blocklimit;
   /* 0x00100 */ volatile unsigned int reset;
-  /* 0x00104 */          unsigned int blank3[(0x8C0-0x104)/4];
+  /* 0x00104 */          unsigned int blank3[(0x180-0x104)/4];
+  /* 0x00180 */ volatile unsigned int ts_scaler[6];
+  /* 0x00198 */          unsigned int blank4[(0x1D0-0x198)/4];
+  /* 0x001D0 */ volatile unsigned int hfbr_tiID[8];
+  /* 0x001F0 */ volatile unsigned int master_tiID;
+  /* 0x001F4 */          unsigned int blank5[(0x8C0-0x1F4)/4];
   /* 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /* 0x00900 */          unsigned int blank4[(0x2000-0x900)/4];
+  /* 0x00900 */          unsigned int blank6[(0x2000-0x900)/4];
   /* 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
-  /* 0x02200 */          unsigned int blank5[(0x2800-0x2200)/4];
+  /* 0x02200 */          unsigned int blank7[(0x2800-0x2200)/4];
   /* 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
-  /* 0x03000 */          unsigned int blank6[(0xFFFC-0x3000)/4];
+  /* 0x03000 */          unsigned int blank8[(0xFFFC-0x3000)/4];
   /* 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /* 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /* 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
@@ -193,7 +198,7 @@ struct TI_A24RegStruct
 /* 0x18 dataFormat bits and masks */
 #define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
 #define TI_DATAFORMAT_TIMING_WORD          (1<<1)
-#define TI_DATAFORMAT_STATUS_WORD          (1<<2)
+#define TI_DATAFORMAT_HIGHERBITS_WORD      (1<<2)
 
 /* 0x1C vmeControl bits and masks */
 #define TI_VMECONTROL_BERR           (1<<0)
@@ -267,6 +272,7 @@ struct TI_A24RegStruct
 #define TI_BUSY_MONITOR_FP_FADC  (1<<20)
 #define TI_BUSY_MONITOR_FP       (1<<21)
 #define TI_BUSY_MONITOR_LOOPBACK (1<<23)
+#define TI_BUSY_MONITOR_FIBER_BUSY(x) (1<<(x+23))
 #define TI_BUSY_MONITOR_HFBR1    (1<<24)
 #define TI_BUSY_MONITOR_HFBR2    (1<<25)
 #define TI_BUSY_MONITOR_HFBR3    (1<<26)
@@ -469,8 +475,9 @@ struct TI_A24RegStruct
 /* Data buffer bits and masks */
 #define TI_DATA_TYPE_DEFINE_MASK           0x80000000
 #define TI_WORD_TYPE_MASK                  0x78000000
-#define TI_FILLER_WORD_TYPE                0xF8000000
-#define TI_BLOCK_HEADER_WORD_TYPE          0x80000000
+#define TI_FILLER_WORD_TYPE                0x78000000
+#define TI_BLOCK_HEADER_WORD_TYPE          0x00000000
+#define TI_BLOCK_TRAILER_WORD_TYPE         0x08000000
 #define TI_EMPTY_FIFO                      0xF0BAD0F0
 #define TI_BLOCK_HEADER_CRATEID_MASK       0xFF000000
 #define TI_BLOCK_HEADER_SLOTS_MASK         0x001F0000
@@ -478,6 +485,10 @@ struct TI_A24RegStruct
 #define TI_BLOCK_TRAILER_SLOTS_MASK        0x1F000000
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
+
+/* Some pre-initialization routine prototypes */
+int  tiSetFiberLatencyOffset_preInit(int flo);
+int  tiSetCrateID_prIinit(int cid);
 
 /* Function prototypes */
 int  tiInit(unsigned int tAddr, unsigned int mode, int force);
@@ -490,9 +501,10 @@ unsigned int tiGetSerialNumber(char **rSN);
 int  tiClockResync();
 int  tiReset();
 int  tiSetCrateID(unsigned int crateID);
-int  tiSetBlockLevel(unsigned int blockLevel);
-int  tiSetBlockLevel(unsigned int blockLevel);
+int  tiSetBlockLevel(int blockLevel);
+int  tiBroadcastNextBlockLevel(int blockLevel);
 int  tiGetNextBlockLevel();
+int  tiGetCurrentBlockLevel();
 int  tiSetTriggerSource(int trig);
 int  tiSetTriggerSourceMask(int trigmask);
 int  tiEnableTriggerSource();
@@ -503,7 +515,7 @@ int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int 
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
-int  tiReadTriggerBlock(volatile unsigned int *data, int nwrds, int rflag);
+int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
@@ -552,9 +564,8 @@ int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
 int  tiLive(int sflag);
-unsigned int tiGetDaqStatus();
-int  tiVmeTrigger1();
-int  tiVmeTrigger2();
+unsigned int tiGetTSscaler(int input, int latch);
+unsigned int tiBlockStatus(int fiber, int pflag);
 
 int  tiGetSWBBusy(int pflag);
 int  tiSetTokenTestMode(int mode);
@@ -575,6 +586,7 @@ int  tiFillToEndBlock();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
+
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
