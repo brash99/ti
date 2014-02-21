@@ -490,6 +490,10 @@ struct TI_A24RegStruct
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
 
+/* Some pre-initialization routine prototypes */
+int  tiSetFiberLatencyOffset_preInit(int flo);
+int  tiSetCrateID_prIinit(int cid);
+
 /* Function prototypes */
 int  tiInit(unsigned int tAddr, unsigned int mode, int force);
 unsigned int tiFind();
@@ -589,6 +593,7 @@ int  tiFillToEndBlock();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
+
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);

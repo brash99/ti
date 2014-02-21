@@ -118,6 +118,55 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
     18     /* VME Slot Furthest to the Right - TI */ 
   };
 
+
+/********************************************************************************
+ *
+ * tiSetFiberLatencyOffset_preInit
+ *
+ *  - Set the Fiber Latency Offset to be used during initialization
+ *
+ * RETURNS: OK if successful, otherwise ERROR
+ */
+
+int
+tiSetFiberLatencyOffset_preInit(int flo)
+{
+  if((flo<0) || (flo>0x1ff))
+    {
+      printf("%s: ERROR: Invalid Fiber Latency Offset (%d)\n",
+	     __FUNCTION__,flo);
+      return ERROR;
+    }
+
+  tiFiberLatencyOffset = flo;
+
+  return OK;
+}
+
+/********************************************************************************
+ *
+ * tsSetCrateID_preInit
+ *
+ *  - Set the CrateID to be used during initialization
+ *
+ * RETURNS: OK if successful, otherwise ERROR
+ */
+
+int
+tiSetCrateID_preInit(int cid)
+{
+  if((cid<0) || (cid>0xff))
+    {
+      printf("%s: ERROR: Invalid Crate ID (%d)\n",
+	     __FUNCTION__,cid);
+      return ERROR;
+    }
+
+  tiCrateID = cid;
+
+  return OK;
+}
+
 /*******************************************************************************
  *
  *  tiInit - Initialize the TIp register space into local memory,
@@ -906,20 +955,16 @@ void
 tiSlaveStatus(int pflag)
 {
   int iport=0, ibs=0, ifiber=0;
-  unsigned int hfbr_tiID[8];
+  unsigned int TIBase;
+  unsigned int hfbr_tiID[8] = {1,2,3,4,5,6,7};
   unsigned int master_tiID;
-  unsigned int fiber=0, busy=0, trigsrc=0, blockStatus[4];
+  unsigned int blockStatus[5];
+  unsigned int fiber=0, busy=0, trigsrc=0;
   int nblocksReady=0, nblocksNeedAck=0, slaveCount=0;
 
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return;
-    }
-
-  if(!tiMaster)
-    {
-      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return;
     }
 
@@ -932,12 +977,34 @@ tiSlaveStatus(int pflag)
   fiber       = vmeRead32(&TIp->fiber);
   busy        = vmeRead32(&TIp->busy);
   trigsrc     = vmeRead32(&TIp->trigsrc);
-  for(ibs=0; ibs<5; ibs++)
+  for(ibs=0; ibs<4; ibs++)
     {
       blockStatus[ibs] = vmeRead32(&TIp->blockStatus[ibs]);
     }
-  
+  blockStatus[4] = vmeRead32(&TIp->adr24);
+
   TIUNLOCK;
+
+  TIBase = (unsigned int)TIp;
+
+  if(pflag>0)
+    {
+      printf(" Registers (offset):\n");
+      printf("  TIBase     (0x%08x)\n",TIBase-tiA24Offset);
+      printf("  busy           (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->busy) - TIBase, busy);
+      printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiber) - TIBase, fiber);
+      printf("  hfbr_tiID[0]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[0]) - TIBase, hfbr_tiID[0]);
+      printf("  hfbr_tiID[1]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[1]) - TIBase, hfbr_tiID[1]);
+      printf("  hfbr_tiID[2]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[2]) - TIBase, hfbr_tiID[2]);
+      printf("  hfbr_tiID[3]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[3]) - TIBase, hfbr_tiID[3]);
+      printf("  hfbr_tiID[4]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[4]) - TIBase, hfbr_tiID[4]);
+      printf("  hfbr_tiID[5]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[5]) - TIBase, hfbr_tiID[5]);
+      printf("  hfbr_tiID[6]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[6]) - TIBase, hfbr_tiID[6]);
+      printf("  hfbr_tiID[7]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[7]) - TIBase, hfbr_tiID[7]);
+      printf("  master_tiID    (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->master_tiID) - TIBase, master_tiID);
+
+      printf("\n");
+    }
 
   printf("TI-Master Port STATUS Summary\n");
   printf("                                                      Block Status\n");
@@ -4014,7 +4081,7 @@ tiBlockStatus(int fiber, int pflag)
   switch(fiber)
     {
     case 0:
-      rval = (vmeRead32(&TIp->blockStatus[4]) & 0xFFFF0000)>>16;
+      rval = (vmeRead32(&TIp->adr24) & 0xFFFF0000)>>16;
       break;
 
     case 1:
