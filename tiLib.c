@@ -1957,18 +1957,21 @@ tiSetRandomTrigger(int trigger, int setting)
       return ERROR;
     }
 
-  rate = ((double)500000) / ((double) (2<<(setting-1)));
-
-  setting |= (TI_RANDOMPULSER_TRIG1_ENABLE);  /* Set the enable bit */
+  if(setting>0)
+    rate = ((double)500000) / ((double) (2<<(setting-1)));
+  else
+    rate = ((double)500000);
 
   printf("%s: Enabling random trigger (trig%d) at rate (kHz) = %.2f\n",
 	 __FUNCTION__,trigger,rate);
 
   TILOCK;
   if(trigger==1)
-    vmeWrite32(&TIp->randomPulser, (setting | (setting<<4)) );
+    vmeWrite32(&TIp->randomPulser, 
+	       setting | (setting<<4) | TI_RANDOMPULSER_TRIG1_ENABLE);
   else if (trigger==2)
-    vmeWrite32(&TIp->randomPulser, ((setting | (setting<<4))<<8));
+    vmeWrite32(&TIp->randomPulser, 
+	       (setting | (setting<<4))<<8 | TI_RANDOMPULSER_TRIG2_ENABLE );
   TIUNLOCK;
 
   return OK;
