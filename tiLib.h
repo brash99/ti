@@ -223,6 +223,7 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_TSINPUTS         (1<<5)
 #define TI_TRIGSRC_TSREV2           (1<<6)
 #define TI_TRIGSRC_PULSER           (1<<7)
+#define TI_TRIGSRC_HFBR5            (1<<10)
 #define TI_TRIGSRC_PART_1           (1<<12)
 #define TI_TRIGSRC_PART_2           (1<<13)
 #define TI_TRIGSRC_PART_3           (1<<14)
@@ -462,6 +463,7 @@ struct TI_A24RegStruct
 #define TI_TRIGGER_PART_2    7
 #define TI_TRIGGER_PART_3    8
 #define TI_TRIGGER_PART_4    9
+#define TI_TRIGGER_HFBR5    10
 
 /* Define default Interrupt vector and level */
 #define TI_INT_VEC      0xec
@@ -485,6 +487,10 @@ struct TI_A24RegStruct
 #define TI_BLOCK_TRAILER_SLOTS_MASK        0x1F000000
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
+
+/* tiInit initialization flag bits */
+#define TI_INIT_SKIP              (0<<0)
+#define TI_INIT_SLAVE_FIBER_5     (1<<0)
 
 /* Some pre-initialization routine prototypes */
 int  tiSetFiberLatencyOffset_preInit(int flo);
