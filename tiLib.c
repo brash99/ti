@@ -81,6 +81,7 @@ static int          tiDoSyncResetRequest =0; /* Option to request a sync reset d
 static int          tiSlotNumber=0;          /* Slot number in which the TI resides */
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
 static int          tiBusError=0;            /* Bus Error block termination */
+static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -145,7 +146,7 @@ tiSetFiberLatencyOffset_preInit(int flo)
 
 /********************************************************************************
  *
- * tsSetCrateID_preInit
+ * tiSetCrateID_preInit
  *
  *  - Set the CrateID to be used during initialization
  *
@@ -167,6 +168,31 @@ tiSetCrateID_preInit(int cid)
   return OK;
 }
 
+/********************************************************************************
+ *
+ * tsSetFiberIn_preInit
+ *
+ *  - Set the CrateID to be used during initialization
+ *
+ * RETURNS: OK if successful, otherwise ERROR
+ */
+
+int
+tiSetFiberIn_preInit(int port)
+{
+  if((port!=1) || (port!=5))
+    {
+      printf("%s: ERROR: Invalid Slave Fiber In Port (%d)\n",
+	     __FUNCTION__,port);
+      return ERROR;
+    }
+
+  tiSlaveFiberIn=port;
+
+  return OK;
+}
+
+
 /*******************************************************************************
  *
  *  tiInit - Initialize the TIp register space into local memory,
@@ -182,10 +208,11 @@ tiSetCrateID_preInit(int cid)
  *          2: External Trigger - Polling Mode
  *          3: TI/TImaster Trigger - Polling Mode
  *
- *    iFlag  - Initialization type
- *          0: Initialize the TI (default behavior)
- *          1: Do not initialize the board, just setup the pointers
+ *    iFlag  - Initialization bits
+ *        bit:
+ *          0: Do not initialize the board, just setup the pointers
  *             to the registers
+ *          1: Use Slave Fiber 5, instead of 1
  *
  *  RETURNS: OK if successful, otherwise ERROR.
  *
@@ -227,7 +254,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tAddr = tAddr<<19;
     }
 
-  noBoardInit = iFlag&(0x1);
+  noBoardInit = iFlag&TI_INIT_SKIP;
+  if(iFlag&TI_INIT_SLAVE_FIBER_5)
+    {
+      tiSlaveFiberIn=5;
+    }
+
 
 #ifdef VXWORKS
   stat = sysBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
@@ -363,14 +395,28 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tiMaster = 0;
       /* BUSY from Switch Slot B */
       tiSetBusySource(TI_BUSY_SWB,1);
-      /* Enable HFBR#1 */
-      tiEnableFiber(1);
-      /* HFBR#1 Clock Source */
-      tiSetClockSource(1);
-      /* HFBR#1 Sync Source */
-      tiSetSyncSource(TI_SYNC_HFBR1);
-      /* HFBR#1 Trigger Source */
-      tiSetTriggerSource(TI_TRIGGER_HFBR1);
+      if(tiSlaveFiberIn==1)
+	{
+	  /* Enable HFBR#1 */
+	  tiEnableFiber(1);
+	  /* HFBR#1 Clock Source */
+	  tiSetClockSource(1);
+	  /* HFBR#1 Sync Source */
+	  tiSetSyncSource(TI_SYNC_HFBR1);
+	  /* HFBR#1 Trigger Source */
+	  tiSetTriggerSource(TI_TRIGGER_HFBR1);
+	}
+      else if(tiSlaveFiberIn==5)
+	{
+	  /* Enable HFBR#1 */
+	  tiEnableFiber(5);
+	  /* HFBR#1 Clock Source */
+	  tiSetClockSource(5);
+	  /* HFBR#1 Sync Source */
+	  tiSetSyncSource(TI_SYNC_HFBR5);
+	  /* HFBR#1 Trigger Source */
+	  tiSetTriggerSource(TI_TRIGGER_HFBR5);
+	}
       break;
 
     default:
@@ -777,6 +823,29 @@ tiStatus(int pflag)
       
     }
 
+  printf(" Clock Source (%d) = \n",clock & TI_CLOCK_MASK);
+  switch(clock & TI_CLOCK_MASK)
+    {
+    case TI_CLOCK_INTERNAL:
+      printf("   Internal\n");
+      break;
+
+    case TI_CLOCK_HFBR5:
+      printf("   HFBR #5 Input\n");
+      break;
+
+    case TI_CLOCK_HFBR1:
+      printf("   HFBR #1 Input\n");
+      break;
+
+    case TI_CLOCK_FP:
+      printf("   Front Panel\n");
+      break;
+
+    default:
+      printf("   UNDEFINED!\n");
+    }
+
   if(tiTriggerSource&TI_TRIGSRC_SOURCEMASK)
     {
       if(trigger)
@@ -789,6 +858,8 @@ tiStatus(int pflag)
 	printf("   P0 Input\n");
       if(tiTriggerSource & TI_TRIGSRC_HFBR1)
 	printf("   HFBR #1 Input\n");
+      if(tiTriggerSource & TI_TRIGSRC_HFBR5)
+	printf("   HFBR #5 Input\n");
       if(tiTriggerSource & TI_TRIGSRC_LOOPBACK)
 	printf("   Loopback\n");
       if(tiTriggerSource & TI_TRIGSRC_FPTRG)
@@ -1508,6 +1579,7 @@ tiGetCurrentBlockLevel()
  *         4: TS (rev2) 
  *         5: Random
  *       6-9: TS Partition 1-4
+ *        10: HFBR#5
  *
  * RETURNS: OK if successful, ERROR otherwise
  *
@@ -1524,7 +1596,7 @@ tiSetTriggerSource(int trig)
       return ERROR;
     }
 
-  if( (trig>9) || (trig<0) )
+  if( (trig>10) || (trig<0) )
     {
       printf("%s: ERROR: Invalid Trigger Source (%d).  Must be between 0 and 10.\n",
 	     __FUNCTION__,trig);
@@ -1560,12 +1632,20 @@ tiSetTriggerSource(int trig)
 	}
       else
 	{
-	  trigenable |= TI_TRIGSRC_HFBR1;
-	  if( (trig & ~TI_TRIGGER_HFBR1) != 0)
+	  if(tiSlaveFiberIn==1)
 	    {
-	      printf("%s: WARN:  Only valid trigger source for TI Slave is HFBR1 (%d).",
-		     __FUNCTION__,TI_TRIGGER_HFBR1);
-	      printf("  Ignoring specified trig (0x%x)\n",trig);
+	      trigenable |= TI_TRIGSRC_HFBR1;
+	    }
+	  else if(tiSlaveFiberIn==5)
+	    {
+	      trigenable |= TI_TRIGSRC_HFBR5;
+	    }
+	  if( (trig != TI_TRIGGER_HFBR1) || (trig != TI_TRIGGER_HFBR5) )
+	    {
+	      printf("%s: WARN:  Only valid trigger source for TI Slave is HFBR%d (trig = %d)",
+		     __FUNCTION__, tiSlaveFiberIn,
+		     (tiSlaveFiberIn==1)?TI_TRIGGER_HFBR1:TI_TRIGGER_HFBR5);
+	      printf("  Ignoring specified trig (%d)\n",trig);
 	    }
 	}
 
@@ -1586,6 +1666,10 @@ tiSetTriggerSource(int trig)
 
 	case TI_TRIGGER_HFBR1:
 	  trigenable |= TI_TRIGSRC_HFBR1;
+	  break;
+
+	case TI_TRIGGER_HFBR5:
+	  trigenable |= TI_TRIGSRC_HFBR5;
 	  break;
 
 	case TI_TRIGGER_FPTRG:
@@ -3425,6 +3509,7 @@ tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigne
  *   ARGs:   source:
  *            0:  Onboard clock
  *            1:  External clock (HFBR1 input)
+ *            5:  External clock (HFBR5 input)
  *
  */
 
@@ -3452,6 +3537,10 @@ tiSetClockSource(unsigned int source)
     case 1: /* EXTERNAL (HFBR1) */
       clkset = TI_CLOCK_HFBR1;
       sprintf(sClock,"EXTERNAL-HFBR1 (%d)",source);
+      break;
+    case 5: /* EXTERNAL (HFBR5) */
+      clkset = TI_CLOCK_HFBR5;
+      sprintf(sClock,"EXTERNAL-HFBR5 (%d)",source);
       break;
     default:
       printf("%s: ERROR: Invalid Clock Souce (%d)\n",__FUNCTION__,source);
