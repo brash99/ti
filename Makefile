@@ -34,8 +34,8 @@ endif #ARCH=VXWORKSPPC#
 
 # Defs and build for Linux
 ifeq ($(ARCH),Linux)
-LINUXVME_LIB		?= ${CODA}/extensions/linuxvme/libs
-LINUXVME_INC		?= ${CODA}/extensions/linuxvme/include
+LINUXVME_LIB		?= ../lib
+LINUXVME_INC		?= ../include
 
 CC			= gcc
 AR                      = ar
@@ -51,22 +51,21 @@ CFLAGS			+= -Wall -g
 else
 CFLAGS			+= -O2
 endif
-MAINSRC			= tiLib.c
-SRC			= tiLib.c sdLib.c gtpLib.c ctpLib.c
+SRC			= tiLib.c
 HDRS			= $(SRC:.c=.h)
 OBJ			= tiLib.o
 
 ifeq ($(ARCH),Linux)
-all: echoarch $(LIBS) install
+all: echoarch $(LIBS)
 else
-all: echoarch $(OBJ) copy
+all: echoarch $(OBJ)
 endif
 
 $(OBJ): $(SRC) $(HDRS)
-	$(CC) $(CFLAGS) -c -o $@ $(MAINSRC)
+	$(CC) $(CFLAGS) -c -o $@ $(SRC)
 
 $(LIBS): $(OBJ)
-	$(CC) -fpic -shared $(CFLAGS) -o $(@:%.a=%.so) $(MAINSRC)
+	$(CC) -fpic -shared $(CFLAGS) -o $(@:%.a=%.so) $(SRC)
 	$(AR) ruv $@ $<
 	$(RANLIB) $@
 
@@ -79,16 +78,8 @@ links: $(LIBS)
 install: $(LIBS)
 	@cp -v $(PWD)/$< $(LINUXVME_LIB)/$<
 	@cp -v $(PWD)/$(<:%.a=%.so) $(LINUXVME_LIB)/$(<:%.a=%.so)
-	@cp -v ${PWD}/*Lib.h $(LINUXVME_INC)
+	@cp -v ${PWD}/tiLib.h $(LINUXVME_INC)
 
-tiFirmwareUpdate: tiFirmwareUpdate.c
-	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) $(LIBS_$@) -lrt -ljvme -lti
-else
-copy: $(OBJ)
-	cp $< vx/
-tiFirmwareUpdate.o: tiFirmwareUpdate.c
-	$(CC) $(CFLAGS) -c -DTEMPE -o $@ $(<)
-	$(CC) $(CFLAGS) -c -o $(@:.o=_univ.o) $(<)
 endif
 
 clean:

@@ -18,6 +18,8 @@ ifndef ARCH
 	endif
 endif
 
+FWFILES	= $(shell cat .currentfw)
+
 # Defs and build for VxWorks
 ifeq ($(ARCH),VXWORKSPPC)
 VXWORKS_ROOT = /site/vxworks/5.5/ppc/target
@@ -28,15 +30,17 @@ DEFS			= -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -mlongcall \
 				-fno-for-scope -fno-builtin -fvolatile -DVXWORKSPPC
 INCS			= -I. -I../ -I$(VXWORKS_ROOT)/h -I$(VXWORKS_ROOT)/h/rpc -I$(VXWORKS_ROOT)/h/net
 CFLAGS			= $(INCS) $(DEFS)
-OBJS			= tiFirmwareUpdate.o sdFirmwareUpdate.o ctpFirmwareUpdate.o
+OBJS			= tiFirmwareUpdate.o
 PROGS			=
 endif #ARCH=VXWORKSPPC#
 
 # Defs and build for Linux
 ifeq ($(ARCH),Linux)
 
-LINUXVME_LIB	?= ${CODA}/extensions/linuxvme/libs
-LINUXVME_INC	?= ${CODA}/extensions/linuxvme/include
+LINUXVME_LIB	?= ../../libs
+LINUXVME_INC	?= ../../include
+LINUXVME_BIN	?= ../../bin
+LINUXVME_FW	?= ../../firmware
 
 CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
@@ -44,7 +48,7 @@ RANLIB                  = ranlib
 CFLAGS			= -Wall -O2 -I${LINUXVME_INC} -I. -I/usr/include \
 			  -L${LINUXVME_LIB} -L.
 OBJS			=
-PROGS			= tiFirmwareUpdate sdFirmwareUpdate ctpFirmwareUpdate
+PROGS			= tiFirmwareUpdate
 endif
 
 ifeq ($(ARCH),VXWORKSPPC)
@@ -57,22 +61,25 @@ clean:
 	@rm -vf $(PROGS) $(OBJS) *~
 
 %: %.c
-	echo "Making $@ for $(ARCH)"
+	@echo "Making $@ for $(ARCH)"
 	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) -lrt -ljvme -lti 
 
 ifeq ($(ARCH),VXWORKSPPC)
 tiFirmwareUpdate.o: tiFirmwareUpdate.c
-	echo "Making $@ for $(ARCH)"
+	@echo "Making $@ for $(ARCH)"
 	$(CC) $(CFLAGS) -c -DTEMPE -o $@ $(<)
 	$(CC) $(CFLAGS) -c -o $(@:.o=_univ.o) $(<)
+else
+install: $(PROGS)
+	@echo "Installing $(PROGS)"
+	@install -v -d $(LINUXVME_BIN)
+	@install -v -p $(PROGS) -D $(LINUXVME_BIN)/
 
-sdFirmwareUpdate.o: sdFirmwareUpdate.c
-	echo "Making $@ for $(ARCH)"
-	$(CC) $(CFLAGS) -c -o $@ $(<)
+fwinstall:
+	@ln -sf $(FWFILES) ti_current_firmware.svf
+	@install -v -d $(LINUXVME_FW)/ti
+	@install -p -m 664 -v $(FWFILES) ti_current_firmware.svf -D $(LINUXVME_FW)/ti
 
-ctpFirmwareUpdate.o: ctpFirmwareUpdate.c
-	echo "Making $@ for $(ARCH)"
-	$(CC) $(CFLAGS) -c -o $@ $(<)
 endif
 
 .PHONY: all clean

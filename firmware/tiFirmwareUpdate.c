@@ -515,9 +515,13 @@ tiFirmwareEMload(char *filename)
   sysUnivSetLSI(2,6);
 #endif /*TEMPE*/
 #else
+  vmeBusLock();
   vmeSetA24AM(0x19);
 #endif
+
+#ifdef DEBUGFW
   printf("%s: A24 memory map is set to AM = 0x19 \n",__FUNCTION__);
+#endif
 
   //open the file:
   svfFile = fopen(filename,"r");
@@ -535,19 +539,27 @@ tiFirmwareEMload(char *filename)
 #endif /*TEMPE*/
 #else
       vmeSetA24AM(0);
+      vmeBusUnlock();
 #endif
       return;
     }
+
+#ifdef DEBUGFW
   printf("\n File is open \n");
+#endif
 
   //PROM JTAG reset/Idle
   Emergency(0,0,ShiftData);
+#ifdef DEBUGFW
   printf("%s: Emergency PROM JTAG reset IDLE \n",__FUNCTION__);
+#endif
   taskDelay(1);
 
   //Another PROM JTAG reset/Idle
   Emergency(0,0,ShiftData);
+#ifdef DEBUGFW
   printf("%s: Emergency PROM JTAG reset IDLE \n",__FUNCTION__);
+#endif
   taskDelay(1);
 
 
@@ -555,11 +567,19 @@ tiFirmwareEMload(char *filename)
   extrType = 0;
   lineRead=0;
 
+  printf("\n");
+  fflush(stdout);
+
   //  for (nlines=0; nlines<200; nlines++)
   while (fgets(bufRead,256,svfFile) != NULL)
     { 
       lineRead +=1;
-      if (lineRead%1000 ==0) printf(" Lines read: %d out of 787000 \n",(int)lineRead);
+      if((lineRead%15000) ==0) 
+	{
+	  printf(".");
+	  fflush(stdout);
+	}
+/*       if (lineRead%1000 ==0) printf(" Lines read: %d out of 787000 \n",(int)lineRead); */
       //    fgets(bufRead,256,svfFile);
       if (((bufRead[0] == '/')&&(bufRead[1] == '/')) || (bufRead[0] == '!'))
 	{
@@ -590,6 +610,7 @@ tiFirmwareEMload(char *filename)
 #endif /*TEMPE*/
 #else
 		      vmeSetA24AM(0);
+		      vmeBusUnlock();
 #endif
 		      return;
 		    }
@@ -648,11 +669,21 @@ tiFirmwareEMload(char *filename)
 	    {
 	      sscanf(Word[1],"%d",&nbits);
 	      //	    printf("RUNTEST delay: %d \n",nbits);
+	      if(nbits>100000)
+		{
+		  printf("Erasing: ..");
+		  fflush(stdout);
+		}
 #ifdef VXWORKS
 	      cpuDelay(nbits*45);   //delay, assuming that the CPU is at 45 MHz
 #else
 	      usleep(nbits/2);
 #endif
+	      if(nbits>100000)
+		{
+		  printf("Done\nUpdating: ");
+		  fflush(stdout);
+		}
 /* 	      int time = (nbits/1000)+1; */
 /* 	      taskDelay(time);   //delay, assuming that the CPU is at 45 MHz */
 	    }
@@ -662,15 +693,19 @@ tiFirmwareEMload(char *filename)
 	    }
 	  else if (strcmp(Word[0],"ENDIR") == 0)
 	    {
-	      if (strcmp(Word[1],"IDLE") ==0 )
+	      if ((strcmp(Word[1],"IDLE") ==0 ) || (strcmp(Word[1],"IDLE;") ==0 ))
 		{
 		  extrType = 0;
+#ifdef DEBUGFW
 		  printf(" ExtraType: %d \n",extrType);
+#endif
 		}
-	      else if (strcmp(Word[1],"IRPAUSE") ==0)
+	      else if ((strcmp(Word[1],"IRPAUSE") ==0) || (strcmp(Word[1],"IRPAUSE;") ==0))
 		{
 		  extrType = 2;
+#ifdef DEBUGFW
 		  printf(" ExtraType: %d \n",extrType);
+#endif
 		}
 	      else
 		{
@@ -679,11 +714,17 @@ tiFirmwareEMload(char *filename)
 	    }
 	  else
 	    {
+#ifdef DEBUGFW
 	      printf(" Command type ignored: %s \n",Word[0]);
+#endif
 	    }
 
 	}  //end of if (comment statement)
     } //end of while
+
+  printf("Done\n");
+
+  printf("** Firmware Update Complete **\n");
 
   //close the file
   fclose(svfFile);
@@ -697,8 +738,12 @@ tiFirmwareEMload(char *filename)
 #endif /*TEMPE*/
 #else
   vmeSetA24AM(0);
+  vmeBusUnlock();
 #endif
+
+#ifdef DEBUGFW
   printf("\n A24 memory map is set back to its default \n");
+#endif
 }
 
 
