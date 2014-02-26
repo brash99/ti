@@ -128,7 +128,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x153
+#define TI_SUPPORTED_FIRMWARE 0x172
 
 /* 0x0 boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -450,6 +450,10 @@ struct TI_A24RegStruct
 #define TI_RESET_SCALERS_RESET        (1<<25)
 #define TI_RESET_FILL_TO_END_BLOCK    (1<<31)
 
+/* 0x1D0-0x1F0 TI ID bits and masks */
+#define TI_ID_TRIGSRC_ENABLE_MASK     0x000000FF
+#define TI_ID_CRATEID_MASK            0x0000FF00
+
 /* Trigger Sources, used by tiSetTriggerSource  */
 #define TI_TRIGGER_P0        0
 #define TI_TRIGGER_HFBR1     1
@@ -495,12 +499,15 @@ int  tiInit(unsigned int tAddr, unsigned int mode, int force);
 unsigned int tiFind();
 int  tiCheckAddresses();
 void tiStatus(int pflag);
+void tiSlaveStatus(int pflag);
 int  tiGetFirmwareVersion();
 int  tiReload();
 unsigned int tiGetSerialNumber(char **rSN);
 int  tiClockResync();
 int  tiReset();
 int  tiSetCrateID(unsigned int crateID);
+int  tiGetCrateID(int port);
+int  tiGetPortTrigSrcEnabled(int port);
 int  tiSetBlockLevel(int blockLevel);
 int  tiBroadcastNextBlockLevel(int blockLevel);
 int  tiGetNextBlockLevel();
