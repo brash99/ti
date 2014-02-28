@@ -398,8 +398,8 @@ struct TI_A24RegStruct
 
 /* 0xA0 fiberLatencyMeasurement bits and masks */
 #define TI_FIBERLATENCYMEASUREMENT_CARRYCHAIN_MASK 0x0000FFFF
-#define TI_FIBERLATENCYMEASUREMENT_IODELAY_MASK    0x00FF0000
-#define TI_FIBERLATENCYMEASUREMENT_DATA_MASK       0xFF000000
+#define TI_FIBERLATENCYMEASUREMENT_IODELAY_MASK    0x007F0000
+#define TI_FIBERLATENCYMEASUREMENT_DATA_MASK       0xFF800000
 
 /* 0xA4 fiberAlignment bits and masks */
 #define TI_FIBERALIGNMENT_HFBR1_IODELAY_MASK   0x000000FF
@@ -577,6 +577,7 @@ int  tiGetSWBBusy(int pflag);
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);
 
+int  tiGetFiberLatencyMeasurement();
 int  tiSetUserSyncResetReceive(int enable);
 int  tiGetLastSyncCodes(int pflag);
 int  tiGetSyncHistoryBufferStatus(int pflag);
