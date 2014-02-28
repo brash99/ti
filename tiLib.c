@@ -74,6 +74,7 @@ static VOIDFUNCPTR  tiAckRoutine  = NULL;    /* user trigger acknowledge routine
 static int          tiAckArg      = 0;       /* arg to user trigger ack routine */
 static int          tiReadoutEnabled = 1;    /* Readout enabled, by default */
 int                 tiFiberLatencyOffset = 0xbf; /* Default offset for fiber latency */
+static int          tiFiberLatencyMeasurement = 0; /* Measured fiber latency */
 static int          tiVersion     = 0x0;     /* Firmware version */
 static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
@@ -1611,6 +1612,12 @@ tiSetTriggerSource(int trig)
 
       if((trig>=6) && (trig<=9)) /* TS partition specified */
 	{
+	  if(tiSlaveFiberIn!=1)
+	    {
+	      printf("%s: WARN: Partition triggers NOT USED on Fiber Port 5.\n",
+		     __FUNCTION__);
+	      trigenable |= TI_TRIGSRC_HFBR5;
+	    }
 	  switch(trig)
 	    {
 	    case TI_TRIGGER_PART_1:
@@ -4241,18 +4248,32 @@ FiberMeas()
   vmeWrite32(&TIp->reset,TI_RESET_MEASURE_LATENCY);  // measure the fiber latency
   taskDelay(1);
 
-  fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber latency measurement result
+  if(tiSlaveFiberIn==1)
+    fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber 1 latency measurement result
+  else
+    fiberLatency = vmeRead32(&TIp->fiberAlignment);  //fiber 5 latency measurement result
+
   printf("Software offset = 0x%08x (%d)\n",tiFiberLatencyOffset, tiFiberLatencyOffset);
   printf("Fiber Latency is 0x%08x\n",fiberLatency);
   printf("  Latency data = 0x%08x (%d ns)\n",(fiberLatency>>23), (fiberLatency>>23) * 4);
 
 
-  vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);   // auto adjust the sync phase for HFBR#1
+  if(tiSlaveFiberIn==1)
+    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);   // auto adjust the sync phase for HFBR#1
+  else
+    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);   // auto adjust the sync phase for HFBR#5
+
   taskDelay(1);
 
-  fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber latency measurement result
+  if(tiSlaveFiberIn==1)
+    fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber 1 latency measurement result
+  else
+    fiberLatency = vmeRead32(&TIp->fiberAlignment);  //fiber 5 latency measurement result
+
+  tiFiberLatencyMeasurement = (fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23;
   syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)>>1));
-  syncDelay=(syncDelay<<8)&0xff00;  //set the sync delay according to the fiber latency
+  syncDelay =
+    (syncDelay<<8)&TI_FIBERSYNCDELAY_HFBR1_SYNCDELAY_MASK;  //set the sync delay according to the fiber latency
   taskDelay(1);
 
   vmeWrite32(&TIp->fiberSyncDelay,syncDelay);
@@ -4262,6 +4283,12 @@ FiberMeas()
 
   printf (" \n The fiber latency of 0xA0 is: 0x%08x\n", fiberLatency);
   printf (" \n The sync latency of 0x50 is: 0x%08x\n",syncDelay);
+}
+
+int
+tiGetFiberLatencyMeasurement()
+{
+  return tiFiberLatencyMeasurement;
 }
 
 int
