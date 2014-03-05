@@ -3692,6 +3692,52 @@ tiAddSlave(unsigned int fiber)
 
 /*******************************************************************************
  *
+ * tiAddSlaveMask
+ *    - Add and configure  TI Slaves by using a mask for the TI-Master.
+ *      This routine should be used by the TI-Master to configure
+ *      HFBR ports and BUSY sources.
+ *  ARGs:
+ *     fibermask: The fiber port mask of the TI-Master that is connected to
+ *     the slaves
+ *
+ */
+
+int
+tiAddSlaveMask(unsigned int fibermask)
+{
+  int ibit=0;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((fibermask==0) || (fibermask>0x100))
+    {
+      printf("%s: ERROR: Invalid value for fibermask (0x%x)\n",
+	     __FUNCTION__,fibermask);
+      return ERROR;
+    }
+
+  if(fibermask & (1<<0))
+    {
+      printf("%s: WARN: Unused bit 0 in fibermask (0x%x)\n",
+	     __FUNCTION__,fibermask);
+    }
+
+  for(ibit=0; ibit<8; ibit++)
+    {
+      if(fibermask & (1<<ibit))
+	tiAddSlave(ibit+1);
+    }
+
+  return OK;
+ 
+}
+
+/*******************************************************************************
+ *
  * tiSetTriggerHoldoff
  *    - Set the value for a specified trigger rule.
  *
