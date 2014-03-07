@@ -458,6 +458,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       // TI Sync auto alignment
       vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
       taskDelay(1);
+
+      // Perform a trigger link reset
+      tiTrigLinkReset();
+      taskDelay(1);
     }
 
   /* Reset I2C engine */
