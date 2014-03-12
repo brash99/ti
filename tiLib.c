@@ -498,8 +498,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   tiEnableBusError();
 
   /* MGT reset */
-  vmeWrite32(&TIp->reset,TI_RESET_MGT);
-  taskDelay(1);
+  if(tiMaster==1)
+    {
+      tiResetMGT();
+    }
 
   /* Set this to 1 (ROC Lock mode), by default. */
   tiSetBlockBufferLevel(1);
@@ -2067,6 +2069,7 @@ tiSetRandomTrigger(int trigger, int setting)
   else if (trigger==2)
     vmeWrite32(&TIp->randomPulser, 
 	       (setting | (setting<<4))<<8 | TI_RANDOMPULSER_TRIG2_ENABLE );
+
   TIUNLOCK;
 
   return OK;
@@ -4700,6 +4703,29 @@ tiFillToEndBlock()
   TILOCK;
   vmeWrite32(&TIp->reset, TI_RESET_FILL_TO_END_BLOCK);
   TIUNLOCK;
+
+  return OK;
+}
+
+int
+tiResetMGT()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_MGT);
+  TIUNLOCK;
+  taskDelay(1);
 
   return OK;
 }

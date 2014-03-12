@@ -597,6 +597,7 @@ int  tiSyncResetRequest();
 int  tiGetSyncResetRequest();
 void tiTriggerReadyReset();
 int  tiFillToEndBlock();
+int  tiResetMGT();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
