@@ -4037,7 +4037,7 @@ FiberMeas()
   else
     fiberLatency = vmeRead32(&TIp->fiberAlignment);  //fiber 5 latency measurement result
 
-  tiFiberLatencyMeasurement = (fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23;
+  tiFiberLatencyMeasurement = ((fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23)>>1;
   syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)>>1));
   syncDelay =
     (syncDelay<<8)&TI_FIBERSYNCDELAY_HFBR1_SYNCDELAY_MASK;  //set the sync delay according to the fiber latency
