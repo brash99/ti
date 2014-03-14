@@ -505,6 +505,8 @@ int  tiInit(unsigned int tAddr, unsigned int mode, int force);
 unsigned int tiFind();
 int  tiCheckAddresses();
 void tiStatus(int pflag);
+int  tiSetSlavePort(int port);
+int  tiGetSlavePort();
 void tiSlaveStatus(int pflag);
 int  tiGetFirmwareVersion();
 int  tiReload();

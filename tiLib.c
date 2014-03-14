@@ -409,13 +409,13 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	}
       else if(tiSlaveFiberIn==5)
 	{
-	  /* Enable HFBR#1 */
+	  /* Enable HFBR#5 */
 	  tiEnableFiber(5);
-	  /* HFBR#1 Clock Source */
+	  /* HFBR#5 Clock Source */
 	  tiSetClockSource(5);
-	  /* HFBR#1 Sync Source */
+	  /* HFBR#5 Sync Source */
 	  tiSetSyncSource(TI_SYNC_HFBR5);
-	  /* HFBR#1 Trigger Source */
+	  /* HFBR#5 Trigger Source */
 	  tiSetTriggerSource(TI_TRIGGER_HFBR5);
 	}
       break;
@@ -438,7 +438,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       taskDelay(1);
 
       // TI Sync auto alignment
-      vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
+      if(tiSlaveFiberIn==1)
+	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
+      else
+	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);
       taskDelay(1);
 
       // TI auto fiber delay measurement
@@ -473,7 +476,8 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
   /* Set default sync delay (fiber compensation) */
   if(tiMaster==1)
-    vmeWrite32(&TIp->fiberSyncDelay,0x1f1f1f1f);
+    vmeWrite32(&TIp->fiberSyncDelay,
+	       (tiFiberLatencyOffset<<16)&TI_FIBERSYNCDELAY_LOOPBACK_SYNCDELAY_MASK);
 
   /* Set Default Block Level to 1, and default crateID */
   if(tiMaster==1)
@@ -1016,6 +1020,121 @@ tiStatus(int pflag)
   printf("--------------------------------------------------------------------------------\n");
   printf("\n\n");
 
+}
+
+/*******************************************************************************
+ *
+ * tiSetSlavePort (TI Slave only)
+ *   - This routine provides the ability to switch the port that the TI Slave
+ *     receives its Clock, SyncReset, and Trigger.
+ *     If the TI has already been configured to use this port, nothing is done.
+ *
+ *   ARGs:
+ *      port:  1  - Port 1
+ *             5  - Port 5
+ *
+ */
+
+int
+tiSetSlavePort(int port)
+{
+ if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Slave.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((port!=1) || (port!=5))
+    {
+      printf("%s: ERROR: Invalid port specified (%d).  Must be 1 or 5 for TI Slave.\n",
+	     __FUNCTION__,port);
+      return ERROR;
+    }
+
+  if(port==tiSlaveFiberIn)
+    {
+      printf("%s: INFO: TI Slave already configured to use port %d.\n",
+	     __FUNCTION__,port);
+      return OK;
+    }
+
+  TILOCK;
+  tiSlaveFiberIn=port;
+  TIUNLOCK;
+
+  if(tiSlaveFiberIn==1)
+    {
+      /* Enable HFBR#1 */
+      tiEnableFiber(1);
+      /* HFBR#1 Clock Source */
+      tiSetClockSource(1);
+      /* HFBR#1 Sync Source */
+      tiSetSyncSource(TI_SYNC_HFBR1);
+      /* HFBR#1 Trigger Source */
+      tiSetTriggerSource(TI_TRIGGER_HFBR1);
+    }
+  else if(tiSlaveFiberIn==5)
+    {
+      /* Enable HFBR#5 */
+      tiEnableFiber(5);
+      /* HFBR#5 Clock Source */
+      tiSetClockSource(5);
+      /* HFBR#5 Sync Source */
+      tiSetSyncSource(TI_SYNC_HFBR5);
+      /* HFBR#5 Trigger Source */
+      tiSetTriggerSource(TI_TRIGGER_HFBR5);
+    }
+
+  /* Measure and apply fiber compensation */
+  FiberMeas();
+  
+  /* TI IODELAY reset */
+  TILOCK;
+  vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
+  taskDelay(1);
+  
+  /* TI Sync auto alignment */
+  if(tiSlaveFiberIn==1)
+    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
+  else
+    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);
+  taskDelay(1);
+  
+  /* TI auto fiber delay measurement */
+  vmeWrite32(&TIp->reset,TI_RESET_MEASURE_LATENCY);
+  taskDelay(1);
+  
+  /* TI auto alignement fiber delay */
+  vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);
+  taskDelay(1);
+  TIUNLOCK;
+
+  printf("%s: INFO: TI Slave configured to use port %d.\n",
+	 __FUNCTION__,port);
+  return OK;
+}
+
+/*******************************************************************************
+ *
+ * tiGetSlavePort
+ *   - Returns the port of which the TI Slave has been configured (or will be)
+ *
+ *   RETURNS:
+ *       1  - Port 1
+ *       5  - Port 5
+ *
+ */
+
+int
+tiGetSlavePort()
+{
+  return tiSlaveFiberIn;
 }
 
 /*******************************************************************************
