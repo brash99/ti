@@ -214,6 +214,7 @@ tiSetFiberIn_preInit(int port)
  *          0: Do not initialize the board, just setup the pointers
  *             to the registers
  *          1: Use Slave Fiber 5, instead of 1
+ *          2: Ignore firmware check
  *
  *  RETURNS: OK if successful, otherwise ERROR.
  *
@@ -226,7 +227,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   unsigned int rval, boardID, prodID;
   unsigned int firmwareInfo;
   int stat;
-  int noBoardInit=0;
+  int noBoardInit=0, noFirmwareCheck=0;
 
   /* Check VME address */
   if(tAddr<0 || tAddr>0xffffff)
@@ -255,10 +256,17 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tAddr = tAddr<<19;
     }
 
-  noBoardInit = iFlag&TI_INIT_SKIP;
+  if(iFlag&TI_INIT_SKIP)
+    {
+      noBoardInit = 1;
+    }
   if(iFlag&TI_INIT_SLAVE_FIBER_5)
     {
       tiSlaveFiberIn=5;
+    }
+  if(iFlag&TI_INIT_SKIP_FIRMWARE_CHECK)
+    {
+      noFirmwareCheck=1;
     }
 
 
@@ -358,10 +366,18 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tiVersion = firmwareInfo&0xFFF;
       if(tiVersion < TI_SUPPORTED_FIRMWARE)
 	{
-	  printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
-		 __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
-	  TIp=NULL;
-	  return ERROR;
+	  if(noFirmwareCheck)
+	    {
+	      printf("%s: WARN: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x  (IGNORED)\n",
+		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+	    }
+	  else
+	    {
+	      printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
+		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+	      TIp=NULL;
+	      return ERROR;
+	    }
 	}
     }
   else
