@@ -209,7 +209,7 @@ tiSetFiberIn_preInit(int port)
  *          2: External Trigger - Polling Mode
  *          3: TI/TImaster Trigger - Polling Mode
  *
- *    iFlag  - Initialization bits
+ *    iFlag  - Initialization mask
  *        bit:
  *          0: Do not initialize the board, just setup the pointers
  *             to the registers
@@ -256,7 +256,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tAddr = tAddr<<19;
     }
 
-  if(iFlag&TI_INIT_SKIP)
+  if(iFlag&TI_INIT_NO_INIT)
     {
       noBoardInit = 1;
     }

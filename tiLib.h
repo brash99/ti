@@ -493,7 +493,7 @@ struct TI_A24RegStruct
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
 
 /* tiInit initialization flag bits */
-#define TI_INIT_SKIP                    (1<<0)
+#define TI_INIT_NO_INIT                 (1<<0)
 #define TI_INIT_SLAVE_FIBER_5           (1<<1)
 #define TI_INIT_SKIP_FIRMWARE_CHECK     (1<<2)
 
