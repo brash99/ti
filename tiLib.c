@@ -1066,7 +1066,7 @@ tiSetSlavePort(int port)
       return ERROR;
     }
 
-  if((port!=1) || (port!=5))
+  if((port!=1) && (port!=5))
     {
       printf("%s: ERROR: Invalid port specified (%d).  Must be 1 or 5 for TI Slave.\n",
 	     __FUNCTION__,port);
