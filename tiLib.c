@@ -1174,6 +1174,7 @@ tiSlaveStatus(int pflag)
   unsigned int blockStatus[5];
   unsigned int fiber=0, busy=0, trigsrc=0;
   int nblocksReady=0, nblocksNeedAck=0, slaveCount=0;
+  int blocklevel=0;
 
   if(TIp==NULL)
     {
@@ -1195,6 +1196,8 @@ tiSlaveStatus(int pflag)
       blockStatus[ibs] = vmeRead32(&TIp->blockStatus[ibs]);
     }
   blockStatus[4] = vmeRead32(&TIp->adr24);
+
+  blocklevel = (vmeRead32(&TIp->blocklevel) & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
 
   TIUNLOCK;
 
@@ -1220,8 +1223,8 @@ tiSlaveStatus(int pflag)
     }
 
   printf("TI-Master Port STATUS Summary\n");
-  printf("                                                      Block Status\n");
-  printf("Port  ROCID   Connected   TrigSrcEn   Busy Status    Ready / NeedAck\n");
+  printf("                                                     Block Status\n");
+  printf("Port  ROCID   Connected   TrigSrcEn   Busy Status   Ready / NeedAck  Blocklevel\n");
   printf("--------------------------------------------------------------------------------\n");
   /* Master first */
   /* Slot and Port number */
@@ -1243,7 +1246,8 @@ tiSlaveStatus(int pflag)
   /* Block Status */
   nblocksReady   = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
   nblocksNeedAck = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
-  printf("   %3d / %3d",nblocksReady, nblocksNeedAck);
+  printf("  %3d / %3d",nblocksReady, nblocksNeedAck);
+  printf("        %3d",blocklevel);
   printf("\n");
 
   /* Slaves last */
@@ -1280,8 +1284,10 @@ tiSlaveStatus(int pflag)
 	  nblocksReady   = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
 	  nblocksNeedAck = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
 	}
-      printf("   %3d / %3d",nblocksReady, nblocksNeedAck);
-	  
+      printf("  %3d / %3d",nblocksReady, nblocksNeedAck);
+
+      printf("        %3d",(hfbr_tiID[iport-1]&TI_ID_BLOCKLEVEL_MASK)>>16);
+
       printf("\n");
       slaveCount++;
     }
@@ -1565,6 +1571,39 @@ tiGetPortTrigSrcEnabled(int port)
     {
       rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_TRIGSRC_ENABLE_MASK);
     }
+  TIUNLOCK;
+
+  return rval;
+}
+
+/*******************************************************************************
+ *
+ * tiGetSlaveBlocklevel - Get the blocklevel of the TI-Slave on the selected port
+ *    ARG: port
+ *       1-8 - Fiber port 1-8
+ *
+ * RETURNS: port blocklevel if successful, ERROR otherwise
+ *
+ */
+
+int
+tiGetSlaveBlocklevel(int port)
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((port<1) || (port>8))
+    {
+      printf("%s: ERROR: Invalid port (%d)\n",
+	     __FUNCTION__,port);
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_BLOCKLEVEL_MASK)>>16;
   TIUNLOCK;
 
   return rval;
