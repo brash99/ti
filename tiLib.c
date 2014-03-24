@@ -3550,7 +3550,7 @@ tiSetBlockBufferLevel(unsigned int level)
 
 /*******************************************************************************
  *
- *   tidEnableTSInput / tidDisableTSInput
+ *   tiEnableTSInput / tiDisableTSInput
  *   - Enable/Disable trigger inputs labelled TS#1-6 on the Front Panel
  *     These inputs MUST be disabled if not connected.
  *
