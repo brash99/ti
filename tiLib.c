@@ -3791,7 +3791,7 @@ tiGetClockSource()
 void
 tiSetFiberDelay(unsigned int delay, unsigned int offset)
 {
-  unsigned int fiberLatency, syncDelay;
+  unsigned int fiberLatency=0, syncDelay=0, syncDelay_write=0;
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -3802,9 +3802,9 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
   TILOCK;
 
   syncDelay = (offset-(delay));
-  syncDelay=((syncDelay<<16)|(syncDelay<<8))&0xffff00;  /* set the sync delay according to the fiber latency */
+  syncDelay_write = (syncDelay&0xff<<8) | (syncDelay&0xff<<16) | (syncDelay&0xff<<24);  /* set the sync delay according to the fiber latency */
 
-  vmeWrite32(&TIp->fiberSyncDelay,syncDelay);
+  vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
 
 #ifdef STOPTHIS
   if(tiMaster != 1)  /* Slave only */
@@ -3819,7 +3819,7 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
 
   TIUNLOCK;
 
-  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",__FUNCTION__,syncDelay);
+  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",__FUNCTION__,syncDelay_write);
 
 }
 
@@ -4448,14 +4448,14 @@ static void
 FiberMeas()
 {
   int clksrc=0;
-  unsigned int defaultDelay=0, fiberLatency, syncDelay;
+  unsigned int defaultDelay=0x1f1f1f00, fiberLatency=0, syncDelay=0, syncDelay_write=0;
 
 
   clksrc = tiGetClockSource();
-  /* Check to be sure the TI has external HFBR1 clock enabled */
-  if(clksrc != TI_CLOCK_HFBR1)
+  /* Check to be sure the TI has external HFBR1/5 clock enabled */
+  if((clksrc != TI_CLOCK_HFBR1) && (clksrc != TI_CLOCK_HFBR5))
     {
-      printf("%s: ERROR: Unable to measure fiber latency without HFBR1 as Clock Source\n",
+      printf("%s: ERROR: Unable to measure fiber latency without HFBR1/5 as Clock Source\n",
 	     __FUNCTION__);
       printf("\t Using default Fiber Sync Delay = %d (0x%x)",
 	     defaultDelay, defaultDelay);
@@ -4499,11 +4499,10 @@ FiberMeas()
 
   tiFiberLatencyMeasurement = ((fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23)>>1;
   syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)>>1));
-  syncDelay =
-    (syncDelay<<8)&TI_FIBERSYNCDELAY_HFBR1_SYNCDELAY_MASK;  //set the sync delay according to the fiber latency
+  syncDelay_write = (syncDelay&0xFF)<<8 | (syncDelay&0xFF)<<16 | (syncDelay&0xFF)<<24;
   taskDelay(1);
 
-  vmeWrite32(&TIp->fiberSyncDelay,syncDelay);
+  vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
   taskDelay(1);
   syncDelay = vmeRead32(&TIp->fiberSyncDelay);
   TIUNLOCK;
