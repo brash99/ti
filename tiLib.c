@@ -352,9 +352,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     }
 
   
-/*   tiDisableVXSSignals(); */
-  tiReload();
-  taskDelay(60);
+  if(tiMaster==0) /* Reload only on the TI Slaves */
+    {
+      tiReload();
+      taskDelay(60);
+    }
+  tiDisableTriggerSource(0);  
   tiDisableVXSSignals();
 
   /* Get the Firmware Information and print out some details */
@@ -690,6 +693,7 @@ tiStatus(int pflag)
   unsigned int TIBase;
   unsigned long long int l1a_count=0;
   unsigned int blocklimit;
+  unsigned int GTPtriggerBufferLength=0;
 
   if(TIp==NULL)
     {
@@ -736,6 +740,8 @@ tiStatus(int pflag)
   blockStatus[4] = vmeRead32(&TIp->adr24);
 
   nblocks      = vmeRead32(&TIp->nblocks);
+
+  GTPtriggerBufferLength = vmeRead32(&TIp->GTPtriggerBufferLength);
   TIUNLOCK;
 
   TIBase = (unsigned int)TIp;
@@ -797,6 +803,7 @@ tiStatus(int pflag)
       
       printf("  livetime       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->livetime) - TIBase, livetime);
       printf("  busytime       (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->busytime) - TIBase, busytime);
+      printf("  GTPTrgBufLen   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->GTPtriggerBufferLength) - TIBase, GTPtriggerBufferLength);
     }
   printf("\n");
 
