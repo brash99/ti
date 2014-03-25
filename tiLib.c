@@ -209,11 +209,12 @@ tiSetFiberIn_preInit(int port)
  *          2: External Trigger - Polling Mode
  *          3: TI/TImaster Trigger - Polling Mode
  *
- *    iFlag  - Initialization bits
+ *    iFlag  - Initialization mask
  *        bit:
  *          0: Do not initialize the board, just setup the pointers
  *             to the registers
  *          1: Use Slave Fiber 5, instead of 1
+ *          2: Ignore firmware check
  *
  *  RETURNS: OK if successful, otherwise ERROR.
  *
@@ -226,7 +227,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   unsigned int rval, boardID, prodID;
   unsigned int firmwareInfo;
   int stat;
-  int noBoardInit=0;
+  int noBoardInit=0, noFirmwareCheck=0;
 
   /* Check VME address */
   if(tAddr<0 || tAddr>0xffffff)
@@ -255,10 +256,17 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tAddr = tAddr<<19;
     }
 
-  noBoardInit = iFlag&TI_INIT_SKIP;
+  if(iFlag&TI_INIT_NO_INIT)
+    {
+      noBoardInit = 1;
+    }
   if(iFlag&TI_INIT_SLAVE_FIBER_5)
     {
       tiSlaveFiberIn=5;
+    }
+  if(iFlag&TI_INIT_SKIP_FIRMWARE_CHECK)
+    {
+      noFirmwareCheck=1;
     }
 
 
@@ -344,9 +352,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     }
 
   
-/*   tiDisableVXSSignals(); */
-  tiReload();
-  taskDelay(60);
+  if(tiMaster==0) /* Reload only on the TI Slaves */
+    {
+      tiReload();
+      taskDelay(60);
+    }
+  tiDisableTriggerSource(0);  
   tiDisableVXSSignals();
 
   /* Get the Firmware Information and print out some details */
@@ -358,10 +369,18 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tiVersion = firmwareInfo&0xFFF;
       if(tiVersion < TI_SUPPORTED_FIRMWARE)
 	{
-	  printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
-		 __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
-	  TIp=NULL;
-	  return ERROR;
+	  if(noFirmwareCheck)
+	    {
+	      printf("%s: WARN: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x  (IGNORED)\n",
+		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+	    }
+	  else
+	    {
+	      printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
+		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+	      TIp=NULL;
+	      return ERROR;
+	    }
 	}
     }
   else
@@ -674,6 +693,7 @@ tiStatus(int pflag)
   unsigned int TIBase;
   unsigned long long int l1a_count=0;
   unsigned int blocklimit;
+  unsigned int GTPtriggerBufferLength=0;
 
   if(TIp==NULL)
     {
@@ -720,6 +740,8 @@ tiStatus(int pflag)
   blockStatus[4] = vmeRead32(&TIp->adr24);
 
   nblocks      = vmeRead32(&TIp->nblocks);
+
+  GTPtriggerBufferLength = vmeRead32(&TIp->GTPtriggerBufferLength);
   TIUNLOCK;
 
   TIBase = (unsigned int)TIp;
@@ -781,6 +803,7 @@ tiStatus(int pflag)
       
       printf("  livetime       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->livetime) - TIBase, livetime);
       printf("  busytime       (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->busytime) - TIBase, busytime);
+      printf("  GTPTrgBufLen   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->GTPtriggerBufferLength) - TIBase, GTPtriggerBufferLength);
     }
   printf("\n");
 
@@ -953,19 +976,19 @@ tiStatus(int pflag)
       if(busy & TI_BUSY_HFBR1)
 	printf("   HFBR #1          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR2)
-	printf("   HFBR #2          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #2          %s\n",(busy&TI_BUSY_MONITOR_HFBR2)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR3)
-	printf("   HFBR #3          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #3          %s\n",(busy&TI_BUSY_MONITOR_HFBR3)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR4)
-	printf("   HFBR #4          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #4          %s\n",(busy&TI_BUSY_MONITOR_HFBR4)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR5)
-	printf("   HFBR #5          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #5          %s\n",(busy&TI_BUSY_MONITOR_HFBR5)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR6)
-	printf("   HFBR #6          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #6          %s\n",(busy&TI_BUSY_MONITOR_HFBR6)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR7)
-	printf("   HFBR #7          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #7          %s\n",(busy&TI_BUSY_MONITOR_HFBR7)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR8)
-	printf("   HFBR #8          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #8          %s\n",(busy&TI_BUSY_MONITOR_HFBR8)?"** BUSY **":"");
     }
   else
     {
@@ -1050,7 +1073,7 @@ tiSetSlavePort(int port)
       return ERROR;
     }
 
-  if((port!=1) || (port!=5))
+  if((port!=1) && (port!=5))
     {
       printf("%s: ERROR: Invalid port specified (%d).  Must be 1 or 5 for TI Slave.\n",
 	     __FUNCTION__,port);
@@ -1158,6 +1181,7 @@ tiSlaveStatus(int pflag)
   unsigned int blockStatus[5];
   unsigned int fiber=0, busy=0, trigsrc=0;
   int nblocksReady=0, nblocksNeedAck=0, slaveCount=0;
+  int blocklevel=0;
 
   if(TIp==NULL)
     {
@@ -1179,6 +1203,8 @@ tiSlaveStatus(int pflag)
       blockStatus[ibs] = vmeRead32(&TIp->blockStatus[ibs]);
     }
   blockStatus[4] = vmeRead32(&TIp->adr24);
+
+  blocklevel = (vmeRead32(&TIp->blocklevel) & TI_BLOCKLEVEL_CURRENT_MASK)>>16;
 
   TIUNLOCK;
 
@@ -1204,8 +1230,8 @@ tiSlaveStatus(int pflag)
     }
 
   printf("TI-Master Port STATUS Summary\n");
-  printf("                                                      Block Status\n");
-  printf("Port  ROCID   Connected   TrigSrcEn   Busy Status    Ready / NeedAck\n");
+  printf("                                                     Block Status\n");
+  printf("Port  ROCID   Connected   TrigSrcEn   Busy Status   Ready / NeedAck  Blocklevel\n");
   printf("--------------------------------------------------------------------------------\n");
   /* Master first */
   /* Slot and Port number */
@@ -1227,7 +1253,8 @@ tiSlaveStatus(int pflag)
   /* Block Status */
   nblocksReady   = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
   nblocksNeedAck = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
-  printf("   %3d / %3d",nblocksReady, nblocksNeedAck);
+  printf("  %3d / %3d",nblocksReady, nblocksNeedAck);
+  printf("        %3d",blocklevel);
   printf("\n");
 
   /* Slaves last */
@@ -1264,8 +1291,10 @@ tiSlaveStatus(int pflag)
 	  nblocksReady   = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
 	  nblocksNeedAck = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
 	}
-      printf("   %3d / %3d",nblocksReady, nblocksNeedAck);
-	  
+      printf("  %3d / %3d",nblocksReady, nblocksNeedAck);
+
+      printf("        %3d",(hfbr_tiID[iport-1]&TI_ID_BLOCKLEVEL_MASK)>>16);
+
       printf("\n");
       slaveCount++;
     }
@@ -1549,6 +1578,39 @@ tiGetPortTrigSrcEnabled(int port)
     {
       rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_TRIGSRC_ENABLE_MASK);
     }
+  TIUNLOCK;
+
+  return rval;
+}
+
+/*******************************************************************************
+ *
+ * tiGetSlaveBlocklevel - Get the blocklevel of the TI-Slave on the selected port
+ *    ARG: port
+ *       1-8 - Fiber port 1-8
+ *
+ * RETURNS: port blocklevel if successful, ERROR otherwise
+ *
+ */
+
+int
+tiGetSlaveBlocklevel(int port)
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((port<1) || (port>8))
+    {
+      printf("%s: ERROR: Invalid port (%d)\n",
+	     __FUNCTION__,port);
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->hfbr_tiID[port-1]) & TI_ID_BLOCKLEVEL_MASK)>>16;
   TIUNLOCK;
 
   return rval;
@@ -3534,7 +3596,7 @@ tiSetBlockBufferLevel(unsigned int level)
 
 /*******************************************************************************
  *
- *   tidEnableTSInput / tidDisableTSInput
+ *   tiEnableTSInput / tiDisableTSInput
  *   - Enable/Disable trigger inputs labelled TS#1-6 on the Front Panel
  *     These inputs MUST be disabled if not connected.
  *
@@ -3736,7 +3798,7 @@ tiGetClockSource()
 void
 tiSetFiberDelay(unsigned int delay, unsigned int offset)
 {
-  unsigned int fiberLatency, syncDelay;
+  unsigned int fiberLatency=0, syncDelay=0, syncDelay_write=0;
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -3747,9 +3809,9 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
   TILOCK;
 
   syncDelay = (offset-(delay));
-  syncDelay=((syncDelay<<16)|(syncDelay<<8))&0xffff00;  /* set the sync delay according to the fiber latency */
+  syncDelay_write = (syncDelay&0xff<<8) | (syncDelay&0xff<<16) | (syncDelay&0xff<<24);  /* set the sync delay according to the fiber latency */
 
-  vmeWrite32(&TIp->fiberSyncDelay,syncDelay);
+  vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
 
 #ifdef STOPTHIS
   if(tiMaster != 1)  /* Slave only */
@@ -3764,7 +3826,7 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
 
   TIUNLOCK;
 
-  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",__FUNCTION__,syncDelay);
+  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",__FUNCTION__,syncDelay_write);
 
 }
 
@@ -4393,14 +4455,14 @@ static void
 FiberMeas()
 {
   int clksrc=0;
-  unsigned int defaultDelay=0, fiberLatency, syncDelay;
+  unsigned int defaultDelay=0x1f1f1f00, fiberLatency=0, syncDelay=0, syncDelay_write=0;
 
 
   clksrc = tiGetClockSource();
-  /* Check to be sure the TI has external HFBR1 clock enabled */
-  if(clksrc != TI_CLOCK_HFBR1)
+  /* Check to be sure the TI has external HFBR1/5 clock enabled */
+  if((clksrc != TI_CLOCK_HFBR1) && (clksrc != TI_CLOCK_HFBR5))
     {
-      printf("%s: ERROR: Unable to measure fiber latency without HFBR1 as Clock Source\n",
+      printf("%s: ERROR: Unable to measure fiber latency without HFBR1/5 as Clock Source\n",
 	     __FUNCTION__);
       printf("\t Using default Fiber Sync Delay = %d (0x%x)",
 	     defaultDelay, defaultDelay);
@@ -4444,11 +4506,10 @@ FiberMeas()
 
   tiFiberLatencyMeasurement = ((fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23)>>1;
   syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)>>1));
-  syncDelay =
-    (syncDelay<<8)&TI_FIBERSYNCDELAY_HFBR1_SYNCDELAY_MASK;  //set the sync delay according to the fiber latency
+  syncDelay_write = (syncDelay&0xFF)<<8 | (syncDelay&0xFF)<<16 | (syncDelay&0xFF)<<24;
   taskDelay(1);
 
-  vmeWrite32(&TIp->fiberSyncDelay,syncDelay);
+  vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
   taskDelay(1);
   syncDelay = vmeRead32(&TIp->fiberSyncDelay);
   TIUNLOCK;

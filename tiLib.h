@@ -128,7 +128,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x181
+#define TI_SUPPORTED_FIRMWARE 0x193
 
 /* 0x0 boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -454,6 +454,7 @@ struct TI_A24RegStruct
 /* 0x1D0-0x1F0 TI ID bits and masks */
 #define TI_ID_TRIGSRC_ENABLE_MASK     0x000000FF
 #define TI_ID_CRATEID_MASK            0x0000FF00
+#define TI_ID_BLOCKLEVEL_MASK         0x00FF0000
 
 /* Trigger Sources, used by tiSetTriggerSource  */
 #define TI_TRIGGER_P0        0
@@ -493,8 +494,9 @@ struct TI_A24RegStruct
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
 
 /* tiInit initialization flag bits */
-#define TI_INIT_SKIP              (0<<0)
-#define TI_INIT_SLAVE_FIBER_5     (1<<0)
+#define TI_INIT_NO_INIT                 (1<<0)
+#define TI_INIT_SLAVE_FIBER_5           (1<<1)
+#define TI_INIT_SKIP_FIRMWARE_CHECK     (1<<2)
 
 /* Some pre-initialization routine prototypes */
 int  tiSetFiberLatencyOffset_preInit(int flo);
@@ -516,6 +518,7 @@ int  tiReset();
 int  tiSetCrateID(unsigned int crateID);
 int  tiGetCrateID(int port);
 int  tiGetPortTrigSrcEnabled(int port);
+int  tiGetSlaveBlocklevel(int port);
 int  tiSetBlockLevel(int blockLevel);
 int  tiBroadcastNextBlockLevel(int blockLevel);
 int  tiGetNextBlockLevel();
