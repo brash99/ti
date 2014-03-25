@@ -976,19 +976,19 @@ tiStatus(int pflag)
       if(busy & TI_BUSY_HFBR1)
 	printf("   HFBR #1          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR2)
-	printf("   HFBR #2          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #2          %s\n",(busy&TI_BUSY_MONITOR_HFBR2)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR3)
-	printf("   HFBR #3          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #3          %s\n",(busy&TI_BUSY_MONITOR_HFBR3)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR4)
-	printf("   HFBR #4          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #4          %s\n",(busy&TI_BUSY_MONITOR_HFBR4)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR5)
-	printf("   HFBR #5          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #5          %s\n",(busy&TI_BUSY_MONITOR_HFBR5)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR6)
-	printf("   HFBR #6          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #6          %s\n",(busy&TI_BUSY_MONITOR_HFBR6)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR7)
-	printf("   HFBR #7          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #7          %s\n",(busy&TI_BUSY_MONITOR_HFBR7)?"** BUSY **":"");
       if(busy & TI_BUSY_HFBR8)
-	printf("   HFBR #8          %s\n",(busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+	printf("   HFBR #8          %s\n",(busy&TI_BUSY_MONITOR_HFBR8)?"** BUSY **":"");
     }
   else
     {
