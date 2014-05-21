@@ -400,8 +400,11 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       /* Master (Supervisor) Configuration: takes in external triggers */
       tiMaster = 1;
 
+      /* Clear the Slave Mask */
+      tiSlaveMask = 0;
+
       /* BUSY from Loopback and Switch Slot B */
-      tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
+      tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1); 
       /* Onboard Clock Source */
       tiSetClockSource(TI_CLOCK_INTERNAL);
       /* Loopback Sync Source */
