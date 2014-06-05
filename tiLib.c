@@ -83,6 +83,7 @@ static int          tiSlotNumber=0;          /* Slot number in which the TI resi
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
 static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
+static int          tiFirmwareType=1;        /* Firmware Type 2=modTI, 1=prod, 0=rev2 */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -364,20 +365,27 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
     {
-      printf("  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
-	     (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
+      int supportedVersion=TI_SUPPORTED_FIRMWARE;
+      tiFirmwareType = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
+
+      if(tiFirmwareType==TI_FIRMWARE_TYPE_MODTI)
+	supportedVersion = TI_SUPPORTED_MODTI_FIRMWARE;
+	
       tiVersion = firmwareInfo&0xFFF;
-      if(tiVersion < TI_SUPPORTED_FIRMWARE)
+      printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X\n",
+	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType, tiVersion);
+
+      if(tiVersion < supportedVersion)
 	{
 	  if(noFirmwareCheck)
 	    {
 	      printf("%s: WARN: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x  (IGNORED)\n",
-		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+		     __FUNCTION__,tiVersion,supportedVersion);
 	    }
 	  else
 	    {
 	      printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
-		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+		     __FUNCTION__,tiVersion,supportedVersion);
 	      TIp=NULL;
 	      return ERROR;
 	    }
