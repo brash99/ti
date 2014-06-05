@@ -23,7 +23,7 @@ extern unsigned int *dma_dabufp;
 
 extern int tiA32Base;
 
-#define BLOCKLEVEL 10
+#define BLOCKLEVEL 2
 
 #define DO_READOUT
 
@@ -35,7 +35,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
-  int printout = 10/BLOCKLEVEL;
+  int printout = 1;
 
   unsigned int tiIntCount = tiGetIntCount();
 
@@ -64,8 +64,8 @@ mytiISR(int arg)
     }
 #endif
 
-/*   dCnt = tiReadTriggerBlock(dma_dabufp,3*BLOCKLEVEL+10,1); */
-  dCnt = tiReadTriggerBlock(dma_dabufp);
+  dCnt = tiReadBlock(dma_dabufp,3*BLOCKLEVEL+10,1);
+/*   dCnt = tiReadTriggerBlock(dma_dabufp); */
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);
@@ -91,7 +91,7 @@ mytiISR(int arg)
       for(idata=0;idata<len;idata++)
 	{
 	  if((idata%5)==0) printf("\n\t");
-	  printf("  0x%08x ",(unsigned int)(outEvent->data[idata]));
+	  printf("  0x%08x ",(unsigned int)LSWAP(outEvent->data[idata]));
 	}
       printf("\n\n");
     }
@@ -108,7 +108,7 @@ mytiISR(int arg)
   static int bl = BLOCKLEVEL;
   if(tiGetSyncEventFlag())                                                      
     {                                                                           
-      tiSetBlockLevel(bl++);                                              
+/*       tiSetBlockLevel(bl++);                                               */
       printf("SE: Curr BL = %d\n",tiGetCurrentBlockLevel());                    
       printf("SE: Next BL = %d\n",tiGetNextBlockLevel());                       
     }                                                                           
@@ -203,7 +203,7 @@ main(int argc, char *argv[]) {
   tiSetFiberDelay(1,2);
   tiSetSyncDelayWidth(1,0x3f,1);
     
-  tiSetBlockLimit(1024);
+  tiSetBlockLimit(0);
 
   printf("Hit enter to reset stuff\n");
   getchar();

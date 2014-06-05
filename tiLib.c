@@ -4740,6 +4740,28 @@ tiSetSyncEventInterval(int blk_interval)
   return OK;
 }
 
+int
+tiGetSyncEventInterval()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->syncEventCtrl) & TI_SYNCEVENTCTRL_NBLOCKS_MASK;
+  TIUNLOCK;
+
+  return rval;
+}
 
 /*
  * tiForceSyncEvent
