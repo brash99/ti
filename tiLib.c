@@ -5671,3 +5671,88 @@ tiSetTokenOutTest(int level)
 
 }
 
+/* Module TI Routines */
+int
+tiRocEnable(int roc)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
+    {
+      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
+	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
+      return ERROR;
+    }
+
+  if((roc<1) || (roc>8))
+    {
+      printf("%s: ERROR: Invalid roc (%d)\n",
+	     __FUNCTION__,roc);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->rocEnable, (vmeRead32(&TIp->rocEnable) & TI_ROCENABLE_MASK) | 
+	     TI_ROCENABLE_ROC(roc-1));
+  TIUNLOCK;
+
+  return OK;
+}
+
+int
+tiRocEnableMask(int rocmask)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
+    {
+      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
+	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
+      return ERROR;
+    }
+
+  if(rocmask>TI_ROCENABLE_MASK)
+    {
+      printf("%s: ERROR: Invalid rocmask (0x%x)\n",
+	     __FUNCTION__,rocmask);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->rocEnable, rocmask);
+  TIUNLOCK;
+
+  return OK;
+}
+
+int
+tiGetRocEnableMask()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
+    {
+      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
+	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->rocEnable) & TI_ROCENABLE_MASK;
+  TIUNLOCK;
+
+  return rval;
+}

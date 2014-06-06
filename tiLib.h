@@ -94,21 +94,23 @@ struct TI_A24RegStruct
   /* 0x000D4 */ volatile unsigned int syncEventCtrl;
   /* 0x000D8 */ volatile unsigned int eventNumber_hi;
   /* 0x000DC */ volatile unsigned int eventNumber_lo;
-  /* 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
+  /* 0x000E0 */          unsigned int blank2[(0xEC-0xE0)/4];
+  /* 0x000EC */ volatile unsigned int rocEnable;
+  /* 0x000F0 */          unsigned int blank3[(0xFC-0xF0)/4];
   /* 0x000FC */ volatile unsigned int blocklimit;
   /* 0x00100 */ volatile unsigned int reset;
-  /* 0x00104 */          unsigned int blank3[(0x180-0x104)/4];
+  /* 0x00104 */          unsigned int blank4[(0x180-0x104)/4];
   /* 0x00180 */ volatile unsigned int ts_scaler[6];
-  /* 0x00198 */          unsigned int blank4[(0x1D0-0x198)/4];
+  /* 0x00198 */          unsigned int blank5[(0x1D0-0x198)/4];
   /* 0x001D0 */ volatile unsigned int hfbr_tiID[8];
   /* 0x001F0 */ volatile unsigned int master_tiID;
-  /* 0x001F4 */          unsigned int blank5[(0x8C0-0x1F4)/4];
+  /* 0x001F4 */          unsigned int blank6[(0x8C0-0x1F4)/4];
   /* 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /* 0x00900 */          unsigned int blank6[(0x2000-0x900)/4];
+  /* 0x00900 */          unsigned int blank7[(0x2000-0x900)/4];
   /* 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
-  /* 0x02200 */          unsigned int blank7[(0x2800-0x2200)/4];
+  /* 0x02200 */          unsigned int blank8[(0x2800-0x2200)/4];
   /* 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
-  /* 0x03000 */          unsigned int blank8[(0xFFFC-0x3000)/4];
+  /* 0x03000 */          unsigned int blank9[(0xFFFC-0x3000)/4];
   /* 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /* 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /* 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
@@ -436,6 +438,10 @@ struct TI_A24RegStruct
 /* 0xD8 eventNumber_hi bits and masks */
 #define TI_EVENTNUMBER_HI_MASK        0xFFFF0000
 
+/* 0xEC rocEnable bits and masks */
+#define TI_ROCENABLE_MASK             0x000000FF
+#define TI_ROCENABLE_ROC(x)           (1<<(x))
+
 /* 0x100 reset bits and masks */
 #define TI_RESET_I2C                  (1<<1)
 #define TI_RESET_JTAG                 (1<<2)
@@ -632,4 +638,7 @@ unsigned int  tiGetIntCount();
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);
 
+int  tiRocEnable(int roc);
+int  tiRocEnableMask(int rocmask);
+int  tiGetRocEnableMask();
 #endif /* TILIB_H */
