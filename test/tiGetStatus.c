@@ -47,6 +47,9 @@ main(int argc, char *argv[]) {
     tiAddSlave(1);
     tiSlaveStatus(1);
 
+    printf("Sync Event Interval = %d\n",
+	   tiGetSyncEventInterval());
+
  CLOSE:
 
     vmeCloseDefaultWindows();
