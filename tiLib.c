@@ -224,10 +224,11 @@ int
 tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 {
   unsigned int laddr;
-  unsigned int rval, boardID, prodID;
+  unsigned int rval, boardID, prodID, i2cread=0;
   unsigned int firmwareInfo;
   int stat;
   int noBoardInit=0, noFirmwareCheck=0;
+  
 
   /* Check VME address */
   if(tAddr<0 || tAddr>0xffffff)
@@ -344,13 +345,22 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	tiSwapTriggerBlock=0;
       
     }
+
+  /* Check to see if we're in a VXS Crate */
+  if((boardID==20) || (boardID==21))
+    { /* It's possible... now check for valid i2c to SWB (SD) */
+      i2cread = vmeRead32(&TIp->SWB[(0x3C7C/4)]) & 0xFFFF; /* Device 1, Address 0x1F */
+      if((i2cread!=0) && (i2cread!=0xffff))
+	{ /* Valid response */
+	  vmeSetMaximumVMESlots(boardID);
+	}
+    }
   
   /* Check if we should exit here, or initialize some board defaults */
   if(noBoardInit)
     {
       return OK;
     }
-
   
   if(tiMaster==0) /* Reload only on the TI Slaves */
     {
