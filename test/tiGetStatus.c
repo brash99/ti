@@ -17,43 +17,46 @@
 #include "tiLib.h"
 
 int 
-main(int argc, char *argv[]) {
+main(int argc, char *argv[]) 
+{
 
-    int stat;
-    int slot;
+  int stat;
+  int slot;
 
-    if(argc>1)
-      {
-	slot = atoi(argv[1]);
-	if(slot<1 || slot>22)
-	  {
-	    printf("invalid slot... using 21");
-	    slot=21;
-	  }
-      }
-    else 
-      slot=21;
+  if(argc>1)
+    {
+      slot = atoi(argv[1]);
+      if(slot<1 || slot>22)
+	{
+	  printf("invalid slot... using 21");
+	  slot=21;
+	}
+    }
+  else 
+    slot=21;
 
-    printf("\nJLAB TI Status... slot = %d\n",slot);
-    printf("----------------------------\n");
+  printf("\nJLAB TI Status... slot = %d\n",slot);
+  printf("----------------------------\n");
 
-    vmeOpenDefaultWindows();
+  vmeOpenDefaultWindows();
 
-    /* Set the TI structure pointer */
-    tiInit(slot,TI_READOUT_EXT_POLL,1);
-    tiCheckAddresses();
-    printf("Firmware version = 0x%x\n",tiGetFirmwareVersion());
-    tiStatus(1);
-    tiAddSlave(1);
-    tiSlaveStatus(1);
+  /* Set the TI structure pointer */
+  tiInit(slot,TI_READOUT_EXT_POLL,TI_INIT_NO_INIT);
+  tiCheckAddresses();
+  printf("Firmware version = 0x%x\n",tiGetFirmwareVersion());
+  tiStatus(1);
 
-    printf("Sync Event Interval = %d\n",
-	   tiGetSyncEventInterval());
+  int i;
+  for(i=1; i<=18; i++)
+    printf("PP %2d = VME %2d\n",i,vxsPayloadPort2vmeSlot(i));
+
+  for(i=1; i<=21; i++)
+    printf("VME %2d = PP %2d\n",i,vmeSlot2vxsPayloadPort(i));
 
  CLOSE:
 
-    vmeCloseDefaultWindows();
+  vmeCloseDefaultWindows();
 
-    exit(0);
+  exit(0);
 }
 
