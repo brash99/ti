@@ -120,16 +120,21 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
     18     /* VME Slot Furthest to the Right - TI */ 
   };
 
-
-/********************************************************************************
- *
- * tiSetFiberLatencyOffset_preInit
- *
- *  - Set the Fiber Latency Offset to be used during initialization
- *
- * RETURNS: OK if successful, otherwise ERROR
+/**
+ * @defgroup PreInit Pre-Initialization
+ * @defgroup Configuration Initialization/Configuration
+ * @defgroup Status Status
+ * @defgroup Readout Data Readout
  */
 
+/**
+ * @ingroup PreInit
+ * @brief Set the Fiber Latency Offset to be used during initialization
+ *
+ * @param flo fiber latency offset
+ *
+ * @return OK if successful, otherwise ERROR
+ */
 int
 tiSetFiberLatencyOffset_preInit(int flo)
 {
@@ -145,15 +150,14 @@ tiSetFiberLatencyOffset_preInit(int flo)
   return OK;
 }
 
-/********************************************************************************
+/**
+ * @ingroup PreInit
+ * @brief Set the CrateID to be used during initialization
  *
- * tiSetCrateID_preInit
+ * @param cid Crate ID
  *
- *  - Set the CrateID to be used during initialization
- *
- * RETURNS: OK if successful, otherwise ERROR
+ * @return OK if successful, otherwise ERROR
  */
-
 int
 tiSetCrateID_preInit(int cid)
 {
@@ -169,15 +173,15 @@ tiSetCrateID_preInit(int cid)
   return OK;
 }
 
-/********************************************************************************
+/**
+ * @ingroup PreInit 
  *
- * tsSetFiberIn_preInit
+ * @brief Set the Fiber In port to be used during initialization of TI Slave
  *
- *  - Set the CrateID to be used during initialization
+ * @param port Fiber In Port
  *
- * RETURNS: OK if successful, otherwise ERROR
+ * @return OK if successful, otherwise ERROR
  */
-
 int
 tiSetFiberIn_preInit(int port)
 {
@@ -194,29 +198,28 @@ tiSetFiberIn_preInit(int port)
 }
 
 
-/*******************************************************************************
- *
- *  tiInit - Initialize the TIp register space into local memory,
+/**
+ *  @ingroup Configuration
+ *  @brief Initialize the TIp register space into local memory,
  *  and setup registers given user input
  *
- *  ARGs: 
- *    tAddr  - A24 VME Address of the TI (0x000016 - 0xffffff)
- *             OR
- *             Slot number of TI (1 - 21)
- *    mode   - Readout/Triggering Mode
- *          0: External Trigger - Interrupt Mode
- *          1: TI/TImaster Trigger - Interrupt Mode
- *          2: External Trigger - Polling Mode
- *          3: TI/TImaster Trigger - Polling Mode
+ *   
+ *  @param tAddr  Address or Slot Number
+ *     - A24 VME Address of the TI (0x000016 - 0xffffff)
+ *     - Slot number of TI (1 - 21)
  *
- *    iFlag  - Initialization mask
- *        bit:
- *          0: Do not initialize the board, just setup the pointers
- *             to the registers
- *          1: Use Slave Fiber 5, instead of 1
- *          2: Ignore firmware check
+ *  @param  mode  Readout/Triggering Mode
+ *     - 0 External Trigger - Interrupt Mode
+ *     - 1 TI/TImaster Trigger - Interrupt Mode
+ *     - 2 External Trigger - Polling Mode
+ *     - 3 TI/TImaster Trigger - Polling Mode
  *
- *  RETURNS: OK if successful, otherwise ERROR.
+ *  @param iFlag Initialization bit mask
+ *     - 0   Do not initialize the board, just setup the pointers to the registers
+ *     - 1   Use Slave Fiber 5, instead of 1
+ *     - 2   Ignore firmware check
+ *
+ *  @return OK if successful, otherwise ERROR.
  *
  */
 
@@ -548,12 +551,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   return OK;
 }
 
-/*******************************************************************************
- *  
- *  tiFind - Find the TI within the prescribed "GEO Slot to A24 VME Address"
+/**
+ *  @ingroup Configuration
+ *  @brief Find the TI within the prescribed "GEO Slot to A24 VME Address"
  *           range from slot 3 to 21.
  *           
- *  RETURNS: A24 VME address if found.  Otherwise, 0
+ *  @return A24 VME address if found.  Otherwise, 0
  */
 
 unsigned int
@@ -679,14 +682,11 @@ tiCheckAddresses()
   return OK;
 }
 
-/*******************************************************************************
- *
- * tiStatus - Print some status information of the TI to standard out
+/**
+ * @ingroup Status
+ * @brief Print some status information of the TI to standard out
  * 
- *   ARGs: 
- *      pflag : if pflag>0, print out raw registers
- *
- * RETURNS: OK if successful, ERROR otherwise
+ * @param pflag if pflag>0, print out raw registers
  *
  */
 
@@ -1058,16 +1058,17 @@ tiStatus(int pflag)
 
 }
 
-/*******************************************************************************
- *
- * tiSetSlavePort (TI Slave only)
- *   - This routine provides the ability to switch the port that the TI Slave
+/**
+ * @ingroup Status
+ * @brief This routine provides the ability to switch the port that the TI Slave
  *     receives its Clock, SyncReset, and Trigger.
  *     If the TI has already been configured to use this port, nothing is done.
  *
- *   ARGs:
- *      port:  1  - Port 1
- *             5  - Port 5
+ *   @param port
+ *      -  1  - Port 1
+ *      -  5  - Port 5
+ *
+ * @return OK if successful, ERROR otherwise
  *
  */
 
@@ -1156,14 +1157,13 @@ tiSetSlavePort(int port)
   return OK;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Returns the port of which the TI Slave has been configured (or will be)
  *
- * tiGetSlavePort
- *   - Returns the port of which the TI Slave has been configured (or will be)
- *
- *   RETURNS:
- *       1  - Port 1
- *       5  - Port 5
+ * @return 
+ *       - 1  - Port 1
+ *       - 5  - Port 5
  *
  */
 
@@ -1173,14 +1173,13 @@ tiGetSlavePort()
   return tiSlaveFiberIn;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Print a summary of all fiber port connections to potential TI Slaves
  *
- * tiSlaveStatus (tiMaster only)
- *   - Print a summary of all fiber port connections to potential TI Slaves
- *
- *   ARGs:
- *      pflag:  0  - Default output
- *              1  - Print Raw Registers
+ * @param  pflag
+ *   -  0  - Default output
+ *   -  1  - Print Raw Registers
  *
  */
 
@@ -1317,11 +1316,11 @@ tiSlaveStatus(int pflag)
 }
 
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Get the Firmware Version
  *
- * tiGetFirmwareVersion - Get the Firmware Version
- *
- * RETURNS: Firmware Version if successful, ERROR otherwise
+ * @return Firmware Version if successful, ERROR otherwise
  *
  */
 int
@@ -1355,11 +1354,11 @@ tiGetFirmwareVersion()
 }
 
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Reload the firmware on the FPGA
  *
- * tiReload - Reload the firmware on the FPGA
- *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
 
@@ -1383,6 +1382,15 @@ tiReload()
   
 }
 
+/**
+ * @ingroup Status
+ * @brief Get the Module Serial Number
+ *
+ * @param rSN  Pointer to string to pass Serial Number
+ *
+ * @return SerialNumber if successful, ERROR otherwise
+ *
+ */
 unsigned int
 tiGetSerialNumber(char **rSN)
 {
@@ -1420,14 +1428,13 @@ tiGetSerialNumber(char **rSN)
 
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Resync the 250 MHz Clock
  *
- * tiClockResync - Resync the 250 MHz Clock
- *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiClockResync()
 {
@@ -1447,14 +1454,13 @@ tiClockResync()
   
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Perform a soft reset of the TI
  *
- * tiReset - Perform a soft reset of the TI
- *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiReset()
 {
@@ -1470,14 +1476,13 @@ tiReset()
   return OK;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Set the crate ID 
  *
- * tiSetCrateID - Set the crate ID that shows up in the data fifo
- *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiSetCrateID(unsigned int crateID)
 {
@@ -1503,17 +1508,17 @@ tiSetCrateID(unsigned int crateID)
   
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Get the crate ID of the selected port
  *
- * tiGetCrateID - Get the crate ID of the selected port
- *    ARG: port
- *         0 - Self (master)
- *       1-8 - Fiber port 1-8
+ * @param  port
+ *       - 0 - Self
+ *       - 1-8 - Fiber port 1-8 (If Master)
  *
- * RETURNS: port Crate ID if successful, ERROR otherwise
+ * @return port Crate ID if successful, ERROR otherwise
  *
  */
-
 int
 tiGetCrateID(int port)
 {
@@ -1544,28 +1549,26 @@ tiGetCrateID(int port)
   return rval;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Get the trigger sources enabled bits of the selected port
  *
- * tiGetPortTrigSrcEnabled - Get the trigger sources enabled bits 
- *                           of the selected port
- *    ARG: port
- *         0 - Self (master)
- *       1-8 - Fiber port 1-8
+ * @param  port
+ *       - 0 - Self
+ *       - 1-8 - Fiber port 1-8  (If Master)
  *
- *    RETURNED BITS:
- *         0 - P0 
- *         1 - Fiber 1
- *         2 - Loopback
- *         3 - TRG (FP)
- *         4 - VME
- *         5 - TS Inputs (FP)
- *         6 - TS (rev 2)
- *         7 - Internal Pulser
- *
- * RETURNS: trigger sources enabled if successful, ERROR otherwise
+ * @return bitmask of rigger sources enabled if successful, otherwise ERROR
+ *         bitmask
+ *         - 0 - P0 
+ *         - 1 - Fiber 1
+ *         - 2 - Loopback
+ *         - 3 - TRG (FP)
+ *         - 4  - VME
+ *         - 5 - TS Inputs (FP)
+ *         - 6 - TS (rev 2)
+ *         - 7 - Internal Pulser
  *
  */
-
 int
 tiGetPortTrigSrcEnabled(int port)
 {
@@ -1596,16 +1599,15 @@ tiGetPortTrigSrcEnabled(int port)
   return rval;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Get the blocklevel of the TI-Slave on the selected port
+ * @param port
+ *       - 1-8 - Fiber port 1-8
  *
- * tiGetSlaveBlocklevel - Get the blocklevel of the TI-Slave on the selected port
- *    ARG: port
- *       1-8 - Fiber port 1-8
- *
- * RETURNS: port blocklevel if successful, ERROR otherwise
+ * @return port blocklevel if successful, ERROR otherwise
  *
  */
-
 int
 tiGetSlaveBlocklevel(int port)
 {
@@ -1629,11 +1631,11 @@ tiGetSlaveBlocklevel(int port)
   return rval;
 }
 
-/*******************************************************************************
- *
- * tiSetBlockLevel - Set the number of events per block
- *
- * RETURNS: OK if successful, ERROR otherwise
+/**
+ * @ingroup Configuration
+ * @brief Set the number of events per block
+ * @param blockLevel Number of events per block
+ * @return OK if successful, ERROR otherwise
  *
  */
 
@@ -1643,13 +1645,15 @@ tiSetBlockLevel(int blockLevel)
   return tiBroadcastNextBlockLevel(blockLevel);
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration 
+ * @brief Broadcast the next block level (to be changed at the end of
+ * the next sync event, or during a call to tiSyncReset(1).
  *
- * tiBroadcastNextBlockLevel - Broadcast the next block level (to be changed at
- *                             the end of the next sync event, or during a call
- *                             to tiSyncReset(1) )
+ * @see tiSyncReset(1)
+ * @param blockLevel block level to broadcats
  *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
 
@@ -1694,12 +1698,11 @@ tiBroadcastNextBlockLevel(int blockLevel)
 
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Get the block level that will be updated on the end of the block readout.
  *
- * tiGetNextBlockLevel - Get the block level that will be updated on the end
- *                       of the block readout.
- *
- * RETURNS: Next Block Level if successful, ERROR otherwise
+ * @return Next Block Level if successful, ERROR otherwise
  *
  */
 
@@ -1725,15 +1728,13 @@ tiGetNextBlockLevel()
   return bl;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Status
+ * @brief Get the current block level
  *
- * tiGetCurrentBlockLevel - Get the current block level
- *
- * RETURNS: Next Block Level if successful, ERROR otherwise
+ * @return Next Block Level if successful, ERROR otherwise
  *
  */
-
-
 int
 tiGetCurrentBlockLevel()
 {
@@ -1766,23 +1767,23 @@ tiGetCurrentBlockLevel()
 }
 
 
-/*******************************************************************************
- *
- * tiSetTriggerSource - Set the trigger source
+/**
+ * @ingroup Configuration
+ * @brief Set the trigger source
  *     This routine will set a library variable to be set in the TI registers
  *     at a call to tiIntEnable.  
  *
- *  trig - integer indicating the trigger source
- *         0: P0
- *         1: HFBR#1
- *         2: Front Panel (TRG)
- *         3: Front Panel TS Inputs
- *         4: TS (rev2) 
- *         5: Random
- *       6-9: TS Partition 1-4
- *        10: HFBR#5
+ *  @param trig - integer indicating the trigger source
+ *         - 0: P0
+ *         - 1: HFBR#1
+ *         - 2: Front Panel (TRG)
+ *         - 3: Front Panel TS Inputs
+ *         - 4: TS (rev2) 
+ *         - 5: Random
+ *         - 6-9: TS Partition 1-4
+ *         - 10: HFBR#5
  *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
 
@@ -1908,29 +1909,27 @@ tiSetTriggerSource(int trig)
   return OK;
 }
 
-/*******************************************************************************
- *
- * tiSetTriggerSourceMask - Set trigger sources with specified trigmask
- *
+/**
+ * @ingroup Configuration
+ * @brief Set trigger sources with specified trigmask
  *    This routine is for special use when tiSetTriggerSource(...) does
  *    not set all of the trigger sources that is required by the user.
  *
- *  trigmask bits:  
- *                 0:  P0
- *                 1:  HFBR #1 
- *                 2:  TI Master Loopback
- *                 3:  Front Panel (TRG) Input
- *                 4:  VME Trigger
- *                 5:  Front Panel TS Inputs
- *                 6:  TS (rev 2) Input
- *                 7:  Random Trigger
- *                 8:  FP/Ext/GTP 
- *                 9:  P2 Busy 
+ * @param trigmask bits:  
+ *        -         0:  P0
+ *        -         1:  HFBR #1 
+ *        -         2:  TI Master Loopback
+ *        -         3:  Front Panel (TRG) Input
+ *        -         4:  VME Trigger
+ *        -         5:  Front Panel TS Inputs
+ *        -         6:  TS (rev 2) Input
+ *        -         7:  Random Trigger
+ *        -         8:  FP/Ext/GTP 
+ *        -         9:  P2 Busy 
  *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiSetTriggerSourceMask(int trigmask)
 {
@@ -1953,17 +1952,18 @@ tiSetTriggerSourceMask(int trigmask)
   return OK;
 }
 
-/*******************************************************************************
- *
- * tiEnableTriggerSource - Enable trigger sources set by 
+/**
+ * @ingroup Configuration
+ * @brief Enable trigger sources
+ * Enable trigger sources set by 
  *                          tiSetTriggerSource(...) or
  *                          tiSetTriggerSourceMask(...)
+ * @sa tiSetTriggerSource
+ * @sa tiSetTriggerSourceMask
  *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
-
 int
 tiEnableTriggerSource()
 {
@@ -1986,19 +1986,17 @@ tiEnableTriggerSource()
 
 }
 
-/*******************************************************************************
- *
- * tiDisableTriggerSource - Disable trigger sources
+/**
+ * @ingroup Configuration
+ * @brief Disable trigger sources
  *    
- *    ARGs: fflag - 0: Disable Triggers
- *                 >0: Disable Triggers and generate enough
- *                     triggers to fill the current block
- *                     ** Must be TI master **
+ * @param fflag 
+ *   -  0: Disable Triggers
+ *   - >0: Disable Triggers and generate enough triggers to fill the current block
  *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiDisableTriggerSource(int fflag)
 {
@@ -2026,22 +2024,21 @@ tiDisableTriggerSource(int fflag)
 
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Set the Sync source mask
  *
- * tiSetSyncSource - Set the Sync source mask
- *
- *  sync - MASK indicating the sync source
+ * @param sync - MASK indicating the sync source
  *       bit: description
- *         0: P0
- *         1: HFBR1
- *         2: HFBR5
- *         3: FP
- *         4: LOOPBACK
+ *       -  0: P0
+ *       -  1: HFBR1
+ *       -  2: HFBR5
+ *       -  3: FP
+ *       -  4: LOOPBACK
  *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiSetSyncSource(unsigned int sync)
 {
@@ -2065,24 +2062,20 @@ tiSetSyncSource(unsigned int sync)
   return OK;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Set the event format
  *
- * tiSetEventFormat - Set the event format
- *
- *  format - integer number indicating the event format
- *
- *           Description
- *           0: 32 bit event number only
- *           1: 32 bit event number + 32 bit timestamp
- *           2: 32 bit event number + higher 16 bits of timestamp + higher 16 bits of eventnumber
- *           3: 32 bit event number + 32 bit timestamp
+ * @param format - integer number indicating the event format
+ *          - 0: 32 bit event number only
+ *          - 1: 32 bit event number + 32 bit timestamp
+ *          - 2: 32 bit event number + higher 16 bits of timestamp + higher 16 bits of eventnumber
+ *          - 3: 32 bit event number + 32 bit timestamp
  *              + higher 16 bits of timestamp + higher 16 bits of eventnumber
  *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
-
 int
 tiSetEventFormat(int format)
 {
@@ -2129,24 +2122,20 @@ tiSetEventFormat(int format)
   return OK;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Set and enable the "software" trigger
  *
- * tiSoftTrig - Set and enable the "software" trigger
+ *  @param trigger  trigger type 1 or 2 (playback trigger)
+ *  @param nevents  integer number of events to trigger
+ *  @param period_inc  period multiplier, depends on range (0-0x7FFF)
+ *  @param range  
+ *     - 0: small period range (min: 120ns, increments of 30ns up to 983.13us)
+ *     - 1: large period range (min: 120ns, increments of 30.72us up to 1.007s)
  *
- *  trigger     - trigger type 1 or 2 (playback trigger)
- *  nevents     - integer number of events to trigger
- *  period_inc  - period multiplier, depends on range (0-0x7FFF)
- *  range       - small (0) or large (1)
- *     For small, the period range:
- *            minimum of 120ns, increments of 30ns up to 983.13us
- *     In large, the period range:
- *            minimum of 120ns, increments of 30.72us up to 1.007s
- *
- * RETURNS: OK if successful, ERROR otherwise
+ * @return OK if successful, ERROR otherwise
  *
  */
-
-
 int
 tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range)
 {
@@ -2210,20 +2199,19 @@ tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range
 }
 
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Set the parameters of the random internal trigger
  *
- * tiSetRandomTrigger - Set the parameters of the random internal trigger
+ * @param trigger  - Trigger Selection
+ *       -              1: trig1
+ *       -              2: trig2
+ * @param setting  - frequency prescale from 500MHz
  *
- *    ARGS: trigger  - Trigger Selection
- *                     1: trig1
- *                     2: trig2
- *          setting  - 
- *
- * RETURNS: OK if successful, ERROR otherwise.
+ * @sa tiDisableRandomTrigger
+ * @return OK if successful, ERROR otherwise.
  *
  */
-
-
 int
 tiSetRandomTrigger(int trigger, int setting)
 {
@@ -2270,6 +2258,12 @@ tiSetRandomTrigger(int trigger, int setting)
 }
 
 
+/**
+ * @ingroup Configuration
+ * @brief Disable random trigger generation
+ * @sa tiSetRandomTrigger
+ * @return OK if successful, ERROR otherwise.
+ */
 int
 tiDisableRandomTrigger()
 {
@@ -2285,23 +2279,20 @@ tiDisableRandomTrigger()
   return OK;
 }
 
-
-
-/*******************************************************************************
+/**
+ * @ingroup Readout
+ * @brief Read a block of events from the TI
  *
- * tiReadBlock - Read a block of events from the TI
- *
- *    data  - local memory address to place data
- *    nwrds - Max number of words to transfer
- *    rflag - Readout Flag
- *              0 - programmed I/O from the specified board
- *              1 - DMA transfer using Universe/Tempe DMA Engine 
+ * @param   data  - local memory address to place data
+ * @param   nwrds - Max number of words to transfer
+ * @param   rflag - Readout Flag
+ *       -       0 - programmed I/O from the specified board
+ *       -       1 - DMA transfer using Universe/Tempe DMA Engine 
  *                    (DMA VME transfer Mode must be setup prior)
  *
- * RETURNS: Number of words transferred to data if successful, ERROR otherwise
+ * @return Number of words transferred to data if successful, ERROR otherwise
  *
  */
-
 int
 tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 {
@@ -2478,14 +2469,13 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
   return OK;
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Readout
+ * @brief Read a block from the TI and form it into a CODA Trigger Bank
  *
- * tiReadTriggerBlock - Read a block from the TI and form it into a 
- *                      CODA Trigger Bank
+ * @param   data  - local memory address to place data
  *
- *    data  - local memory address to place data
- *
- * RETURNS: Number of words transferred to data if successful, ERROR otherwise
+ * @return Number of words transferred to data if successful, ERROR otherwise
  *
  */
 
@@ -2631,20 +2621,20 @@ tiReadTriggerBlock(volatile unsigned int *data)
 
 }
 
-/*******************************************************************************
- *
- * tiEnableFiber / tiDisableFiber
- *  - Enable/Disable Fiber transceiver
- *    fiber: integer indicative of the transceiver to enable / disable
+/**
+ * @ingroup Configuration
+ * @brief Enable Fiber transceiver
  *
  *  Note:  All Fiber are enabled by default 
  *         (no harm, except for 1-2W power usage)
  *
- * RETURNS: OK if successful, ERROR otherwise.
+ * @sa tiDisableFiber
+ * @param   fiber: integer indicative of the transceiver to enable
+ *
+ *
+ * @return OK if successful, ERROR otherwise.
  *
  */
-
-
 int
 tiEnableFiber(unsigned int fiber)
 {
@@ -2676,7 +2666,18 @@ tiEnableFiber(unsigned int fiber)
   
 }
 
-
+/**
+ * @ingroup Configuration
+ * @brief Disnable Fiber transceiver
+ *
+ * @sa tiEnableFiber
+ *
+ * @param   fiber: integer indicative of the transceiver to disable
+ *
+ *
+ * @return OK if successful, ERROR otherwise.
+ *
+ */
 int
 tiDisableFiber(unsigned int fiber)
 {
@@ -2708,18 +2709,17 @@ tiDisableFiber(unsigned int fiber)
   
 }
 
-/*******************************************************************************
+/**
+ * @ingroup Configuration
+ * @brief Set the busy source with a given sourcemask sourcemask bits: 
  *
- * tiSetBusySource
- *  - Set the busy source with a given sourcemask
- *    sourcemask bits: 
- *             N: FILL THIS IN
+ * @param sourcemask FIXME: FILL THIS IN
  *
- *    rFlag - decision to reset the global source flags
- *             0: Keep prior busy source settings and set new "sourcemask"
- *             1: Reset, using only that specified with "sourcemask"
-*/
-
+ * @param rFlag - decision to reset the global source flags
+ *       -      0: Keep prior busy source settings and set new "sourcemask"
+ *       -      1: Reset, using only that specified with "sourcemask"
+ * @return OK if successful, ERROR otherwise.
+ */
 int
 tiSetBusySource(unsigned int sourcemask, int rFlag)
 {
@@ -2766,12 +2766,12 @@ tiSetBusySource(unsigned int sourcemask, int rFlag)
 
 }
 
-/*******************************************************************************
- *
- * tiEnableBusError / tiDisableBusError
- *  - Enable/Disable Bus Errors to terminate Block Reads
+/**
+ * @ingroup Configuration
+ * @brief Enable Bus Errors to terminate Block Reads
+ * @sa tiDisableBusError
+ * @return OK if successful, otherwise ERROR
  */
-
 void
 tiEnableBusError()
 {
@@ -2791,6 +2791,12 @@ tiEnableBusError()
 }
 
 
+/**
+ * @ingroup Configuration
+ * @brief Disable Bus Errors to terminate Block Reads
+ * @sa tiEnableBusError
+ * @return OK if successful, otherwise ERROR
+ */
 void
 tiDisableBusError()
 {
@@ -2809,7 +2815,7 @@ tiDisableBusError()
 
 }
 
-
+// STOPPED HERE
 /*******************************************************************************
  *
  * tiPayloadPort2VMESlot

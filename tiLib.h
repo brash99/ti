@@ -50,9 +50,9 @@ int intLockKeya;
 
 struct TI_A24RegStruct
 {
-  /* 0x00000 */ volatile unsigned int boardID;
-  /* 0x00004 */ volatile unsigned int fiber;
-  /* 0x00008 */ volatile unsigned int intsetup;
+  /** 0x00000 */ volatile unsigned int boardID;
+  /** 0x00004 */ volatile unsigned int fiber;
+  /** 0x00008 */ volatile unsigned int intsetup;
   /* 0x0000C */ volatile unsigned int trigDelay;
   /* 0x00010 */ volatile unsigned int adr32;
   /* 0x00014 */ volatile unsigned int blocklevel;
