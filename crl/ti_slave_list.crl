@@ -1,0 +1,184 @@
+# 
+#  User readout list using a TI (pipeline) in SLAVE mode
+#
+#    Bryan Moffit, TJNAF 2014
+#
+
+readout list GEN_USER
+maximum 1024,512
+general readout
+
+# A24 Address for TI Module (e.g. Slot number = 2)
+const TRIG_ADDR = 0x100000
+# TRIG_MODE=1 for interrupt mode (Fiber intput from TI Master)
+const TRIG_MODE=1
+
+const BLOCKLEVEL=1
+const BUFFERLEVEL=1
+
+extern int bigendian_out;
+int blockLevel=1;
+
+############################################################
+# DOWNLOAD
+############################################################
+begin download
+
+# When sending to a Linux Host set bigendian_out = 0
+bigendian_out = 0;
+
+%%
+{
+  /* measured longest fiber length */
+  tiSetFiberLatencyOffset_preInit(0x40); 
+
+  /* Set crate ID */
+  tiSetCrateID_preInit(0x2); /* ROC 2 */
+
+  /* TI Setup */
+  tiInit(TRIG_ADDR,TRIG_MODE,0);
+
+  tiSetEventFormat(1);
+
+  tiSetBlockBufferLevel(BUFFERLEVEL);
+
+  /* Override default BUSY level - Use if TI is not in a VXS crate*/
+  tiSetBusySource(TI_BUSY_LOOPBACK,1);
+
+  tiStatus(0);
+
+  tiDisableVXSSignals();
+
+}
+%%
+
+  log inform "User Download Executed"
+
+end download
+    
+############################################################
+# PRESTART
+############################################################
+begin prestart
+
+  variable jj, adc_id
+
+  log inform "Entering User Prestart"
+
+  init trig source GEN
+  link async trig source GEN 1 to titrig and titrig_done
+  event type 1 then read GEN 1
+
+%%
+ /* Turn VXS signals on, beginning of prestart */
+  tiEnableVXSSignals();
+%%
+
+  log inform "User Prestart Executed"
+
+end prestart
+
+############################################################
+# END
+############################################################
+begin end
+
+%%
+{
+  CDODISABLE(GEN,1,0);
+
+  tiStatus(0);
+  printf("Interrupt Count: %8d \n",tiGetIntCount());
+}
+%%
+
+  log inform "User End Executed"
+
+end end
+
+############################################################
+# PAUSE
+############################################################
+begin pause
+
+  CDODISABLE(GEN,1,0);
+
+  log inform "User Pause Executed"
+
+end pause
+
+############################################################
+# GO
+############################################################
+begin go
+  
+  log inform "Entering User Go"
+
+%%
+{
+  /* Get the current Block Level */
+  blockLevel = tiGetCurrentBlockLevel();
+  printf("rocGo: Block Level set to %d\n",blockLevel);
+}
+%%
+
+  
+%%
+{
+  CDOENABLE(GEN,1,0);
+
+  tiStatus(0);
+  
+}
+%%
+
+  log inform "User Go Executed"
+
+end go
+
+############################################################
+# TRIGGER
+############################################################
+begin trigger titrig
+  variable dCnt,ii,tibready,timeout
+
+  rol->dabufp = (long *) 0;
+  open event type EVTYPE of BT_BANK
+
+%%
+{
+  /* Open a CODA Bank of 4byte unsigned integers, type=4 */
+  CBOPEN(4,BT_UI4,0);
+  dCnt = tiReadBlock(rol->dabufp,900>>2,1);
+  if(dCnt<=0)
+    {
+      logMsg("No data or error.  dCnt = %d\n",dCnt);
+    }
+  else
+    {
+      rol->dabufp += dCnt;
+    }
+  CBCLOSE;
+}
+%%
+
+close event
+
+end trigger
+
+begin done titrig
+
+end done
+
+############################################################
+# DONE (TRIGGER ACKNOWLEDGE)
+############################################################
+begin done
+  CDOACK(GEN,1,0);
+end done
+
+begin status
+
+end status
+
+
