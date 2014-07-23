@@ -36,6 +36,7 @@
 #include <semLib.h>
 #include <vxLib.h>
 #include "vxCompat.h"
+#include "../jvme/jvme.h"
 #else 
 #include <sys/prctl.h>
 #include <unistd.h>
@@ -87,6 +88,7 @@ static int          tiSlotNumber=0;          /* Slot number in which the TI resi
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
 static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
+static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -126,11 +128,19 @@ unsigned short PayloadPort[MAX_VME_SLOTS+1] =
 
 /**
  * @defgroup PreInit Pre-Initialization
+ * @defgroup SlavePreInit Slave Pre-Initialization
+ *   @ingroup PreInit
  * @defgroup Config Initialization/Configuration
- * @defgroup MasterConfig Master Initialization/Configuration
- * @defgroup SlaveConfig Slave Initialization/Configuration
+ * @defgroup MasterConfig Master Configuration
+ *   @ingroup Config
+ * @defgroup SlaveConfig Slave Configuration
+ *   @ingroup Config
  * @defgroup Status Status
+ * @defgroup MasterStatus Master Status
+ *   @ingroup Status
  * @defgroup Readout Data Readout
+ * @defgroup MasterReadout Master Data Readout
+ *   @ingroup Readout
  * @defgroup IntPoll Interrupt/Polling
  * @defgroup Deprec Deprecated - To be removed
  */
@@ -182,7 +192,7 @@ tiSetCrateID_preInit(int cid)
 }
 
 /**
- * @ingroup PreInit 
+ * @ingroup SlavePreInit 
  *
  * @brief Set the Fiber In port to be used during initialization of TI Slave
  *
@@ -364,6 +374,11 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       if((i2cread!=0) && (i2cread!=0xffff))
 	{ /* Valid response */
 	  vmeSetMaximumVMESlots(boardID);
+	  tiNoVXS=0;
+	}
+      else
+	{
+	  tiNoVXS=1;
 	}
     }
   
@@ -425,7 +440,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tiSlaveMask = 0;
 
       /* BUSY from Loopback and Switch Slot B */
-      tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1); 
+      if(tiNoVXS==1)
+	tiSetBusySource(TI_BUSY_LOOPBACK,1);
+      else
+	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1); 
       /* Onboard Clock Source */
       tiSetClockSource(TI_CLOCK_INTERNAL);
       /* Loopback Sync Source */
@@ -438,7 +456,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       /* Slave Configuration: takes in triggers from the Master (supervisor) */
       tiMaster = 0;
       /* BUSY from Switch Slot B */
-      tiSetBusySource(TI_BUSY_SWB,1);
+      if(tiNoVXS==1)
+	tiSetBusySource(0,1);
+      else
+	tiSetBusySource(TI_BUSY_SWB,1);
       if(tiSlaveFiberIn==1)
 	{
 	  /* Enable HFBR#1 */
@@ -1645,7 +1666,6 @@ tiGetSlaveBlocklevel(int port)
  * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiSetBlockLevel(int blockLevel)
 {
@@ -1793,7 +1813,6 @@ tiGetCurrentBlockLevel()
  * @return OK if successful, ERROR otherwise
  *
  */
-
 int
 tiSetTriggerSource(int trig)
 {
@@ -2331,8 +2350,8 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
     { /* Block transfer */
       if(tiBusError==0)
 	{
-	  printf("%s: WARN: Bus Error Block Termination was disabled.  Re-enabling\n",
-		 __FUNCTION__);
+	  logMsg("tiReadBlock: WARN: Bus Error Block Termination was disabled.  Re-enabling\n",
+		 1,2,3,4,5,6);
 	  TIUNLOCK;
 	  tiEnableBusError();
 	  TILOCK;
@@ -2420,7 +2439,7 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
       if(tiBusError==1)
 	{
 	  logMsg("tiReadBlock: WARN: Bus Error Block Termination was enabled.  Disabling\n",
-		 __FUNCTION__,2,3,4,5,6);
+		 1,2,3,4,5,6);
 	  TIUNLOCK;
 	  tiDisableBusError();
 	  TILOCK;
@@ -2485,8 +2504,6 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
  * @return Number of words transferred to data if successful, ERROR otherwise
  *
  */
-
-
 int
 tiReadTriggerBlock(volatile unsigned int *data)
 {
@@ -2806,7 +2823,6 @@ tiEnableBusError()
 
 }
 
-
 /**
  * @ingroup Config
  * @brief Disable Bus Errors to terminate Block Reads
@@ -3064,7 +3080,6 @@ tiSetTriggerPulse(int trigger, int delay, int width)
  * @param twidth  if this is non-zero, set width in units of 32ns.
  *
  */
-
 void
 tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep)
 {
@@ -4058,7 +4073,7 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
  *            e.g. rule=1: No more than ONE trigger within the
  *                         specified time period
  *
- * @returnIf successful, returns the value (in steps of 16ns) 
+ * @return If successful, returns the value (in steps of 16ns) 
  *            for the specified rule. ERROR, otherwise.
  *
  */
@@ -4302,7 +4317,7 @@ tiLatchTimers()
  * @ingroup Status
  * @brief Return the current "live" time of the module
  *
- * @returns The current live time in units of 4ns
+ * @returns The current live time in units of 7.68 us
  *
  */
 unsigned int
@@ -4326,7 +4341,7 @@ tiGetLiveTime()
  * @ingroup Status
  * @brief Return the current "busy" time of the module
  *
- * @returns The current busy time in units of 4ns
+ * @returns The current live time in units of 7.68 us
  *
  */
 unsigned int
@@ -4422,22 +4437,21 @@ tiGetTSscaler(int input, int latch)
   unsigned int rval=0;
   if(TIp == NULL) 
     {
-      logMsg("%s: ERROR: TI not initialized\n",__FUNCTION__,2,3,4,5,6);
+      logMsg("tiGetTSscaler: ERROR: TI not initialized\n",1,2,3,4,5,6);
       return ERROR;
     }
 
   if((input<1)||(input>6))
     {
-      logMsg("%s: ERROR: Invalid input (%d).\n",
-	     __FUNCTION__,input,3,4,5,6);
+      logMsg("tiGetTSscaler: ERROR: Invalid input (%d).\n",
+	     input,2,3,4,5,6);
       return ERROR;
     }
 
   if((latch<0) || (latch>2))
     {
-      logMsg("%s: ERROR: Invalid latch (%d).\n",
-	     __FUNCTION__,
-	     latch,3,4,5,6);
+      logMsg("tiGetTSscaler: ERROR: Invalid latch (%d).\n",
+	     latch,2,3,4,5,6);
       return ERROR;
     }
 
@@ -4861,7 +4875,7 @@ tiSetSyncEventInterval(int blk_interval)
 }
 
 /**
- * @ingroup Status
+ * @ingroup MasterStatus
  * @brief Get the SyncEvent Block interval
  * @return Block interval of the SyncEvent
  */
@@ -4889,7 +4903,7 @@ tiGetSyncEventInterval()
 }
 
 /**
- * @ingroup Readout
+ * @ingroup MasterReadout
  * @brief Force a sync event (type = 0).
  * @return OK if successful, otherwise ERROR
  */
@@ -4943,7 +4957,7 @@ tiSyncResetRequest()
 }
 
 /**
- * @ingroup Readout
+ * @ingroup MasterReadout
  * @brief Determine if a TI has requested a Sync Reset
  *
  * @return 1 if requested received, 0 if not, otherwise ERROR
@@ -5000,7 +5014,7 @@ tiTriggerReadyReset()
 }
 
 /**
- * @ingroup Readout
+ * @ingroup MasterReadout
  * @brief Generate non-physics triggers until the current block is filled.
  *    This feature is useful for "end of run" situations.
  *
@@ -5077,7 +5091,7 @@ tiGetGTPBufferLength(int pflag)
 }
 
 /**
- * @ingroup Status
+ * @ingroup MasterStatus
  * @brief Returns the mask of fiber channels that report a "connected"
  *     status from a TI.
  *
@@ -5107,7 +5121,7 @@ tiGetConnectedFiberMask()
 }
 
 /**
- * @ingroup Status
+ * @ingroup MasterStatus
  * @brief Returns the mask of fiber channels that report a "connected"
  *     status from a TI has it's trigger source enabled.
  *
