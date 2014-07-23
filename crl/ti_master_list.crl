@@ -8,6 +8,8 @@ readout list GEN_USER
 maximum 1024,512
 general readout
 
+include "../tiLib.h"
+
 # A24 Address for TI Module (e.g. Slot number = 2)
 const TRIG_ADDR = 0x100000
 # TRIG_MODE=0 for interrupt mode (External input)
@@ -16,8 +18,15 @@ const TRIG_MODE = 0
 const BLOCKLEVEL=1
 const BUFFERLEVEL=1
 
+# (1) Use internal pulser as the trigger, otherwise use TSINPUTS
+const USE_PULSER=1
+
+# Decision on whether (1) or not (0) to readout TI
+const READOUT_TI=1
+
 extern int bigendian_out;
 int blockLevel=1;
+unsigned int *tiData=NULL;
 
 ############################################################
 # DOWNLOAD
@@ -30,15 +39,29 @@ bigendian_out = 0;
 %%
 {
   /* measured longest fiber length */
-  tiSetFiberLatencyOffset_preInit(0x40); 
+  tiSetFiberLatencyOffset_preInit(0x40);
 
   /* Set crate ID */
   tiSetCrateID_preInit(0x1); /* ROC 1 */
 
   /* TI Setup */
   tiInit(TRIG_ADDR,TRIG_MODE,0);
+  tiDisableBusError();
 
-  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
+  if(READOUT_TI==0) /* Disable data readout */
+    {
+      tiDisableDataReadout();
+
+      /* Disable A32... where that data would have been stored on the TI */
+      tiDisableA32();
+    }
+
+  tiSetBusySource(TI_BUSY_LOOPBACK,1);
+
+  if(USE_PULSER==1)
+    tiSetTriggerSource(TI_TRIGGER_PULSER);
+  else
+    tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
 
   /* Set needed TS input bits */
   tiEnableTSInput( TI_TSINPUT_1 | TI_TSINPUT_2 );
@@ -121,9 +144,18 @@ begin end
 %%
 {
   CDODISABLE(GEN,1,0);
+  if(USE_PULSER==1)
+    tiSoftTrig(1,0,0x1123,1);
 
   tiStatus(0);
   printf("Interrupt Count: %8d \n",tiGetIntCount());
+
+  /* Free up the allocated memory for the tiData */
+  if(tiData!=NULL)
+    {
+      free(tiData);
+      tiData=NULL;
+   } 
 }
 %%
 
@@ -154,6 +186,9 @@ begin go
   /* Get the current Block Level */
   blockLevel = tiGetCurrentBlockLevel();
   printf("rocGo: Block Level set to %d\n",blockLevel);
+
+  /* Allocate some memory for TI data */
+  tiData = (unsigned int*)malloc(50*sizeof(unsigned int));
 }
 %%
 
@@ -161,6 +196,9 @@ begin go
 %%
 {
   CDOENABLE(GEN,1,0);
+
+  if(USE_PULSER==1)
+    tiSoftTrig(1,3000,0x1123,1);
 
   tiStatus(0);
 }
@@ -174,24 +212,54 @@ end go
 # TRIGGER
 ############################################################
 begin trigger titrig
-  variable dCnt,ii,tibready,timeout
+  variable dCnt,ev_type,ii,tibready,timeout
 
   rol->dabufp = (long *) 0;
-  open event type EVTYPE of BT_BANK
 
 %%
 {
-  /* Open a CODA Bank of 4byte unsigned integers, type=4 */
-  CBOPEN(4,BT_UI4,0);
-  dCnt = tiReadBlock(rol->dabufp,900>>2,1);
-  if(dCnt<=0)
+  /* Readout TI to get Event Type */
+  ev_type=1; /* Default event type (for example) */
+  if(READOUT_TI==1)
     {
-      logMsg("No data or error.  dCnt = %d\n",dCnt);
+      dCnt = tiReadBlock(tiData,50,0);
+      if(dCnt<=0)
+	{
+	  logMsg("No data or error.  dCnt = %d\n",dCnt);
+	}
+      else
+	{
+	  ev_type=(tiData[2]&(0x0F000000))>>24; /* Conform to CODA 2.x event type limit */
+	}
     }
-  else
+  
+}
+
+%%
+
+  # Open up the event of type ev_type
+  open event type ev_type of BT_BANK
+%%
+{
+  if(READOUT_TI==1)
     {
-      rol->dabufp += dCnt;
+      /* Open a CODA Bank of 4byte unsigned integers, type=4 (for example) */
+      CBOPEN(4,BT_UI4,0);
+      if(dCnt<=0)
+	{
+	  logMsg("No data or error.  dCnt = %d\n",dCnt);
+	}
+      else
+	{
+	  for(ii=0; ii<dCnt; ii++)
+	    *rol->dabufp++ = tiData[ii];
+	}
+      CBCLOSE;
     }
+
+  /* Add in some example user data */
+  CBOPEN(3,BT_UI4,0);
+  *rol->dabufp++ = 0x12345678;
   CBCLOSE;
 }
 %%
