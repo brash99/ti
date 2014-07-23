@@ -11,19 +11,19 @@
 # $Rev$
 #
 # Uncomment DEBUG line for debugging info ( -g and -Wall )
-DEBUG=1
+#DEBUG=1
 #
-
+DT:=\""$(shell date)"\"
 # DEFs for compiling CODA readout lists
 CC			= ccppc
 CCRL			= ${CODA_BIN}/ccrl
-CFLAGS			= -fno-builtin -D_GNU_TOOL -DVXWORKS -DVXWORKSPPC \
-				-mcpu=604 -nostdinc -mlongcall\
-				-fno-for-scope \
-				-fno-writable-strings \
-				-fvolatile -DDAYTIME=\""`date`"\" \
-				-O -w -Wall -c -DCPU=PPC604 \
-				-I. -I../ -I${CODA}/common/include
+CFLAGS			= -fno-builtin -D_GNU_TOOL -DVXWORKS -DVXWORKSPPC
+CFLAGS			+= -mcpu=604 -nostdinc -mlongcall
+CFLAGS			+= -fno-for-scope 
+CFLAGS			+= -fno-writable-strings 
+CFLAGS			+= -fvolatile -DDAYTIME=$(DT)
+CFLAGS			+= -O -w -c -DCPU=PPC604 
+CFLAGS			+= -I. -I../ -I${CODA}/common/include
 ifdef DEBUG
 CFLAGS		+= -Wall -g
 endif
@@ -38,7 +38,7 @@ all: $(OBJS)
 %.c: %.crl
 	@echo
 	@echo "Converting $< to $@"
-	@${CCRL} $<
+	${CCRL} $<
 
 %.o: %.c
 	@echo
