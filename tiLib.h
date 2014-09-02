@@ -129,7 +129,7 @@ struct TI_A24RegStruct
 
 /* Supported firmware version */
 #define TI_SUPPORTED_FIRMWARE       0x203
-#define TI_SUPPORTED_MODTI_FIRMWARE 0x013
+#define TI_SUPPORTED_MODTI_FIRMWARE 0x032
 
 /* Firmware Masks */
 #define TI_FIRMWARE_ID_MASK              0xFFFF0000
@@ -319,7 +319,8 @@ struct TI_A24RegStruct
 #define TI_TRIGGERRULE_RULE4_MASK 0xFF000000
 
 /* 0x3C triggerWindow bits and masks */
-#define TI_TRIGGERWINDOW_COINC_MASK 0x0000FFFF
+#define TI_TRIGGERWINDOW_COINC_MASK   0x000000FF
+#define TI_TRIGGERWINDOW_INHIBIT_MASK 0x0000FF00
 
 /* 0x48 tsInput bits and masks */
 #define TI_TSINPUT_MASK      0x0000003F
@@ -355,6 +356,7 @@ struct TI_A24RegStruct
 #define TI_SYNCCOMMAND_RESET_EVNUM         0xBB
 #define TI_SYNCCOMMAND_SYNCRESET_LOW       0xCC
 #define TI_SYNCCOMMAND_SYNCRESET           0xDD
+#define TI_SYNCCOMMAND_SYNCRESET_4US       0xEE
 #define TI_SYNCCOMMAND_SYNCCODE_MASK       0x000000FF
 
 /* 0x7C syncDelay bits and masks */
@@ -434,7 +436,9 @@ struct TI_A24RegStruct
 #define TI_SYNCEVENTCTRL_ENABLE       0x005A0000
 
 /* 0xD8 eventNumber_hi bits and masks */
+#define TI_PROMPT_TRIG_WIDTH_MASK     0x0000007F
 #define TI_EVENTNUMBER_HI_MASK        0xFFFF0000
+
 
 /* 0xEC rocEnable bits and masks */
 #define TI_ROCENABLE_MASK             0x000000FF
@@ -560,6 +564,8 @@ unsigned int  tiVMESlotMask2PayloadPortMask(unsigned int vmemask);
 int  tiSetPrescale(int prescale);
 int  tiGetPrescale();
 int  tiSetTriggerPulse(int trigger, int delay, int width);
+int  tiSetPromptTriggerWidth(int width);
+int  tiGetPromptTriggerWidth();
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
 void tiSyncReset(int bflag);
@@ -592,6 +598,10 @@ int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
 int  tiLoadTriggerTable(int mode);
+int  tiSetTriggerWindow(int window_width);
+int  tiGetTriggerWindow();
+int  tiSetTriggerInhibitWindow(int window_width);
+int  tiGetTriggerInhibitWindow();
 int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();

@@ -357,7 +357,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	}
       tiSlotNumber = boardID;
 
-      /* Get the "production" type bits.  1=production, 0=prototype */
+      /* Get the "production" type bits.  2=modTI, 1=production, 0=prototype */
       prodID = (rval&TI_BOARDID_PROD_MASK)>>16;
 
       /* Determine whether or not we'll need to swap the trigger block endianess */
@@ -3088,6 +3088,64 @@ tiSetTriggerPulse(int trigger, int delay, int width)
 
 /**
  *  @ingroup Config
+ *  @brief Set the width of the prompt trigger from OT#2
+ *
+ *  @param width Output width will be set to (width + 3) * 4ns
+ *
+ *    This routine is only functional for Firmware type=2 (modTI)
+ *
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetPromptTriggerWidth(int width)
+{
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((width<0) || (width>TI_PROMPT_TRIG_WIDTH_MASK))
+    {
+      printf("%s: ERROR: Invalid prompt trigger width (%d)\n",
+	     __FUNCTION__,width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->eventNumber_hi, width);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup Status
+ *  @brief Get the width of the prompt trigger from OT#2
+ *
+ *    This routine is only functional for Firmware type=2 (modTI)
+ *
+ *  @return Output width set to (return value + 3) * 4ns, if successful. Otherwise ERROR
+ */
+int
+tiGetPromptTriggerWidth()
+{
+  unsigned int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->eventNumber_hi) & TI_PROMPT_TRIG_WIDTH_MASK;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup Config
  *  @brief Set the delay time and width of the Sync signal
  *
  * @param delay  the delay (latency) set in units of 4ns.
@@ -4299,6 +4357,112 @@ tiLoadTriggerTable(int mode)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the window of the input trigger coincidence window
+ *  @param window_width Width of the input coincidence window (units of 4ns)
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTriggerWindow(int window_width)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((window_width<1) || (window_width>TI_TRIGGERWINDOW_COINC_MASK))
+    {
+      printf("%s: ERROR: Invalid Trigger Coincidence Window (%d)\n",
+	     __FUNCTION__,window_width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow,
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_COINC_MASK) 
+	     | window_width);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the window of the input trigger coincidence window
+ *  @return Width of the input coincidence window (units of 4ns), otherwise ERROR
+ */
+int
+tiGetTriggerWindow()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_COINC_MASK;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the width of the input trigger inhibit window
+ *  @param window_width Width of the input inhibit window (units of 4ns)
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTriggerInhibitWindow(int window_width)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((window_width<1) || (window_width>(TI_TRIGGERWINDOW_INHIBIT_MASK>>8)))
+    {
+      printf("%s: ERROR: Invalid Trigger Inhibit Window (%d)\n",
+	     __FUNCTION__,window_width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow,
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_INHIBIT_MASK) 
+	     | (window_width<<8));
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the width of the input trigger inhibit window
+ *  @return Width of the input inhibit window (units of 4ns), otherwise ERROR
+ */
+int
+tiGetTriggerInhibitWindow()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->triggerWindow) & TI_TRIGGERWINDOW_INHIBIT_MASK)>>8;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**
