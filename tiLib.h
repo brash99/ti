@@ -50,70 +50,70 @@ int intLockKeya;
 
 struct TI_A24RegStruct
 {
-  /* 0x00000 */ volatile unsigned int boardID;
-  /* 0x00004 */ volatile unsigned int fiber;
-  /* 0x00008 */ volatile unsigned int intsetup;
-  /* 0x0000C */ volatile unsigned int trigDelay;
-  /* 0x00010 */ volatile unsigned int adr32;
-  /* 0x00014 */ volatile unsigned int blocklevel;
-  /* 0x00018 */ volatile unsigned int dataFormat;
-  /* 0x0001C */ volatile unsigned int vmeControl;
-  /* 0x00020 */ volatile unsigned int trigsrc;
-  /* 0x00024 */ volatile unsigned int sync;
-  /* 0x00028 */ volatile unsigned int busy;
-  /* 0x0002C */ volatile unsigned int clock;
-  /* 0x00030 */ volatile unsigned int trig1Prescale;
-  /* 0x00034 */ volatile unsigned int blockBuffer;
-  /* 0x00038 */ volatile unsigned int triggerRule;
-  /* 0x0003C */ volatile unsigned int triggerWindow;
-  /* 0x00040 */          unsigned int blank0[(0x48-0x40)/4];
-  /* 0x00048 */ volatile unsigned int tsInput;
-  /* 0x0004C */ volatile unsigned int output;
-  /* 0x00050 */ volatile unsigned int fiberSyncDelay;
-  /* 0x00054 */          unsigned int blank_prescale[(0x78-0x54)/4];
-  /* 0x00078 */ volatile unsigned int syncCommand;
-  /* 0x0007C */ volatile unsigned int syncDelay;
-  /* 0x00080 */ volatile unsigned int syncWidth;
-  /* 0x00084 */ volatile unsigned int triggerCommand;
-  /* 0x00088 */ volatile unsigned int randomPulser;
-  /* 0x0008C */ volatile unsigned int fixedPulser1;
-  /* 0x00090 */ volatile unsigned int fixedPulser2;
-  /* 0x00094 */ volatile unsigned int nblocks;
-  /* 0x00098 */ volatile unsigned int syncHistory;
-  /* 0x0009C */ volatile unsigned int runningMode;
-  /* 0x000A0 */ volatile unsigned int fiberLatencyMeasurement;
-  /* 0x000A4 */ volatile unsigned int fiberAlignment;
-  /* 0x000A8 */ volatile unsigned int livetime;
-  /* 0x000AC */ volatile unsigned int busytime;
-  /* 0x000B0 */ volatile unsigned int GTPStatusA;
-  /* 0x000B4 */ volatile unsigned int GTPStatusB;
-  /* 0x000B8 */ volatile unsigned int GTPtriggerBufferLength;
-  /* 0x000BC */ volatile unsigned int inputCounter;
-  /* 0x000C0 */ volatile unsigned int blockStatus[4];
-  /* 0x000D0 */ volatile unsigned int adr24;
-  /* 0x000D4 */ volatile unsigned int syncEventCtrl;
-  /* 0x000D8 */ volatile unsigned int eventNumber_hi;
-  /* 0x000DC */ volatile unsigned int eventNumber_lo;
-  /* 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
-  /* 0x000FC */ volatile unsigned int blocklimit;
-  /* 0x00100 */ volatile unsigned int reset;
-  /* 0x00104 */          unsigned int blank3[(0x180-0x104)/4];
-  /* 0x00180 */ volatile unsigned int ts_scaler[6];
-  /* 0x00198 */          unsigned int blank4[(0x1D0-0x198)/4];
-  /* 0x001D0 */ volatile unsigned int hfbr_tiID[8];
-  /* 0x001F0 */ volatile unsigned int master_tiID;
-  /* 0x001F4 */          unsigned int blank5[(0x8C0-0x1F4)/4];
-  /* 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /* 0x00900 */          unsigned int blank6[(0x2000-0x900)/4];
-  /* 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
-  /* 0x02200 */          unsigned int blank7[(0x2800-0x2200)/4];
-  /* 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
-  /* 0x03000 */          unsigned int blank8[(0xFFFC-0x3000)/4];
-  /* 0x0FFFC */ volatile unsigned int eJTAGLoad;
-  /* 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
-  /* 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
-  /* 0x30000 */ volatile unsigned int SWA[(0x40000-0x30000)/4];
-  /* 0x40000 */ volatile unsigned int SWB[(0x50000-0x40000)/4];
+  /** 0x00000 */ volatile unsigned int boardID;
+  /** 0x00004 */ volatile unsigned int fiber;
+  /** 0x00008 */ volatile unsigned int intsetup;
+  /** 0x0000C */ volatile unsigned int trigDelay;
+  /** 0x00010 */ volatile unsigned int adr32;
+  /** 0x00014 */ volatile unsigned int blocklevel;
+  /** 0x00018 */ volatile unsigned int dataFormat;
+  /** 0x0001C */ volatile unsigned int vmeControl;
+  /** 0x00020 */ volatile unsigned int trigsrc;
+  /** 0x00024 */ volatile unsigned int sync;
+  /** 0x00028 */ volatile unsigned int busy;
+  /** 0x0002C */ volatile unsigned int clock;
+  /** 0x00030 */ volatile unsigned int trig1Prescale;
+  /** 0x00034 */ volatile unsigned int blockBuffer;
+  /** 0x00038 */ volatile unsigned int triggerRule;
+  /** 0x0003C */ volatile unsigned int triggerWindow;
+  /** 0x00040 */          unsigned int blank0[(0x48-0x40)/4];
+  /** 0x00048 */ volatile unsigned int tsInput;
+  /** 0x0004C */ volatile unsigned int output;
+  /** 0x00050 */ volatile unsigned int fiberSyncDelay;
+  /** 0x00054 */          unsigned int blank_prescale[(0x78-0x54)/4];
+  /** 0x00078 */ volatile unsigned int syncCommand;
+  /** 0x0007C */ volatile unsigned int syncDelay;
+  /** 0x00080 */ volatile unsigned int syncWidth;
+  /** 0x00084 */ volatile unsigned int triggerCommand;
+  /** 0x00088 */ volatile unsigned int randomPulser;
+  /** 0x0008C */ volatile unsigned int fixedPulser1;
+  /** 0x00090 */ volatile unsigned int fixedPulser2;
+  /** 0x00094 */ volatile unsigned int nblocks;
+  /** 0x00098 */ volatile unsigned int syncHistory;
+  /** 0x0009C */ volatile unsigned int runningMode;
+  /** 0x000A0 */ volatile unsigned int fiberLatencyMeasurement;
+  /** 0x000A4 */ volatile unsigned int fiberAlignment;
+  /** 0x000A8 */ volatile unsigned int livetime;
+  /** 0x000AC */ volatile unsigned int busytime;
+  /** 0x000B0 */ volatile unsigned int GTPStatusA;
+  /** 0x000B4 */ volatile unsigned int GTPStatusB;
+  /** 0x000B8 */ volatile unsigned int GTPtriggerBufferLength;
+  /** 0x000BC */ volatile unsigned int inputCounter;
+  /** 0x000C0 */ volatile unsigned int blockStatus[4];
+  /** 0x000D0 */ volatile unsigned int adr24;
+  /** 0x000D4 */ volatile unsigned int syncEventCtrl;
+  /** 0x000D8 */ volatile unsigned int eventNumber_hi;
+  /** 0x000DC */ volatile unsigned int eventNumber_lo;
+  /** 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
+  /** 0x000FC */ volatile unsigned int blocklimit;
+  /** 0x00100 */ volatile unsigned int reset;
+  /** 0x00104 */          unsigned int blank3[(0x180-0x104)/4];
+  /** 0x00180 */ volatile unsigned int ts_scaler[6];
+  /** 0x00198 */          unsigned int blank4[(0x1D0-0x198)/4];
+  /** 0x001D0 */ volatile unsigned int hfbr_tiID[8];
+  /** 0x001F0 */ volatile unsigned int master_tiID;
+  /** 0x001F4 */          unsigned int blank5[(0x8C0-0x1F4)/4];
+  /** 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
+  /** 0x00900 */          unsigned int blank6[(0x2000-0x900)/4];
+  /** 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
+  /** 0x02200 */          unsigned int blank7[(0x2800-0x2200)/4];
+  /** 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
+  /** 0x03000 */          unsigned int blank8[(0xFFFC-0x3000)/4];
+  /** 0x0FFFC */ volatile unsigned int eJTAGLoad;
+  /** 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
+  /** 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
+  /** 0x30000 */ volatile unsigned int SWA[(0x40000-0x30000)/4];
+  /** 0x40000 */ volatile unsigned int SWB[(0x50000-0x40000)/4];
 
 
 };
@@ -128,7 +128,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x153
+#define TI_SUPPORTED_FIRMWARE 0x203
 
 /* 0x0 boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -223,6 +223,7 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_TSINPUTS         (1<<5)
 #define TI_TRIGSRC_TSREV2           (1<<6)
 #define TI_TRIGSRC_PULSER           (1<<7)
+#define TI_TRIGSRC_HFBR5            (1<<10)
 #define TI_TRIGSRC_PART_1           (1<<12)
 #define TI_TRIGSRC_PART_2           (1<<13)
 #define TI_TRIGSRC_PART_3           (1<<14)
@@ -397,8 +398,8 @@ struct TI_A24RegStruct
 
 /* 0xA0 fiberLatencyMeasurement bits and masks */
 #define TI_FIBERLATENCYMEASUREMENT_CARRYCHAIN_MASK 0x0000FFFF
-#define TI_FIBERLATENCYMEASUREMENT_IODELAY_MASK    0x00FF0000
-#define TI_FIBERLATENCYMEASUREMENT_DATA_MASK       0xFF000000
+#define TI_FIBERLATENCYMEASUREMENT_IODELAY_MASK    0x007F0000
+#define TI_FIBERLATENCYMEASUREMENT_DATA_MASK       0xFF800000
 
 /* 0xA4 fiberAlignment bits and masks */
 #define TI_FIBERALIGNMENT_HFBR1_IODELAY_MASK   0x000000FF
@@ -450,6 +451,11 @@ struct TI_A24RegStruct
 #define TI_RESET_SCALERS_RESET        (1<<25)
 #define TI_RESET_FILL_TO_END_BLOCK    (1<<31)
 
+/* 0x1D0-0x1F0 TI ID bits and masks */
+#define TI_ID_TRIGSRC_ENABLE_MASK     0x000000FF
+#define TI_ID_CRATEID_MASK            0x0000FF00
+#define TI_ID_BLOCKLEVEL_MASK         0x00FF0000
+
 /* Trigger Sources, used by tiSetTriggerSource  */
 #define TI_TRIGGER_P0        0
 #define TI_TRIGGER_HFBR1     1
@@ -462,6 +468,7 @@ struct TI_A24RegStruct
 #define TI_TRIGGER_PART_2    7
 #define TI_TRIGGER_PART_3    8
 #define TI_TRIGGER_PART_4    9
+#define TI_TRIGGER_HFBR5    10
 
 /* Define default Interrupt vector and level */
 #define TI_INT_VEC      0xec
@@ -486,6 +493,11 @@ struct TI_A24RegStruct
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
 
+/* tiInit initialization flag bits */
+#define TI_INIT_NO_INIT                 (1<<0)
+#define TI_INIT_SLAVE_FIBER_5           (1<<1)
+#define TI_INIT_SKIP_FIRMWARE_CHECK     (1<<2)
+
 /* Some pre-initialization routine prototypes */
 int  tiSetFiberLatencyOffset_preInit(int flo);
 int  tiSetCrateID_prIinit(int cid);
@@ -495,12 +507,18 @@ int  tiInit(unsigned int tAddr, unsigned int mode, int force);
 unsigned int tiFind();
 int  tiCheckAddresses();
 void tiStatus(int pflag);
+int  tiSetSlavePort(int port);
+int  tiGetSlavePort();
+void tiSlaveStatus(int pflag);
 int  tiGetFirmwareVersion();
 int  tiReload();
 unsigned int tiGetSerialNumber(char **rSN);
 int  tiClockResync();
 int  tiReset();
 int  tiSetCrateID(unsigned int crateID);
+int  tiGetCrateID(int port);
+int  tiGetPortTrigSrcEnabled(int port);
+int  tiGetSlaveBlocklevel(int port);
 int  tiSetBlockLevel(int blockLevel);
 int  tiBroadcastNextBlockLevel(int blockLevel);
 int  tiGetNextBlockLevel();
@@ -571,6 +589,7 @@ int  tiGetSWBBusy(int pflag);
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);
 
+int  tiGetFiberLatencyMeasurement();
 int  tiSetUserSyncResetReceive(int enable);
 int  tiGetLastSyncCodes(int pflag);
 int  tiGetSyncHistoryBufferStatus(int pflag);
@@ -578,11 +597,13 @@ void tiResetSyncHistory();
 void tiUserSyncReset(int enable);
 void tiPrintSyncHistory();
 int  tiSetSyncEventInterval(int blk_interval);
+int  tiGetSyncEventInterval();
 int  tiForceSyncEvent();
 int  tiSyncResetRequest();
 int  tiGetSyncResetRequest();
 void tiTriggerReadyReset();
 int  tiFillToEndBlock();
+int  tiResetMGT();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);

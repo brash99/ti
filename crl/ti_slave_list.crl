@@ -1,0 +1,239 @@
+# 
+#  User readout list using a TI (pipeline) in SLAVE mode
+#
+#    Bryan Moffit, TJNAF 2014
+#
+
+readout list GEN_USER
+maximum 1024,512
+general readout
+
+include "../tiLib.h"
+
+# A24 Address for TI Module (e.g. Slot number = 2)
+const TRIG_ADDR = 0x100000
+# TRIG_MODE=1 for interrupt mode (Fiber intput from TI Master)
+const TRIG_MODE=1
+
+const BLOCKLEVEL=1
+const BUFFERLEVEL=1
+
+# Decision on whether (1) or not (0) to readout TI
+const READOUT_TI=1
+
+extern int bigendian_out;
+int blockLevel=1;
+unsigned int *tiData=NULL;
+
+############################################################
+# DOWNLOAD
+############################################################
+begin download
+
+# When sending to a Linux Host set bigendian_out = 0
+bigendian_out = 0;
+
+%%
+{
+  /* measured longest fiber length */
+  tiSetFiberLatencyOffset_preInit(0x40); 
+
+  /* Set crate ID */
+  tiSetCrateID_preInit(0x2); /* ROC 2 */
+
+  /* TI Setup */
+  tiInit(TRIG_ADDR,TRIG_MODE,0);
+  tiDisableBusError();
+
+  if(READOUT_TI==0) /* Disable data readout */
+    {
+      tiDisableDataReadout();
+
+      /* Disable A32... where that data would have been stored on the TI */
+      tiDisableA32();
+    }
+
+  tiSetEventFormat(1);
+
+  tiSetBlockBufferLevel(BUFFERLEVEL);
+
+  /* Override default BUSY level - Use if TI is not in a VXS crate*/
+  tiSetBusySource(0,1);
+
+  tiStatus(0);
+
+  tiDisableVXSSignals();
+
+}
+%%
+
+  log inform "User Download Executed"
+
+end download
+    
+############################################################
+# PRESTART
+############################################################
+begin prestart
+
+  variable jj, adc_id
+
+  log inform "Entering User Prestart"
+
+  init trig source GEN
+  link async trig source GEN 1 to titrig and titrig_done
+  event type 1 then read GEN 1
+
+%%
+ /* Turn VXS signals on, beginning of prestart */
+  tiEnableVXSSignals();
+%%
+
+  log inform "User Prestart Executed"
+
+end prestart
+
+############################################################
+# END
+############################################################
+begin end
+
+%%
+{
+  CDODISABLE(GEN,1,0);
+
+  tiStatus(0);
+  printf("Interrupt Count: %8d \n",tiGetIntCount());
+
+  /* Free up the allocated memory for the tiData */
+  if(tiData!=NULL)
+    {
+      free(tiData);
+      tiData=NULL;
+   } 
+}
+%%
+
+  log inform "User End Executed"
+
+end end
+
+############################################################
+# PAUSE
+############################################################
+begin pause
+
+  CDODISABLE(GEN,1,0);
+
+  log inform "User Pause Executed"
+
+end pause
+
+############################################################
+# GO
+############################################################
+begin go
+  
+  log inform "Entering User Go"
+
+%%
+{
+  /* Get the current Block Level */
+  blockLevel = tiGetCurrentBlockLevel();
+  printf("rocGo: Block Level set to %d\n",blockLevel);
+
+  /* Allocate some memory for TI data */
+  tiData = (unsigned int*)malloc(50*sizeof(unsigned int));
+}
+%%
+
+  
+%%
+{
+  CDOENABLE(GEN,1,0);
+
+  tiStatus(0);
+  
+}
+%%
+
+  log inform "User Go Executed"
+
+end go
+
+############################################################
+# TRIGGER
+############################################################
+begin trigger titrig
+  variable dCnt,ev_type,ii,tibready,timeout
+
+  rol->dabufp = (long *) 0;
+
+%%
+{
+  /* Readout TI to get Event Type */
+  ev_type=1; /* Default event type (for example) */
+  if(READOUT_TI==1)
+    {
+      dCnt = tiReadBlock(tiData,50,0);
+      if(dCnt<=0)
+	{
+	  logMsg("No data or error.  dCnt = %d\n",dCnt);
+	}
+      else
+	{
+	  ev_type=(tiData[2]&(0x0F000000))>>24; /* Conform to CODA 2.x event type limit */
+	}
+    }
+  
+}
+
+%%
+
+  # Open up the event of type ev_type
+  open event type ev_type of BT_BANK
+%%
+{
+  if(READOUT_TI==1)
+    {
+      /* Open a CODA Bank of 4byte unsigned integers, type=4 (for example) */
+      CBOPEN(4,BT_UI4,0);
+      if(dCnt<=0)
+	{
+	  logMsg("No data or error.  dCnt = %d\n",dCnt);
+	}
+      else
+	{
+	  for(ii=0; ii<dCnt; ii++)
+	    *rol->dabufp++ = tiData[ii];
+	}
+      CBCLOSE;
+    }
+
+  /* Add in some example user data */
+  CBOPEN(3,BT_UI4,0);
+  *rol->dabufp++ = 0x12345678;
+  CBCLOSE;
+}
+%%
+
+close event
+
+end trigger
+
+begin done titrig
+
+end done
+
+############################################################
+# DONE (TRIGGER ACKNOWLEDGE)
+############################################################
+begin done
+  CDOACK(GEN,1,0);
+end done
+
+begin status
+
+end status
+
+

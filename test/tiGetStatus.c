@@ -43,7 +43,12 @@ main(int argc, char *argv[]) {
     tiInit(slot,TI_READOUT_EXT_POLL,1);
     tiCheckAddresses();
     printf("Firmware version = 0x%x\n",tiGetFirmwareVersion());
-    tiStatus();
+    tiStatus(1);
+    tiAddSlave(1);
+    tiSlaveStatus(1);
+
+    printf("Sync Event Interval = %d\n",
+	   tiGetSyncEventInterval());
 
  CLOSE:
 

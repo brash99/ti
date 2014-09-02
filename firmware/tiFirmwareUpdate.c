@@ -50,7 +50,6 @@ unsigned int firmwareInfo;
 char *programName;
 
 int tiMasterID(int sn);
-int tiEMInit();
 void tiFirmwareEMload(char *filename);
 #ifndef VXWORKS
 static void tiFirmwareUsage();
@@ -98,7 +97,7 @@ main(int argc, char *argv[])
     goto CLOSE;
 #endif
 
-  stat = tiEMInit(vme_addr);
+  stat = tiInit(vme_addr,TI_READOUT_EXT_POLL,TI_INIT_SKIP_FIRMWARE_CHECK);
   if(stat != OK)
     {
       printf("\n");
@@ -266,73 +265,6 @@ tiMasterID(int sn)
     }
 
   return rval;
-}
-
-/* Replacement TI initialization routine for that from the tiLib */
-int
-tiEMInit(unsigned int tAddr)
-{
-  unsigned int laddr;
-  unsigned int rval;
-  int stat;
-
-  /* Check VME address */
-  if(tAddr<0 || tAddr>0xffffff)
-    {
-      printf("%s: ERROR: Invalid VME Address (%d)\n",__FUNCTION__,
-	     tAddr);
-    }
-
-#ifdef VXWORKS
-  stat = sysBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
-  if (stat != 0) 
-    {
-      printf("%s: ERROR: Error in sysBusToLocalAdrs res=%d \n",__FUNCTION__,stat);
-      return ERROR;
-    } 
-  else 
-    {
-      printf("TI address = 0x%x\n",laddr);
-    }
-#else
-  stat = vmeBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
-  if (stat != 0) 
-    {
-      printf("%s: ERROR: Error in vmeBusToLocalAdrs res=%d \n",__FUNCTION__,stat);
-      return ERROR;
-    } 
-#endif
-
-  /* Set Up pointer */
-  TIp = (struct TI_A24RegStruct *)laddr;
-
-  /* Check if TI board is readable */
-#ifdef VXWORKS
-  stat = vxMemProbe((char *)(&TIp->boardID),0,4,(char *)&rval);
-#else
-  stat = vmeMemProbe((char *)(&TIp->boardID),4,(char *)&rval);
-#endif
-
-  if (stat != 0) 
-    {
-      printf("%s: ERROR: TI card not addressable\n",__FUNCTION__);
-      return(-1);
-    }
-  else
-    {
-      /* Check that it is a TI */
-      if(((rval&TI_BOARDID_TYPE_MASK)>>16) != TI_BOARDID_TYPE_TI) 
-	{
-	  printf("%s: ERROR: Invalid Board ID: 0x%x (rval = 0x%08x)\n",
-		 __FUNCTION__,
-		 (rval&TI_BOARDID_TYPE_MASK)>>16,rval);
-	  /*  Not setting the TIp to NULL here... just in case we're
-	      re-programming the firmware */
-	  return(ERROR);
-	}
-    }
-
-  return OK;
 }
 
 #ifdef VXWORKS
@@ -574,12 +506,16 @@ tiFirmwareEMload(char *filename)
   while (fgets(bufRead,256,svfFile) != NULL)
     { 
       lineRead +=1;
+#ifdef VXWORKS
+      /* This is pretty filthy... but at least shows some output when it's updating */
+      printf("     ");
+      printf("\b\b\b\b\b");
+#endif
       if((lineRead%15000) ==0) 
 	{
 	  printf(".");
 	  fflush(stdout);
 	}
-/*       if (lineRead%1000 ==0) printf(" Lines read: %d out of 787000 \n",(int)lineRead); */
       //    fgets(bufRead,256,svfFile);
       if (((bufRead[0] == '/')&&(bufRead[1] == '/')) || (bufRead[0] == '!'))
 	{
@@ -681,7 +617,9 @@ tiFirmwareEMload(char *filename)
 #endif
 	      if(nbits>100000)
 		{
-		  printf("Done\nUpdating: ");
+		  printf("Done\n");
+		  fflush(stdout);
+		  printf("Updating: ");
 		  fflush(stdout);
 		}
 /* 	      int time = (nbits/1000)+1; */
