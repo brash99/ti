@@ -594,14 +594,21 @@ tiFind()
   int islot, stat, tiFound=0;
   unsigned int tAddr, laddr, rval;
 
-  for(islot = 1; islot<21; islot++)
+  for(islot = 0; islot<20; islot++)
     {
       /* Form VME base address from slot number 
-       Start from slot 21, then go from 2 to 20 */
-      if(islot==1)
-	tAddr = (21<<19);
-      else
-	tAddr = (islot<<19);
+       Start from slot 21 and 20, then go from 2 to 19 */
+      switch(islot)
+	{
+	case 0:
+	  tAddr = (21<<19);
+	  break;
+	case 1:
+	  tAddr = (20<<19);
+	  break;
+	default:
+	  tAddr = (islot<<19);
+	}
       
 #ifdef VXWORKS
       stat = sysBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
@@ -2568,14 +2575,14 @@ tiReadTriggerBlock(volatile unsigned int *data)
   /* Check if the index is valid */
   if(iblkhead == -1)
     {
-      printf("%s: ERROR: Failed to find TI Block Header\n",
-	     __FUNCTION__);
+      logMsg("tiReadTriggerBlock: ERROR: Failed to find TI Block Header\n",
+	     1,2,3,4,5,6);
       return ERROR;
     }
   if(iblkhead != 0)
     {
-      printf("%s: WARN: Invalid index (%d) for the TI Block header.\n",
-	     __FUNCTION__,iblkhead);
+      logMsg("tiReadTriggerBlock: WARN: Invalid index (%d) for the TI Block header.\n",
+	     iblkhead,2,3,4,5,6);
     }
 
   /* Work up to find index of block trailer */
@@ -2605,8 +2612,8 @@ tiReadTriggerBlock(volatile unsigned int *data)
   /* Check if the index is valid */
   if(iblktrl == -1)
     {
-      printf("%s: ERROR: Failed to find TI Block Trailer\n",
-	     __FUNCTION__);
+      logMsg("tiReadTriggerBlock: ERROR: Failed to find TI Block Trailer\n",
+	     1,2,3,4,5,6);
       return ERROR;
     }
 
@@ -2617,8 +2624,8 @@ tiReadTriggerBlock(volatile unsigned int *data)
 #endif
   if((iblktrl - iblkhead + 1) != (word & 0x3fffff))
     {
-      printf("%s: Number of words inconsistent (index count = %d, block trailer count = %d\n",
-	     __FUNCTION__,(iblktrl - iblkhead + 1), word & 0x3fffff);
+      logMsg("tiReadTriggerBlock: Number of words inconsistent (index count = %d, block trailer count = %d\n",
+	     (iblktrl - iblkhead + 1), word & 0x3fffff,3,4,5,6);
       return ERROR;
     }
 
