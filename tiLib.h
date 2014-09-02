@@ -568,6 +568,7 @@ int  tiSetPromptTriggerWidth(int width);
 int  tiGetPromptTriggerWidth();
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
+int  tiSetSyncResetType(int type);
 void tiSyncReset(int bflag);
 void tiSyncResetResync();
 void tiClockReset();

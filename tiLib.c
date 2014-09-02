@@ -90,6 +90,7 @@ static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
 static int          tiFirmwareType=1;        /* Firmware Type 2=modTI, 1=prod, 0=rev2 */
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
+static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -3225,6 +3226,29 @@ tiTrigLinkReset()
 
 /**
  * @ingroup MasterConfig
+ * @brief Set type of SyncReset to send to TI Slaves
+ *
+ * @param type Sync Reset Type
+ *    - 0: User programmed width in each TI
+ *    - !0: Fixed 4 microsecond width in each TI
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiSetSyncResetType(int type)
+{
+
+  if(type)
+    tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;
+  else
+    tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET;
+
+  return OK;
+}
+
+
+/**
+ * @ingroup MasterConfig
  * @brief Generate a Sync Reset signal.  This signal is sent to the loopback and
  *    all configured TI Slaves.
  *
@@ -3245,7 +3269,7 @@ tiSyncReset(int blflag)
     }
   
   TILOCK;
-  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  vmeWrite32(&TIp->syncCommand,tiSyncResetType); 
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM); 
   taskDelay(1);
   TIUNLOCK;
@@ -3274,9 +3298,9 @@ tiSyncResetResync()
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return;
     }
-  
+
   TILOCK;
-  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  vmeWrite32(&TIp->syncCommand,tiSyncResetType); 
   TIUNLOCK;
 
 }
