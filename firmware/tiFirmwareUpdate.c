@@ -506,12 +506,16 @@ tiFirmwareEMload(char *filename)
   while (fgets(bufRead,256,svfFile) != NULL)
     { 
       lineRead +=1;
+#ifdef VXWORKS
+      /* This is pretty filthy... but at least shows some output when it's updating */
+      printf("     ");
+      printf("\b\b\b\b\b");
+#endif
       if((lineRead%15000) ==0) 
 	{
 	  printf(".");
 	  fflush(stdout);
 	}
-/*       if (lineRead%1000 ==0) printf(" Lines read: %d out of 787000 \n",(int)lineRead); */
       //    fgets(bufRead,256,svfFile);
       if (((bufRead[0] == '/')&&(bufRead[1] == '/')) || (bufRead[0] == '!'))
 	{
@@ -613,7 +617,9 @@ tiFirmwareEMload(char *filename)
 #endif
 	      if(nbits>100000)
 		{
-		  printf("Done\nUpdating: ");
+		  printf("Done\n");
+		  fflush(stdout);
+		  printf("Updating: ");
 		  fflush(stdout);
 		}
 /* 	      int time = (nbits/1000)+1; */

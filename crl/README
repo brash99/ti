@@ -1,0 +1,14 @@
+Instructions for building example Pipeline TI Master and Slave CRLs:
+
+Build the example ti_master_list.crl with:
+
+  make ti_master_list.o
+
+Build the example ti_slave_list.crl with:
+
+  make ti_slave_list.o
+
+
+Build all CRLs with
+  
+  make
