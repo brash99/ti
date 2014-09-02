@@ -88,7 +88,9 @@ static int          tiSlotNumber=0;          /* Slot number in which the TI resi
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
 static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
+static int          tiFirmwareType=1;        /* Firmware Type 2=modTI, 1=prod, 0=rev2 */
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
+static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
@@ -356,7 +358,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	}
       tiSlotNumber = boardID;
 
-      /* Get the "production" type bits.  1=production, 0=prototype */
+      /* Get the "production" type bits.  2=modTI, 1=production, 0=prototype */
       prodID = (rval&TI_BOARDID_PROD_MASK)>>16;
 
       /* Determine whether or not we'll need to swap the trigger block endianess */
@@ -400,20 +402,27 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
     {
-      printf("  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
-	     (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
+      int supportedVersion=TI_SUPPORTED_FIRMWARE;
+      tiFirmwareType = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
+
+      if(tiFirmwareType==TI_FIRMWARE_TYPE_MODTI)
+	supportedVersion = TI_SUPPORTED_MODTI_FIRMWARE;
+	
       tiVersion = firmwareInfo&0xFFF;
-      if(tiVersion < TI_SUPPORTED_FIRMWARE)
+      printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X\n",
+	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType, tiVersion);
+
+      if(tiVersion < supportedVersion)
 	{
 	  if(noFirmwareCheck)
 	    {
 	      printf("%s: WARN: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x  (IGNORED)\n",
-		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+		     __FUNCTION__,tiVersion,supportedVersion);
 	    }
 	  else
 	    {
 	      printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
-		     __FUNCTION__,tiVersion,TI_SUPPORTED_FIRMWARE);
+		     __FUNCTION__,tiVersion,supportedVersion);
 	      TIp=NULL;
 	      return ERROR;
 	    }
@@ -3080,6 +3089,64 @@ tiSetTriggerPulse(int trigger, int delay, int width)
 
 /**
  *  @ingroup Config
+ *  @brief Set the width of the prompt trigger from OT#2
+ *
+ *  @param width Output width will be set to (width + 3) * 4ns
+ *
+ *    This routine is only functional for Firmware type=2 (modTI)
+ *
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetPromptTriggerWidth(int width)
+{
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((width<0) || (width>TI_PROMPT_TRIG_WIDTH_MASK))
+    {
+      printf("%s: ERROR: Invalid prompt trigger width (%d)\n",
+	     __FUNCTION__,width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->eventNumber_hi, width);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup Status
+ *  @brief Get the width of the prompt trigger from OT#2
+ *
+ *    This routine is only functional for Firmware type=2 (modTI)
+ *
+ *  @return Output width set to (return value + 3) * 4ns, if successful. Otherwise ERROR
+ */
+int
+tiGetPromptTriggerWidth()
+{
+  unsigned int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->eventNumber_hi) & TI_PROMPT_TRIG_WIDTH_MASK;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup Config
  *  @brief Set the delay time and width of the Sync signal
  *
  * @param delay  the delay (latency) set in units of 4ns.
@@ -3159,6 +3226,29 @@ tiTrigLinkReset()
 
 /**
  * @ingroup MasterConfig
+ * @brief Set type of SyncReset to send to TI Slaves
+ *
+ * @param type Sync Reset Type
+ *    - 0: User programmed width in each TI
+ *    - !0: Fixed 4 microsecond width in each TI
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiSetSyncResetType(int type)
+{
+
+  if(type)
+    tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;
+  else
+    tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET;
+
+  return OK;
+}
+
+
+/**
+ * @ingroup MasterConfig
  * @brief Generate a Sync Reset signal.  This signal is sent to the loopback and
  *    all configured TI Slaves.
  *
@@ -3179,7 +3269,7 @@ tiSyncReset(int blflag)
     }
   
   TILOCK;
-  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  vmeWrite32(&TIp->syncCommand,tiSyncResetType); 
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM); 
   taskDelay(1);
   TIUNLOCK;
@@ -3208,9 +3298,9 @@ tiSyncResetResync()
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return;
     }
-  
+
   TILOCK;
-  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  vmeWrite32(&TIp->syncCommand,tiSyncResetType); 
   TIUNLOCK;
 
 }
@@ -4291,6 +4381,112 @@ tiLoadTriggerTable(int mode)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the window of the input trigger coincidence window
+ *  @param window_width Width of the input coincidence window (units of 4ns)
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTriggerWindow(int window_width)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((window_width<1) || (window_width>TI_TRIGGERWINDOW_COINC_MASK))
+    {
+      printf("%s: ERROR: Invalid Trigger Coincidence Window (%d)\n",
+	     __FUNCTION__,window_width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow,
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_COINC_MASK) 
+	     | window_width);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the window of the input trigger coincidence window
+ *  @return Width of the input coincidence window (units of 4ns), otherwise ERROR
+ */
+int
+tiGetTriggerWindow()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_COINC_MASK;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the width of the input trigger inhibit window
+ *  @param window_width Width of the input inhibit window (units of 4ns)
+ *  @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTriggerInhibitWindow(int window_width)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((window_width<1) || (window_width>(TI_TRIGGERWINDOW_INHIBIT_MASK>>8)))
+    {
+      printf("%s: ERROR: Invalid Trigger Inhibit Window (%d)\n",
+	     __FUNCTION__,window_width);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow,
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_INHIBIT_MASK) 
+	     | (window_width<<8));
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the width of the input trigger inhibit window
+ *  @return Width of the input inhibit window (units of 4ns), otherwise ERROR
+ */
+int
+tiGetTriggerInhibitWindow()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->triggerWindow) & TI_TRIGGERWINDOW_INHIBIT_MASK)>>8;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**
@@ -5843,3 +6039,88 @@ tiSetTokenOutTest(int level)
 
 }
 
+/* Module TI Routines */
+int
+tiRocEnable(int roc)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
+    {
+      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
+	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
+      return ERROR;
+    }
+
+  if((roc<1) || (roc>8))
+    {
+      printf("%s: ERROR: Invalid roc (%d)\n",
+	     __FUNCTION__,roc);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->rocEnable, (vmeRead32(&TIp->rocEnable) & TI_ROCENABLE_MASK) | 
+	     TI_ROCENABLE_ROC(roc-1));
+  TIUNLOCK;
+
+  return OK;
+}
+
+int
+tiRocEnableMask(int rocmask)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
+    {
+      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
+	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
+      return ERROR;
+    }
+
+  if(rocmask>TI_ROCENABLE_MASK)
+    {
+      printf("%s: ERROR: Invalid rocmask (0x%x)\n",
+	     __FUNCTION__,rocmask);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->rocEnable, rocmask);
+  TIUNLOCK;
+
+  return OK;
+}
+
+int
+tiGetRocEnableMask()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
+    {
+      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
+	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->rocEnable) & TI_ROCENABLE_MASK;
+  TIUNLOCK;
+
+  return rval;
+}

@@ -94,28 +94,28 @@ struct TI_A24RegStruct
   /** 0x000D4 */ volatile unsigned int syncEventCtrl;
   /** 0x000D8 */ volatile unsigned int eventNumber_hi;
   /** 0x000DC */ volatile unsigned int eventNumber_lo;
-  /** 0x000E0 */          unsigned int blank2[(0xFC-0xE0)/4];
+  /** 0x000E0 */          unsigned int blank2[(0xEC-0xE0)/4];
+  /** 0x000EC */ volatile unsigned int rocEnable;
+  /** 0x000F0 */          unsigned int blank3[(0xFC-0xF0)/4];
   /** 0x000FC */ volatile unsigned int blocklimit;
   /** 0x00100 */ volatile unsigned int reset;
-  /** 0x00104 */          unsigned int blank3[(0x180-0x104)/4];
+  /** 0x00104 */          unsigned int blank4[(0x180-0x104)/4];
   /** 0x00180 */ volatile unsigned int ts_scaler[6];
-  /** 0x00198 */          unsigned int blank4[(0x1D0-0x198)/4];
+  /** 0x00198 */          unsigned int blank5[(0x1D0-0x198)/4];
   /** 0x001D0 */ volatile unsigned int hfbr_tiID[8];
   /** 0x001F0 */ volatile unsigned int master_tiID;
-  /** 0x001F4 */          unsigned int blank5[(0x8C0-0x1F4)/4];
+  /** 0x001F4 */          unsigned int blank6[(0x8C0-0x1F4)/4];
   /** 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /** 0x00900 */          unsigned int blank6[(0x2000-0x900)/4];
+  /** 0x00900 */          unsigned int blank7[(0x2000-0x900)/4];
   /** 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
-  /** 0x02200 */          unsigned int blank7[(0x2800-0x2200)/4];
+  /** 0x02200 */          unsigned int blank8[(0x2800-0x2200)/4];
   /** 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
-  /** 0x03000 */          unsigned int blank8[(0xFFFC-0x3000)/4];
+  /** 0x03000 */          unsigned int blank9[(0xFFFC-0x3000)/4];
   /** 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /** 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /** 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
   /** 0x30000 */ volatile unsigned int SWA[(0x40000-0x30000)/4];
   /** 0x40000 */ volatile unsigned int SWB[(0x50000-0x40000)/4];
-
-
 };
 
 /* Define TI Modes of operation:     Ext trigger - Interrupt mode   0
@@ -128,7 +128,17 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x203
+#define TI_SUPPORTED_FIRMWARE       0x203
+#define TI_SUPPORTED_MODTI_FIRMWARE 0x032
+
+/* Firmware Masks */
+#define TI_FIRMWARE_ID_MASK              0xFFFF0000
+#define TI_FIRMWARE_TYPE_MASK            0x0000F000
+#define TI_FIRMWARE_TYPE_REV2            0
+#define TI_FIRMWARE_TYPE_PROD            1
+#define TI_FIRMWARE_TYPE_MODTI           2
+#define TI_FIRMWARE_MAJOR_VERSION_MASK   0x00000FF0
+#define TI_FIRWMARE_MINOR_VERSION_MASK   0x0000000F
 
 /* 0x0 boardID bits and masks */
 #define TI_BOARDID_TYPE_TIDS         0x71D5
@@ -309,7 +319,8 @@ struct TI_A24RegStruct
 #define TI_TRIGGERRULE_RULE4_MASK 0xFF000000
 
 /* 0x3C triggerWindow bits and masks */
-#define TI_TRIGGERWINDOW_COINC_MASK 0x0000FFFF
+#define TI_TRIGGERWINDOW_COINC_MASK   0x000000FF
+#define TI_TRIGGERWINDOW_INHIBIT_MASK 0x0000FF00
 
 /* 0x48 tsInput bits and masks */
 #define TI_TSINPUT_MASK      0x0000003F
@@ -345,6 +356,7 @@ struct TI_A24RegStruct
 #define TI_SYNCCOMMAND_RESET_EVNUM         0xBB
 #define TI_SYNCCOMMAND_SYNCRESET_LOW       0xCC
 #define TI_SYNCCOMMAND_SYNCRESET           0xDD
+#define TI_SYNCCOMMAND_SYNCRESET_4US       0xEE
 #define TI_SYNCCOMMAND_SYNCCODE_MASK       0x000000FF
 
 /* 0x7C syncDelay bits and masks */
@@ -424,7 +436,13 @@ struct TI_A24RegStruct
 #define TI_SYNCEVENTCTRL_ENABLE       0x005A0000
 
 /* 0xD8 eventNumber_hi bits and masks */
+#define TI_PROMPT_TRIG_WIDTH_MASK     0x0000007F
 #define TI_EVENTNUMBER_HI_MASK        0xFFFF0000
+
+
+/* 0xEC rocEnable bits and masks */
+#define TI_ROCENABLE_MASK             0x000000FF
+#define TI_ROCENABLE_ROC(x)           (1<<(x))
 
 /* 0x100 reset bits and masks */
 #define TI_RESET_I2C                  (1<<1)
@@ -546,8 +564,11 @@ unsigned int  tiVMESlotMask2PayloadPortMask(unsigned int vmemask);
 int  tiSetPrescale(int prescale);
 int  tiGetPrescale();
 int  tiSetTriggerPulse(int trigger, int delay, int width);
+int  tiSetPromptTriggerWidth(int width);
+int  tiGetPromptTriggerWidth();
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
+int  tiSetSyncResetType(int type);
 void tiSyncReset(int bflag);
 void tiSyncResetResync();
 void tiClockReset();
@@ -578,6 +599,10 @@ int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
 int  tiLoadTriggerTable(int mode);
+int  tiSetTriggerWindow(int window_width);
+int  tiGetTriggerWindow();
+int  tiSetTriggerInhibitWindow(int window_width);
+int  tiGetTriggerInhibitWindow();
 int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
@@ -622,4 +647,7 @@ unsigned int  tiGetIntCount();
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);
 
+int  tiRocEnable(int roc);
+int  tiRocEnableMask(int rocmask);
+int  tiGetRocEnableMask();
 #endif /* TILIB_H */
