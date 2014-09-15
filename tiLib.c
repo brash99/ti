@@ -3180,6 +3180,7 @@ tiSyncReset(int blflag)
   
   TILOCK;
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_SYNCRESET); 
+  taskDelay(1);
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM); 
   taskDelay(1);
   TIUNLOCK;
