@@ -128,7 +128,6 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE       0x203
 #define TI_SUPPORTED_MODTI_FIRMWARE 0x032
 
 /* Firmware Masks */

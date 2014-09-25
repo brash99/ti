@@ -402,12 +402,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
     {
-      int supportedVersion=TI_SUPPORTED_FIRMWARE;
+      int supportedVersion=TI_SUPPORTED_MODTI_FIRMWARE;
       tiFirmwareType = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
 
-      if(tiFirmwareType==TI_FIRMWARE_TYPE_MODTI)
-	supportedVersion = TI_SUPPORTED_MODTI_FIRMWARE;
-	
       tiVersion = firmwareInfo&0xFFF;
       printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X\n",
 	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType, tiVersion);
