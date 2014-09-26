@@ -5938,8 +5938,32 @@ tiIntDisable()
 unsigned int
 tiGetIntCount()
 {
-  return(tiIntCount);
+  unsigned int rval=0;
+
+  TILOCK;
+  rval = tiIntCount;
+  TIUNLOCK;
+
+  return(rval);
 }
+
+/**
+ * @ingroup Status
+ * @brief Return current acknowledge count
+ */
+unsigned int
+tiGetAckCount()
+{
+  unsigned int rval=0;
+
+  TILOCK;
+  rval = tiAckCount;
+  TIUNLOCK;
+
+  return(rval);
+}
+
+
 
 /**
  * @ingroup Status

@@ -77,7 +77,8 @@ gentdisable(int code, int card)
     {
       GENflag = 0;
     }
-  tiDisableTriggerSource(1);
+
+  /* Disable triggers & interrupts and disconnect ISR */
   tiIntDisable();
   tiIntDisconnect();
 

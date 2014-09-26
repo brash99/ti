@@ -143,6 +143,27 @@ begin end
 
 %%
 {
+  int iwait=0, bready=0;
+
+  tiDisableTriggerSource(1);
+  taskDelay(1);
+  while(iwait<10000)
+    {
+      iwait++;
+      bready=tiBReady();
+      
+      if(bready)
+	{
+	  GEN_int_handler();
+	  CDOACK(GEN,1,0);
+	}
+      else
+	{
+	  tiBlockStatus(0,1);
+	  break;
+	}
+    }
+
   CDODISABLE(GEN,1,0);
   if(USE_PULSER==1)
     tiSoftTrig(1,0,0x1123,1);

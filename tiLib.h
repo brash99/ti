@@ -641,6 +641,7 @@ void tiIntAck();
 int  tiIntEnable(int iflag);
 void tiIntDisable();
 unsigned int  tiGetIntCount();
+unsigned int  tiGetAckCount();
 
 /* Some token testing routines */
 int  tiSetTokenTestMode(int mode);
