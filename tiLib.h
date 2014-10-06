@@ -128,7 +128,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_MODTI_FIRMWARE 0x032
+#define TI_SUPPORTED_MODTI_FIRMWARE 0x041
 
 /* Firmware Masks */
 #define TI_FIRMWARE_ID_MASK              0xFFFF0000
@@ -427,6 +427,7 @@ struct TI_A24RegStruct
 /* 0xD0 adr24 bits and masks */
 #define TI_ADR24_ADDRESS_MASK         0x0000001F
 #define TI_ADR24_HARDWARE_SET_MASK    0x000003E0
+#define TI_ADR24_GEOADDR_MASK         0x00007C00
 #define TI_ADR24_TM_NBLOCKS_READY1    0x00FF0000
 #define TI_ADR24_TM_NBLOCKS_NEEDACK1  0xFF000000
 
@@ -631,7 +632,7 @@ int  tiResetMGT();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
-
+int  tiGetGeoAddress();
 
 /* Library Interrupt/Polling routine prototypes */
 int  tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg);
@@ -641,6 +642,7 @@ void tiIntAck();
 int  tiIntEnable(int iflag);
 void tiIntDisable();
 unsigned int  tiGetIntCount();
+unsigned int  tiGetAckCount();
 
 /* Some token testing routines */
 int  tiSetTokenTestMode(int mode);

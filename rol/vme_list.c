@@ -105,7 +105,7 @@ rocDownload()
   tiSetBlockBufferLevel(BUFFERLEVEL);
 
 
-  tiStatus();
+  tiStatus(0);
 
 
   printf("rocDownload: User Download Executed\n");
@@ -122,7 +122,7 @@ rocPrestart()
   int stat;
   int islot;
 
-  tiStatus();
+  tiStatus(0);
 
   printf("rocPrestart: User Prestart Executed\n");
 
@@ -155,7 +155,7 @@ rocEnd()
 
   int islot;
 
-  tiStatus();
+  tiStatus(0);
 
   printf("rocEnd: Ended after %d blocks\n",tiGetIntCount());
   
