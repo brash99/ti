@@ -5411,6 +5411,29 @@ tiGetSWBStatus(int reg)
   return rval;
 }
 
+/**
+ * @ingroup Status
+ * @brief Return geographic address as provided from a VME-64X crate.
+ * @return Geographic Address if successful, otherwise ERROR.  0 would indicate that the TI is not in a VME-64X crate.
+ */
+
+int
+tiGetGeoAddress()
+{
+  int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->adr24) & TI_ADR24_GEOADDR_MASK)>>10;
+  TIUNLOCK;
+
+  return rval;
+}
+
 /*************************************************************
  Library Interrupt/Polling routines
 *************************************************************/
@@ -6146,3 +6169,4 @@ tiGetRocEnableMask()
 
   return rval;
 }
+

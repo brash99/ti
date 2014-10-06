@@ -143,41 +143,28 @@ begin end
 
 %%
 {
-  int iwait=0, bready=0;
-
-  tiDisableTriggerSource(1);
-  taskDelay(1);
-  while(iwait<10000)
-    {
-      iwait++;
-      bready=tiBReady();
-      
-      if(bready)
-	{
-	  GEN_int_handler();
-	  CDOACK(GEN,1,0);
-	}
-      else
-	{
-	  tiBlockStatus(0,1);
-	  break;
-	}
-    }
+  int iwait=0, bready=0, hit=0;
 
   CDODISABLE(GEN,1,0);
+
   if(USE_PULSER==1)
-    tiSoftTrig(1,0,0x1123,1);
+    {
+      tiSoftTrig(1,0,0x1123,1);
+      tiDisableRandomTrigger();
+    }
 
   tiStatus(0);
   printf("Interrupt Count: %8d \n",tiGetIntCount());
+
 
   /* Free up the allocated memory for the tiData */
   if(tiData!=NULL)
     {
       free(tiData);
       tiData=NULL;
-   } 
+    } 
 }
+
 %%
 
   log inform "User End Executed"
@@ -210,6 +197,8 @@ begin go
 
   /* Allocate some memory for TI data */
   tiData = (unsigned int*)malloc(50*sizeof(unsigned int));
+
+  tiStatus(0);
 }
 %%
 
@@ -219,9 +208,9 @@ begin go
   CDOENABLE(GEN,1,0);
 
   if(USE_PULSER==1)
-    tiSoftTrig(1,3000,0x1123,1);
+    tiSetRandomTrigger(1,0x7);
+/*     tiSoftTrig(1,3000,0x1123,1); */
 
-  tiStatus(0);
 }
 %%
 

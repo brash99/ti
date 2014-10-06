@@ -72,6 +72,8 @@ gentenable(int code, int card)
 static void 
 gentdisable(int code, int card)
 {
+  int iwait=0, bready=0, iread=0;
+  extern unsigned int tiIntCount;
 
   if(GEN_isAsync==0)
     {
@@ -81,6 +83,34 @@ gentdisable(int code, int card)
   /* Disable triggers & interrupts and disconnect ISR */
   tiIntDisable();
   tiIntDisconnect();
+
+  taskDelay(1);
+
+  while(iwait<100)
+    {
+      iwait++;
+      bready=tiBReady();
+      
+      if(bready)
+	{
+	  printf("bready = %d\n",bready);
+	  for(iread=0; iread<bready; iread++)
+	    {
+	      tiIntCount++;
+	      GEN_int_handler();
+	    }
+	}
+      else
+	{
+	  tiBlockStatus(0,1);
+	  break;
+	}
+    }
+
+  if(bready!=0)
+    {
+      printf("WARNING: Events left on TI\n");
+    }
 
 }
 

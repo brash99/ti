@@ -66,8 +66,8 @@ main(int argc, char *argv[])
   int BoardNumber;
   char *filename;
   int inputchar=10;
-  unsigned int vme_addr=0;
-  
+  unsigned int vme_addr=0,laddr=0;
+
   printf("\nTI firmware update via VME\n");
   printf("----------------------------\n");
 
@@ -213,6 +213,31 @@ main(int argc, char *argv[])
   else
     goto REPEAT2;
 
+  /* Check to see if the TI is in a VME-64X crate */
+  if(tiGetGeoAddress()==0)
+    {
+      printf("  ...Detected non VME-64X crate...\n");
+
+      /* Need to reset the Address to 0 to communicate with the emergency loading AM */
+      vme_addr = 0;
+#ifdef VXWORKS
+      stat = sysBusToLocalAdrs(0x39,(char *)vme_addr,(char **)&laddr);
+      if (stat != 0) 
+	{
+	  printf("%s: ERROR: Error in sysBusToLocalAdrs res=%d \n",__FUNCTION__,stat);
+	  goto CLOSE;
+	} 
+#else
+      stat = vmeBusToLocalAdrs(0x39,(char *)vme_addr,(char **)&laddr);
+      if (stat != 0) 
+	{
+	  printf("%s: ERROR: Error in vmeBusToLocalAdrs res=%d \n",__FUNCTION__,stat);
+	  goto CLOSE;
+	} 
+#endif
+      TIp = (struct TI_A24RegStruct *)laddr;
+    }
+
 
   tiFirmwareEMload(filename);
 
@@ -285,12 +310,13 @@ cpuDelay(unsigned long delays)
 }
 #endif
 
-static void 
+static int 
 Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
 {
 /*   unsigned long *laddr; */
   unsigned int iloop, iword, ibit;
   unsigned long shData;
+  int rval=OK;
 
 #ifdef DEBUG
   int numWord, i;
@@ -404,6 +430,7 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
       printf( "\n JTAG type %d unrecognized \n",jtagType);
     }
 
+  return rval;
 }
 
 static void 
@@ -437,10 +464,13 @@ tiFirmwareEMload(char *filename)
   unsigned int sndData[256];
   char *Word[16], *lastn;
   unsigned int nbits, nbytes, extrType, i, Count, nWords;// nlines;
-
+  unsigned int rval=0;
+  int stat=0;
+  
   //A24 Address modifier redefined
 #ifdef VXWORKS
 #ifdef TEMPE
+  printf("Set A24 mod\n");
   sysTempeSetAM(2,0x19);
 #else /* Universe */
   sysUnivSetUserAM(0x19,0);
@@ -453,6 +483,32 @@ tiFirmwareEMload(char *filename)
 
 #ifdef DEBUGFW
   printf("%s: A24 memory map is set to AM = 0x19 \n",__FUNCTION__);
+#endif
+
+  /* Check if TI board is readable */
+#ifdef CHECKREAD
+#ifdef VXWORKS
+  stat = vxMemProbe((char *)(&TIp->boardID),0,4,(char *)&rval);
+#else
+  stat = vmeMemProbe((char *)(&TIp->boardID),4,(char *)&rval);
+#endif
+  if (stat != 0) 
+    {
+      printf("%s: ERROR: TI card not addressable\n",__FUNCTION__);
+      TIp=NULL;
+      // A24 address modifier reset
+#ifdef VXWORKS
+#ifdef TEMPE
+      sysTempeSetAM(2,0);
+#else
+      sysUnivSetLSI(2,1);
+#endif /*TEMPE*/
+#else
+      vmeSetA24AM(0);
+      vmeBusUnlock();
+#endif
+      return;
+    }
 #endif
 
   //open the file:
@@ -506,13 +562,13 @@ tiFirmwareEMload(char *filename)
   while (fgets(bufRead,256,svfFile) != NULL)
     { 
       lineRead +=1;
-#ifdef VXWORKS
-      /* This is pretty filthy... but at least shows some output when it's updating */
-      printf("     ");
-      printf("\b\b\b\b\b");
-#endif
-      if((lineRead%15000) ==0) 
+      if((lineRead%15000) ==0)
 	{
+#ifdef VXWORKS
+	  /* This is pretty filthy... but at least shows some output when it's updating */
+	  printf("     ");
+	  printf("\b\b\b\b\b");
+#endif
 	  printf(".");
 	  fflush(stdout);
 	}
