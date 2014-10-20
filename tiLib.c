@@ -1822,6 +1822,7 @@ tiGetCurrentBlockLevel()
  *         - 5: Random
  *         - 6-9: TS Partition 1-4
  *         - 10: HFBR#5
+ *         - 11: Pulser Trig 2 then Trig1 after specified delay 
  *
  * @return OK if successful, ERROR otherwise
  *
@@ -1935,6 +1936,11 @@ tiSetTriggerSource(int trig)
 	  trigenable |= TI_TRIGSRC_PULSER;
 	  break;
 
+	case TI_TRIGGER_TRIG21:
+	  trigenable |= TI_TRIGSRC_PULSER;
+	  trigenable |= TI_TRIGSRC_TRIG21;
+	  break;
+
 	default:
 	  printf("%s: ERROR: Invalid Trigger Source (%d) for TI Master\n",
 		 __FUNCTION__,trig);
@@ -1965,6 +1971,8 @@ tiSetTriggerSource(int trig)
  *        -         7:  Random Trigger
  *        -         8:  FP/Ext/GTP 
  *        -         9:  P2 Busy 
+ *        -        10:  HFBR #5
+ *        -        11:  Pulser Trig2 with delayed Trig1 (only compatible with 2 and 7)
  *
  * @return OK if successful, ERROR otherwise
  *
@@ -3576,7 +3584,7 @@ tiGetBlockLimitStatus()
 unsigned int
 tiBReady()
 {
-  unsigned int blockBuffer, rval;
+  unsigned int blockBuffer=0, readyInt=0, rval=0;
 
   if(TIp == NULL) 
     {
@@ -3586,6 +3594,7 @@ tiBReady()
 
   TILOCK;
   blockBuffer = vmeRead32(&TIp->blockBuffer);
+  readyInt    = (blockBuffer&TI_BLOCKBUFFER_BREADY_INT_MASK)>>24;
   rval        = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
   tiSyncEventReceived = (blockBuffer&TI_BLOCKBUFFER_SYNCEVENT)>>31;
 
@@ -3601,10 +3610,12 @@ tiBReady()
 
 /**
  * @ingroup Readout
- * @brief Return the value of the Synchronization flag, obtained from tsBReady
+ * @brief Return the value of the Synchronization flag, obtained from tiBReady.
+ *   i.e. Return the value of the SyncFlag for the current readout block.
  *
+ * @sa tiBReady
  * @return
- *   -  1: if sync event received, and current blocks available = 1
+ *   -  1: if current readout block contains a Sync Event.
  *   -  0: Otherwise
  *
  */
@@ -4489,6 +4500,65 @@ tiGetTriggerInhibitWindow()
 
 /**
  *  @ingroup MasterConfig
+ *  @brief Set the delay of Trig1 relative to Trig2 when trigger source is 11.
+ *
+ *  @param delay Trig1 delay after Trig2
+ *    - Latency in steps of 4 nanoseconds with an offset of ~2.6 microseconds
+ *
+ *  @return OK if successful, otherwise ERROR
+ */
+
+int
+tiSetTrig21Delay(int delay)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(delay>0x1FF)
+    {
+      printf("%s: ERROR: Invalid delay (%d)\n",
+	     __FUNCTION__,delay);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow, 
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_TRIG21_MASK) |
+	     (delay<<16));
+  TIUNLOCK;
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the delay of Trig1 relative to Trig2 when trigger source is 11.
+ *
+ *  @return Latency in steps of 4 nanoseconds with an offset of ~2.6 microseconds, otherwise ERROR
+ */
+
+int
+tiGetTrig21Delay()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->triggerWindow) & TI_TRIGGERWINDOW_TRIG21_MASK)>>16;
+  TIUNLOCK;
+
+  return rval;
+}
+
+
+/**
+ *  @ingroup MasterConfig
  *  @brief Latch the Busy and Live Timers.
  *
  *     This routine should be called prior to a call to tiGetLiveTime and tiGetBusyTime
@@ -5062,10 +5132,11 @@ tiSetSyncEventInterval(int blk_interval)
       return ERROR;
     }
 
-  if(blk_interval>0xFFFF)
+  if(blk_interval>TI_SYNCEVENTCTRL_NBLOCKS_MASK)
     {
-      printf("%s: ERROR: Invalid value for blk_interval (%d)\n",
-	     __FUNCTION__,blk_interval);
+      printf("%s: WARN: Value for blk_interval (%d) too large.  Setting to %d\n",
+	     __FUNCTION__,blk_interval,TI_SYNCEVENTCTRL_NBLOCKS_MASK);
+      blk_interval = TI_SYNCEVENTCTRL_NBLOCKS_MASK;
     }
 
   TILOCK;

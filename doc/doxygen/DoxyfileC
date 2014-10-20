@@ -4,7 +4,7 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 PROJECT_NAME           = "JLab Pipeline TI Library"
-PROJECT_NUMBER         = 20.3
+PROJECT_NUMBER         = 2v4.3
 OUTPUT_DIRECTORY       = $(TOPLEVEL)/doc/doxygen/C
 CREATE_SUBDIRS         = YES
 OUTPUT_LANGUAGE        = English
