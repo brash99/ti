@@ -128,7 +128,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_MODTI_FIRMWARE 0x041
+#define TI_SUPPORTED_MODTI_FIRMWARE 0x043
 
 /* Firmware Masks */
 #define TI_FIRMWARE_ID_MASK              0xFFFF0000
@@ -233,6 +233,7 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_TSREV2           (1<<6)
 #define TI_TRIGSRC_PULSER           (1<<7)
 #define TI_TRIGSRC_HFBR5            (1<<10)
+#define TI_TRIGSRC_TRIG21           (1<<11)
 #define TI_TRIGSRC_PART_1           (1<<12)
 #define TI_TRIGSRC_PART_2           (1<<13)
 #define TI_TRIGSRC_PART_3           (1<<14)
@@ -307,6 +308,7 @@ struct TI_A24RegStruct
 #define TI_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
 #define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
 #define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
+#define TI_BLOCKBUFFER_BREADY_INT_MASK       0x0F000000
 #define TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT    (1<<28)
 #define TI_BLOCKBUFFER_SYNCRESET_REQUESTED   (1<<30)
 #define TI_BLOCKBUFFER_SYNCEVENT             (1<<31)
@@ -320,6 +322,7 @@ struct TI_A24RegStruct
 /* 0x3C triggerWindow bits and masks */
 #define TI_TRIGGERWINDOW_COINC_MASK   0x000000FF
 #define TI_TRIGGERWINDOW_INHIBIT_MASK 0x0000FF00
+#define TI_TRIGGERWINDOW_TRIG21_MASK  0x01FF0000
 
 /* 0x48 tsInput bits and masks */
 #define TI_TSINPUT_MASK      0x0000003F
@@ -487,6 +490,7 @@ struct TI_A24RegStruct
 #define TI_TRIGGER_PART_3    8
 #define TI_TRIGGER_PART_4    9
 #define TI_TRIGGER_HFBR5    10
+#define TI_TRIGGER_TRIG21   11
 
 /* Define default Interrupt vector and level */
 #define TI_INT_VEC      0xec
@@ -603,6 +607,8 @@ int  tiSetTriggerWindow(int window_width);
 int  tiGetTriggerWindow();
 int  tiSetTriggerInhibitWindow(int window_width);
 int  tiGetTriggerInhibitWindow();
+int  tiSetTrig21Delay(int delay);
+int  tiGetTrig21Delay();
 int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
