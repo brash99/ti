@@ -3594,11 +3594,11 @@ tiBReady()
 
   TILOCK;
   blockBuffer = vmeRead32(&TIp->blockBuffer);
-  readyInt    = (blockBuffer&TI_BLOCKBUFFER_BREADY_INT_MASK)>>24;
   rval        = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
+  readyInt    = (blockBuffer&TI_BLOCKBUFFER_BREADY_INT_MASK)>>24;
   tiSyncEventReceived = (blockBuffer&TI_BLOCKBUFFER_SYNCEVENT)>>31;
 
-  if( (rval==1) && (tiSyncEventReceived) )
+  if( (readyInt==1) && (tiSyncEventReceived) )
     tiSyncEventFlag = 1;
   else
     tiSyncEventFlag = 0;

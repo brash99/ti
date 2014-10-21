@@ -435,8 +435,7 @@ struct TI_A24RegStruct
 #define TI_ADR24_TM_NBLOCKS_NEEDACK1  0xFF000000
 
 /* 0xD4 syncEventCtrl bits and masks */
-#define TI_SYNCEVENTCTRL_NBLOCKS_MASK 0x0000FFFF
-#define TI_SYNCEVENTCTRL_ENABLE       0x005A0000
+#define TI_SYNCEVENTCTRL_NBLOCKS_MASK 0x00FFFFFF
 
 /* 0xD8 eventNumber_hi bits and masks */
 #define TI_PROMPT_TRIG_WIDTH_MASK     0x0000007F
