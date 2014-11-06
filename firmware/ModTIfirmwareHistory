@@ -1,6 +1,7 @@
+
 ModTI history
 	  FPGA usercode: 0x710x2yyz, x=0 for Rev2 TI, x=1 for production TI;
-		 		     yy firmware version, z firmware revision, "yy.z"
+										 yy firmware version, z firmware revision, "yy.z"
      Apr. 15, 2014.  Based on TIFPGA V18 design.  The structure is re-orgnized so that
 	it is easier for others to re-use the design. A dump module ROC2Read is added to 
 	test the multi-ROC logic.
@@ -32,3 +33,5 @@ V4.2 Oct. 16, 2014: Added the Trigger2 to generate Trigger1 logic (on TImaster).
 V4.3 Oct. 20, 2014: Expand the SyncEvtGen from 16 bit to 20 bit.  The max periodic sync event is every 1M blocks.
     Reg offset 0x34 bit(27:24) is read out as the number of interrupt blocks.  As the block ready is much slower, and
 	 uncertain as the other ROC could back pressure the data.  
+V4.4 Oct. 21, 2014: remove one clock (16ns) from SyncEvtSet delay (0x34 readout only), Error LED enabled by Fiber use.
+V5.1 Oct. 29, 2014: Timing the SYNC command (only as TImaster) to send on the 192ns boundary.
