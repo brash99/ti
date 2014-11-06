@@ -1,0 +1,34 @@
+ModTI history
+	  FPGA usercode: 0x710x2yyz, x=0 for Rev2 TI, x=1 for production TI;
+		 		     yy firmware version, z firmware revision, "yy.z"
+     Apr. 15, 2014.  Based on TIFPGA V18 design.  The structure is re-orgnized so that
+	it is easier for others to re-use the design. A dump module ROC2Read is added to 
+	test the multi-ROC logic.
+     Apr. 22, 2014. Fixed some importing issues, trigger/readout/sync/clock are OK.
+	Set the SReset(n)=0xNN, no more changing offset.
+     Apr. 29, 2014. Change the SdLink, TpLink from iobufds to ibufds, so the DIFF_TERM can be enabled.
+     May 16, 2014: Update the design to TIFPGA v20.2.  Printed the full design out and tested
+
+V1.1 May 20, 2014: first released version.  Bench tested.
+v1.2 June 2, 2014: fixed the clock inconsistency on IRQ counter and upcount signal.
+V1.3 June 4, 2014: remove the SyncEvtSet from BlkCnt(7:0) counter reset, delay the SyncEvtSet so that
+    it will not block the previous trigger processing(two events are coming closely).  Close the 32ns
+	 window that the SyncEvtSet will be reset by the earlier acknowledgement.
+V2.1 June 10, 2014: add the TI-GTP communication.  The data is pushed out only when the full block is ready.
+V2.2 June 12, 2014: The TI should be compatible with both the CTP and GTP,
+v2.3 June 16, 2014: Add the sync (to Clk100) reset to the GTP Rx_Tx block, esp. the OSERDES
+V2.4 June 17, 2014: Update the VME module from v7 to v8.  Add the Sync code 0xee to generate a 4us SyncReset;
+    On TI, the Bulb mode syncReset will generate a 8ns Reset on the falling edge of the BULB reset.
+	 Accept GTP block level request, transmit Block_Level, and SyncEvent marker.
+V3.1 July 9, 2014: Set the OT#2 as the prompt trigger output.  For TImaster, this is the trigger rule gated
+    triggers, for other TI, this is the HFBR#1 received triggers (quick decode). The width is adjusted (14ns-530ns)
+V3.2 Aug. 21, 2014: set 0x00 reg bit(12:8) to the A24 address (VME64x slot, or switch setting for non-vme64x);
+    bit(13) is the VME64x slot# parity; Disable the periodic transfer of trigger source enabled/disabled.
+V4.1 Oct. 3, 2014: fix the problem that when there is no event, the fill block at end of run will generate one block.
+    This is bug is caused by the mti firmware, when the logic is moved.  (BlkCnt was number of event count).
+V4.2 Oct. 16, 2014: Added the Trigger2 to generate Trigger1 logic (on TImaster).  Seperated the Trigger rule logic,
+    so that the TrigRule is a block called by the TsGen.  Separate the trigger quadrant timing for Trg1, Trg2 and Sync.
+	 This revision has a bug that mis-aligned the Periodic Sync signal.  There is no periodic sync event generated.
+V4.3 Oct. 20, 2014: Expand the SyncEvtGen from 16 bit to 20 bit.  The max periodic sync event is every 1M blocks.
+    Reg offset 0x34 bit(27:24) is read out as the number of interrupt blocks.  As the block ready is much slower, and
+	 uncertain as the other ROC could back pressure the data.  

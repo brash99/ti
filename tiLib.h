@@ -624,7 +624,7 @@ int  tiSetUserSyncResetReceive(int enable);
 int  tiGetLastSyncCodes(int pflag);
 int  tiGetSyncHistoryBufferStatus(int pflag);
 void tiResetSyncHistory();
-void tiUserSyncReset(int enable);
+void tiUserSyncReset(int enable, int pflag);
 void tiPrintSyncHistory();
 int  tiSetSyncEventInterval(int blk_interval);
 int  tiGetSyncEventInterval();
