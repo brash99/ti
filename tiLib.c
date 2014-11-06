@@ -5029,9 +5029,12 @@ tiResetSyncHistory()
  * @param enable
  *   - >0: High
  *   -  0: Low
+ * @param pflag
+ *   - >0: Print status to standard out
+ *   -  0: Supress status message
  */
 void
-tiUserSyncReset(int enable)
+tiUserSyncReset(int enable, int pflag)
 {
   if(TIp == NULL) 
     {
@@ -5048,11 +5051,14 @@ tiUserSyncReset(int enable)
   taskDelay(2);
   TIUNLOCK;
 
-  printf("%s: User Sync Reset ",__FUNCTION__);
-  if(enable)
-    printf("HIGH\n");
-  else
-    printf("LOW\n");
+  if(pflag)
+    {
+      printf("%s: User Sync Reset ",__FUNCTION__);
+      if(enable)
+	printf("HIGH\n");
+      else
+	printf("LOW\n");
+    }
 
 }
 
@@ -5093,9 +5099,12 @@ tiPrintSyncHistory()
       overflow  = (syncHistory & TI_SYNCHISTORY_TIMESTAMP_OVERFLOW)>>15;
       timestamp = (syncHistory & TI_SYNCHISTORY_TIMESTAMP_MASK)>>16;
 
-      printf("%4d: %d %5d :  0x%x (%d)\n",
-	     count,
-	     overflow, timestamp, code, valid);
+/*       if(valid) */
+	{
+	  printf("%4d: 0x%08x   %d %5d :  0x%x (%d)\n",
+		 count, syncHistory,
+		 overflow, timestamp, code, valid);
+	}
       count++;
       if(count>1024)
 	{
