@@ -601,7 +601,12 @@ int  tiDisableDataReadout();
 int  tiEnableDataReadout();
 void tiResetBlockReadout();
 
+int  tiTriggerTableConfig(unsigned int *itable);
+int  tiGetTriggerTable(unsigned int *otable);
+int  tiTriggerTablePredefinedConfig(int mode);
+int  tiDefineEventType(int trigMask, int hwTrig, int evType);
 int  tiLoadTriggerTable(int mode);
+void tiPrintTriggerTable(int showbits);
 int  tiSetTriggerWindow(int window_width);
 int  tiGetTriggerWindow();
 int  tiSetTriggerInhibitWindow(int window_width);
