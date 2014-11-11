@@ -92,6 +92,17 @@ static int          tiFirmwareType=1;        /* Firmware Type 2=modTI, 1=prod, 0
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 
+static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
+  { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
+       No Trigger2 (playback trigger),
+       No SyncEvent;
+    */
+    0x43424100, 0x47464544, 0x4b4a4948, 0x4f4e4d4c,
+    0x53525150, 0x57565554, 0x5b5a5958, 0x5f5e5d5c,
+    0x63626160, 0x67666564, 0x6b6a6968, 0x6f6e6d6c,
+    0x73727170, 0x77767574, 0x7b7a7978, 0x7f7e7d7c,
+  };
+
 /* Interrupt/Polling routine prototypes (static) */
 static void tiInt(void);
 #ifndef VXWORKS
@@ -4312,7 +4323,60 @@ tiResetBlockReadout()
 
 /**
  * @ingroup MasterConfig
- * @brief Load a predefined trigger table (mapping TS inputs to trigger types).
+ * @brief Configure trigger table to be loaded with a user provided array.
+ *
+ * @param itable Input Table (Array of 16 4byte words)
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiTriggerTableConfig(unsigned int *itable)
+{
+  int ielement=0;
+
+  if(itable==NULL)
+    {
+      printf("%s: ERROR: Invalid input table address\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  for(ielement=0; ielement<16; ielement++)
+    tiTrigPatternData[ielement] = itable[ielement];
+  
+  return OK;
+}
+
+/**
+ * @ingroup MasterConfig
+ * @brief Get the current trigger table stored in local memory (not necessarily on TI).
+ *
+ * @param otable Output Table (Array of 16 4byte words, user must allocate memory)
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiGetTriggerTable(unsigned int *otable)
+{
+  int ielement=0;
+
+  if(otable==NULL)
+    {
+      printf("%s: ERROR: Invalid output table address\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  for(ielement=0; ielement<16; ielement++)
+    otable[ielement] = tiTrigPatternData[ielement];
+  
+  return OK;
+}
+
+/**
+ * @ingroup MasterConfig
+ * @brief Configure trigger tabled to be loaded with a predefined
+ * trigger table (mapping TS inputs to trigger types).
  *
  * @param mode
  *  - 0:
@@ -4335,10 +4399,9 @@ tiResetBlockReadout()
  * @return OK if successful, otherwise ERROR
  */
 int
-tiLoadTriggerTable(int mode)
+tiTriggerTablePredefinedConfig(int mode)
 {
-  int ipat;
-
+  int ielement=0;
   unsigned int trigPattern[4][16] = 
     {
       { /* mode 0:
@@ -4383,6 +4446,109 @@ tiLoadTriggerTable(int mode)
       }
     };
 
+  if(mode>3)
+    {
+      printf("%s: WARN: Invalid mode %d.  Using Trigger Table mode = 0\n",
+	     __FUNCTION__,mode);
+      mode=0;
+    }
+
+  /* Copy predefined choice into static array to be loaded */
+
+  for(ielement=0; ielement<16; ielement++)
+    {
+      tiTrigPatternData[ielement] = trigPattern[mode][ielement];
+    }
+  
+  return OK;
+}
+
+/**
+ * @ingroup MasterConfig
+ * @brief Define a specific trigger pattern as a hardware trigger (trig1/trig2/syncevent)
+ * and Event Type
+ *
+ * @param trigMask Trigger Pattern (must be less than 0x3F)
+ *    - TS inputs defining the pattern.  Starting bit: TS#1 = bit0
+ * @param hwTrig Hardware trigger type (must be less than 3)
+ *      0:  no trigger
+ *      1:  Trig1 (event trigger)
+ *      2:  Trig2 (playback trigger)
+ *      3:  SyncEvent
+ * @param evType Event Type (must be less than 255)
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+
+int
+tiDefineEventType(int trigMask, int hwTrig, int evType)
+{
+  int element=0, byte=0;
+  int data=0;
+  unsigned int old_pattern=0;
+
+  if(trigMask>0x3f)
+    {
+      printf("%s: ERROR: Invalid trigMask (0x%x)\n",
+	     __FUNCTION__, trigMask);
+      return ERROR;
+    }
+
+  if(hwTrig>3)
+    {
+      printf("%s: ERROR: Invalid hwTrig (%d)\n",
+	     __FUNCTION__, hwTrig);
+      return ERROR;
+    }
+
+  if(evType>0x3F)
+    {
+      printf("%s: ERROR: Invalid evType (%d)\n",
+	     __FUNCTION__, evType);
+      return ERROR;
+    }
+
+  element = trigMask/4;
+  byte    = trigMask%4;
+
+  data    = (hwTrig<<6) | evType;
+
+  old_pattern = (tiTrigPatternData[element] & ~(0xFF<<(byte*8)));
+  tiTrigPatternData[element] = old_pattern | (data<<(byte*8));
+
+  return OK;
+}
+
+/**
+ * @ingroup MasterConfig
+ * @brief Load a predefined trigger table (mapping TS inputs to trigger types).
+ *
+ * @param mode
+ *  - 0:
+ *    - TS#1,2,3,4,5 generates Trigger1 (physics trigger),
+ *    - TS#6 generates Trigger2 (playback trigger),
+ *    - No SyncEvent;
+ *  - 1:
+ *    - TS#1,2,3 generates Trigger1 (physics trigger), 
+ *    - TS#4,5,6 generates Trigger2 (playback trigger).  
+ *    - If both Trigger1 and Trigger2, they are SyncEvent;
+ *  - 2:
+ *    - TS#1,2,3,4,5 generates Trigger1 (physics trigger),
+ *    - TS#6 generates Trigger2 (playback trigger),
+ *    - If both Trigger1 and Trigger2, generates SyncEvent;
+ *  - 3:
+ *    - TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
+ *    - No Trigger2 (playback trigger),
+ *    - No SyncEvent; 
+ *  - 4:
+ *    User configured table @sa tiDefineEventType, tiTriggerTablePredefinedConfig
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiLoadTriggerTable(int mode)
+{
+  int ipat;
 
   if(TIp == NULL) 
     {
@@ -4390,21 +4556,78 @@ tiLoadTriggerTable(int mode)
       return ERROR;
     }
 
-  if(mode>3)
+  if(mode>4)
     {
       printf("%s: WARN: Invalid mode %d.  Using Trigger Table mode = 0\n",
 	     __FUNCTION__,mode);
       mode=0;
     }
+
+  if(mode!=4)
+    tiTriggerTablePredefinedConfig(mode);
   
   TILOCK;
   for(ipat=0; ipat<16; ipat++)
-    vmeWrite32(&TIp->trigTable[ipat], trigPattern[mode][ipat]);
+    vmeWrite32(&TIp->trigTable[ipat], tiTrigPatternData[ipat]);
 
   TIUNLOCK;
 
   return OK;
 }
+
+/**
+ * @ingroup MasterStatus
+ * @brief Print trigger table to standard out.
+ *
+ * @param showbits Show trigger bit pattern, instead of hex
+ *
+ */
+void
+tiPrintTriggerTable(int showbits)
+{
+  int ielement, ibyte;
+  int hwTrig=0, evType=0;
+
+  for(ielement = 0; ielement<16; ielement++)
+    {
+      if(showbits)
+	{
+	  printf("--TS INPUT-\n");
+	  printf("1 2 3 4 5 6  HW evType\n");
+	}
+      else
+	{
+	  printf("TS Pattern  HW evType\n");
+	}
+
+      for(ibyte=0; ibyte<4; ibyte++)
+	{
+	  hwTrig = ((tiTrigPatternData[ielement]>>(ibyte*8)) & 0xC0)>>6;
+	  evType = (tiTrigPatternData[ielement]>>(ibyte*8)) & 0x3F;
+	  
+	  if(showbits)
+	    {
+	      printf("%d %d %d %d %d %d   %d   %2d\n", 
+		     ((ielement*4+ibyte) & (1<<0))?1:0,
+		     ((ielement*4+ibyte) & (1<<1))?1:0,
+		     ((ielement*4+ibyte) & (1<<2))?1:0,
+		     ((ielement*4+ibyte) & (1<<3))?1:0,
+		     ((ielement*4+ibyte) & (1<<4))?1:0,
+		     ((ielement*4+ibyte) & (1<<5))?1:0,
+		     hwTrig, evType);
+	    }
+	  else
+	    {
+	      printf("  0x%02x       %d   %2d\n", ielement*4+ibyte,hwTrig, evType);
+	    }
+	}
+      printf("\n");
+
+    }
+
+
+}
+
 
 /**
  *  @ingroup MasterConfig
