@@ -4327,6 +4327,10 @@ tiResetBlockReadout()
  *    - TS#1,2,3,4,5 generates Trigger1 (physics trigger),
  *    - TS#6 generates Trigger2 (playback trigger),
  *    - If both Trigger1 and Trigger2, generates SyncEvent;
+ *  - 3:
+ *    - TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
+ *    - No Trigger2 (playback trigger),
+ *    - No SyncEvent; 
  *
  * @return OK if successful, otherwise ERROR
  */
@@ -4335,7 +4339,7 @@ tiLoadTriggerTable(int mode)
 {
   int ipat;
 
-  unsigned int trigPattern[3][16] = 
+  unsigned int trigPattern[4][16] = 
     {
       { /* mode 0:
 	   TS#1,2,3,4,5 generates Trigger1 (physics trigger),
@@ -4366,6 +4370,16 @@ tiLoadTriggerTable(int mode)
 	0x53525150, 0x57565554, 0x5b5a5958, 0x5f5e5d5c,
 	0xe3e2e1a0, 0xe7e6e5e4, 0xebeae9e8, 0xefeeedec,
 	0xf3f2f1f0, 0xf7f6f5f4, 0xfbfaf9f8, 0xfffefdfc 
+      },
+      { /* mode 3:
+           TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
+           No Trigger2 (playback trigger),
+           No SyncEvent;
+        */
+        0x43424100, 0x47464544, 0x4b4a4948, 0x4f4e4d4c,
+        0x53525150, 0x57565554, 0x5b5a5958, 0x5f5e5d5c,
+        0x63626160, 0x67666564, 0x6b6a6968, 0x6f6e6d6c,
+        0x73727170, 0x77767574, 0x7b7a7978, 0x7f7e7d7c,
       }
     };
 
@@ -4376,7 +4390,7 @@ tiLoadTriggerTable(int mode)
       return ERROR;
     }
 
-  if(mode>2)
+  if(mode>3)
     {
       printf("%s: WARN: Invalid mode %d.  Using Trigger Table mode = 0\n",
 	     __FUNCTION__,mode);
