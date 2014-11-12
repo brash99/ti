@@ -3993,7 +3993,17 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
   fiberLatency=0;
   TILOCK;
 
-  syncDelay = (offset-(delay));
+  if(delay>offset)
+    {
+      printf("%s: WARN: delay (%d) greater than offset (%d).  Setting difference to zero\n",
+	     __FUNCTION__,delay,offset);
+      syncDelay = 0;
+    }
+  else
+    {
+      syncDelay = (offset-(delay));
+    }
+
   syncDelay_write = (syncDelay&0xff<<8) | (syncDelay&0xff<<16) | (syncDelay&0xff<<24);  /* set the sync delay according to the fiber latency */
 
   vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
