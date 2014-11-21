@@ -25,6 +25,7 @@ V3.1 July 9, 2014: Set the OT#2 as the prompt trigger output.  For TImaster, thi
     triggers, for other TI, this is the HFBR#1 received triggers (quick decode). The width is adjusted (14ns-530ns)
 V3.2 Aug. 21, 2014: set 0x00 reg bit(12:8) to the A24 address (VME64x slot, or switch setting for non-vme64x);
     bit(13) is the VME64x slot# parity; Disable the periodic transfer of trigger source enabled/disabled.
+	 When used as TImaster, the loopback may lose SYNC command (several %) as discovered Nov. 5, 2014.
 V4.1 Oct. 3, 2014: fix the problem that when there is no event, the fill block at end of run will generate one block.
     This is bug is caused by the mti firmware, when the logic is moved.  (BlkCnt was number of event count).
 V4.2 Oct. 16, 2014: Added the Trigger2 to generate Trigger1 logic (on TImaster).  Seperated the Trigger rule logic,
@@ -35,3 +36,6 @@ V4.3 Oct. 20, 2014: Expand the SyncEvtGen from 16 bit to 20 bit.  The max period
 	 uncertain as the other ROC could back pressure the data.  
 V4.4 Oct. 21, 2014: remove one clock (16ns) from SyncEvtSet delay (0x34 readout only), Error LED enabled by Fiber use.
 V5.1 Oct. 29, 2014: Timing the SYNC command (only as TImaster) to send on the 192ns boundary.
+V5.2-5.f Nov. 6, 2014: Added a IODELAY at Ad9510 clk_sync, to test the slower clock phase alignment
+V6.1 Nov. 7, 2014: The AD9510 ClkSync has perfect timing without the IODELAY.  Remove it.  Added one FD before the OFD_1,
+    just in case that the timing is not good.
