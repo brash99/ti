@@ -3044,6 +3044,75 @@ tiGetPrescale()
 }
 
 /**
+ *  @ingroup MasterConfig
+ *  @brief Set the prescale factor for the selected input
+ *
+ *  @param   input Selected trigger input (1-6)
+ *  @param   prescale Factor for prescale.  
+ *               Max {prescale} available is 65535
+ *
+ *  @return OK if successful, otherwise ERROR.
+ */
+int
+tiSetInputPrescale(int input, int prescale)
+{
+  unsigned int oldval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((prescale<0) || (prescale>0xf))
+    {
+      printf("%s: ERROR: Invalid prescale (%d).  Must be between 0 and 15.",
+	     __FUNCTION__,prescale);
+      return ERROR;
+    }
+
+  if((input<1) || (input>6))
+    {
+    {
+      printf("%s: ERROR: Invalid input (%d).",
+	     __FUNCTION__,input);
+      return ERROR;
+    }
+    }
+
+  TILOCK;
+  oldval = vmeRead32(&TIp->inputPrescale) & ~(TI_INPUTPRESCALE_FP_MASK(input));
+  vmeWrite32(&TIp->inputPrescale, oldval | (prescale<<(4*(input-1) )) );
+  TIUNLOCK;
+
+  return OK;
+}
+
+
+/**
+ *  @ingroup Status
+ *  @brief Get the current prescale factor for the selected input
+ *  @param   input Selected trigger input (1-6)
+ *  @return Current prescale factor, otherwise ERROR.
+ */
+int
+tiGetInputPrescale(int input)
+{
+  int rval;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->inputPrescale) & TI_INPUTPRESCALE_FP_MASK(input);
+  rval = rval>>(4*(input-1));
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
  *  @ingroup Config
  *  @brief Set the characteristics of a specified trigger
  *

@@ -70,7 +70,8 @@ struct TI_A24RegStruct
   /** 0x00048 */ volatile unsigned int tsInput;
   /** 0x0004C */ volatile unsigned int output;
   /** 0x00050 */ volatile unsigned int fiberSyncDelay;
-  /** 0x00054 */          unsigned int blank_prescale[(0x78-0x54)/4];
+  /** 0x00054 */          unsigned int blank_prescale[(0x74-0x54)/4];
+  /** 0x00074 */          unsigned int inputPrescale;
   /** 0x00078 */ volatile unsigned int syncCommand;
   /** 0x0007C */ volatile unsigned int syncDelay;
   /** 0x00080 */ volatile unsigned int syncWidth;
@@ -346,6 +347,15 @@ struct TI_A24RegStruct
 #define TI_FIBERSYNCDELAY_LOOPBACK_SYNCDELAY_MASK 0x00FF0000
 #define TI_FIBERSYNCDELAY_HFBR5_SYNCDELAY_MASK    0xFF000000
 
+/* 0x74 inputPrescale bits and masks */
+#define TI_INPUTPRESCALE_FP1_MASK   0x0000000F
+#define TI_INPUTPRESCALE_FP2_MASK   0x000000F0
+#define TI_INPUTPRESCALE_FP3_MASK   0x00000F00
+#define TI_INPUTPRESCALE_FP4_MASK   0x0000F000
+#define TI_INPUTPRESCALE_FP5_MASK   0x000F0000
+#define TI_INPUTPRESCALE_FP6_MASK   0x00F00000
+#define TI_INPUTPRESCALE_FP_MASK(x) (0xF<<4*((x-1)))
+
 /* 0x78 syncCommand bits and masks */
 #define TI_SYNCCOMMAND_VME_CLOCKRESET      0x11
 #define TI_SYNCCOMMAND_CLK250_RESYNC       0x22
@@ -566,6 +576,8 @@ int  tiVMESlot2PayloadPort(int vmeslot);
 unsigned int  tiVMESlotMask2PayloadPortMask(unsigned int vmemask);
 int  tiSetPrescale(int prescale);
 int  tiGetPrescale();
+int  tiSetInputPrescale(int input, int prescale);
+int  tiGetInputPrescale(int input);
 int  tiSetTriggerPulse(int trigger, int delay, int width);
 int  tiSetPromptTriggerWidth(int width);
 int  tiGetPromptTriggerWidth();
