@@ -129,7 +129,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_MODTI_FIRMWARE 0x061
+#define TI_SUPPORTED_MODTI_FIRMWARE 0x073
 
 /* Firmware Masks */
 #define TI_FIRMWARE_ID_MASK              0xFFFF0000
@@ -266,7 +266,7 @@ struct TI_A24RegStruct
 #define TI_BUSY_FP_FTDC          (1<<3)
 #define TI_BUSY_FP_FADC          (1<<4)
 #define TI_BUSY_FP               (1<<5)
-#define TI_BUSY_P2_TRIGGER_INPUT (1<<6)
+#define TI_BUSY_TRIGGER_LOCK     (1<<6)
 #define TI_BUSY_LOOPBACK         (1<<7)
 #define TI_BUSY_HFBR1            (1<<8)
 #define TI_BUSY_HFBR2            (1<<9)
@@ -283,6 +283,7 @@ struct TI_A24RegStruct
 #define TI_BUSY_MONITOR_FP_FTDC  (1<<19)
 #define TI_BUSY_MONITOR_FP_FADC  (1<<20)
 #define TI_BUSY_MONITOR_FP       (1<<21)
+#define TI_BUSY_MONITOR_TRIG_LOST (1<<22)
 #define TI_BUSY_MONITOR_LOOPBACK (1<<23)
 #define TI_BUSY_MONITOR_FIBER_BUSY(x) (1<<(x+23))
 #define TI_BUSY_MONITOR_HFBR1    (1<<24)
@@ -568,6 +569,8 @@ int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
+int  tiSetTriggerLock(int enable);
+int  tiGetTriggerLock();
 void tiEnableBusError();
 void tiDisableBusError();
 int  tiPayloadPort2VMESlot(int payloadport);

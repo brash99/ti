@@ -1031,6 +1031,8 @@ tiStatus(int pflag)
 	printf("   Switch Slot B    %s\n",(busy&TI_BUSY_MONITOR_SWB)?"** BUSY **":"");
       if(busy & TI_BUSY_P2)
 	printf("   P2 Input         %s\n",(busy&TI_BUSY_MONITOR_P2)?"** BUSY **":"");
+      if(busy & TI_BUSY_TRIGGER_LOCK)
+	printf("   Trigger Lock     \n");
       if(busy & TI_BUSY_FP_FTDC)
 	printf("   Front Panel TDC  %s\n",(busy&TI_BUSY_MONITOR_FP_FTDC)?"** BUSY **":"");
       if(busy & TI_BUSY_FP_FADC)
@@ -1076,6 +1078,8 @@ tiStatus(int pflag)
   printf(" Blocks ready for readout: %d\n",(blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8);
   if(tiMaster)
     {
+      printf(" Slave Block Status:   %s\n",
+	     (busy&TI_BUSY_MONITOR_TRIG_LOST)?"** Waiting for Trigger Ack **":"");
       /* TI slave block status */
       fibermask = tiSlaveMask;
       for(ifiber=0; ifiber<8; ifiber++)
@@ -2803,13 +2807,6 @@ tiSetBusySource(unsigned int sourcemask, int rFlag)
       return ERROR;
     }
 
-  if(sourcemask & TI_BUSY_P2_TRIGGER_INPUT)
-    {
-      printf("%s: ERROR: Do not use this routine to set P2 Busy as a trigger input.\n",
-	     __FUNCTION__);
-      return ERROR;
-    }
-
   TILOCK;
   if(rFlag)
     {
@@ -2830,6 +2827,74 @@ tiSetBusySource(unsigned int sourcemask, int rFlag)
   return OK;
 
 }
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the the trigger lock mode.
+ *
+ *  @param enable Enable flag
+ *      0: Disable
+ *     !0: Enable
+ *
+ * @return OK if successful, ERROR otherwise.
+ */
+int
+tiSetTriggerLock(int enable)
+{
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->busy,
+	       vmeRead32(&TIp->busy) | TI_BUSY_TRIGGER_LOCK);
+  else
+    vmeWrite32(&TIp->busy,
+	       vmeRead32(&TIp->busy) & ~TI_BUSY_TRIGGER_LOCK);
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the current setting of the trigger lock mode.
+ *
+ * @return 1 if enabled, 0 if disabled, ERROR otherwise.
+*/
+int
+tiGetTriggerLock()
+{
+  int rval=0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->busy) & TI_BUSY_TRIGGER_LOCK)>>6;
+  TIUNLOCK;
+
+  return rval;
+}
+
 
 /**
  * @ingroup Config
