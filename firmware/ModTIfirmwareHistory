@@ -39,3 +39,12 @@ V5.1 Oct. 29, 2014: Timing the SYNC command (only as TImaster) to send on the 19
 V5.2-5.f Nov. 6, 2014: Added a IODELAY at Ad9510 clk_sync, to test the slower clock phase alignment
 V6.1 Nov. 7, 2014: The AD9510 ClkSync has perfect timing without the IODELAY.  Remove it.  Added one FD before the OFD_1,
     just in case that the timing is not good.
+V6.2 Dec. 4, 2014: Output the Token from VME module to register offset 0x1C bit 16 (VME setting).
+V6.4 Dec. 18, 2014: Delay the MGT reset upon 0x22 sync command (wait until the DCM is locked)); Change the MGTreset input
+    logic, so that the 16-bit time stay at 0 normally;
+V7.1 Dec. 22, 2014: Add the trigger lock busy, that is the TI has to respond with TrigReceived before next trigger.
+V7.2 Jan. 5, 2015: use offset 0x28 register bit 22 to monitor the trigger loss (to match with bit 6 setting).
+V7.3 Jan. 8, 2015: Output the HFBR received prompt trigger on 4ns precision
+V7.4 Jan. 8, 2015: re-arrange the MGT_RxReset, (only once), and the forced idle will cover ~1ms after GTPreset.
+V8.1 Jan. 14, 2015: Limit the sync code 0xDD to TI/TD/TS only.  This reset will not be distributed to SD, or other modules.
+    
