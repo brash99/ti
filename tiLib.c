@@ -5038,6 +5038,7 @@ tiLive(int sflag)
     }
 
   TILOCK;
+  vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
   newLive = vmeRead32(&TIp->livetime);
   newBusy = vmeRead32(&TIp->busytime);
 
