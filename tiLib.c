@@ -3241,7 +3241,7 @@ tiSetTriggerPulse(int trigger, int delay, int width)
  *  @ingroup Config
  *  @brief Set the width of the prompt trigger from OT#2
  *
- *  @param width Output width will be set to (width + 3) * 4ns
+ *  @param width Output width will be set to (width + 2) * 4ns
  *
  *    This routine is only functional for Firmware type=2 (modTI)
  *
@@ -3276,7 +3276,7 @@ tiSetPromptTriggerWidth(int width)
  *
  *    This routine is only functional for Firmware type=2 (modTI)
  *
- *  @return Output width set to (return value + 3) * 4ns, if successful. Otherwise ERROR
+ *  @return Output width set to (return value + 2) * 4ns, if successful. Otherwise ERROR
  */
 int
 tiGetPromptTriggerWidth()

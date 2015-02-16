@@ -47,4 +47,4 @@ V7.2 Jan. 5, 2015: use offset 0x28 register bit 22 to monitor the trigger loss (
 V7.3 Jan. 8, 2015: Output the HFBR received prompt trigger on 4ns precision
 V7.4 Jan. 8, 2015: re-arrange the MGT_RxReset, (only once), and the forced idle will cover ~1ms after GTPreset.
 V8.1 Jan. 14, 2015: Limit the sync code 0xDD to TI/TD/TS only.  This reset will not be distributed to SD, or other modules.
-    
+V8.2 Feb. 16, 2015: redo the TrgPrompt width extension logic, to use Clk250 only.
