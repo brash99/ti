@@ -48,3 +48,7 @@ V7.3 Jan. 8, 2015: Output the HFBR received prompt trigger on 4ns precision
 V7.4 Jan. 8, 2015: re-arrange the MGT_RxReset, (only once), and the forced idle will cover ~1ms after GTPreset.
 V8.1 Jan. 14, 2015: Limit the sync code 0xDD to TI/TD/TS only.  This reset will not be distributed to SD, or other modules.
 V8.2 Feb. 16, 2015: redo the TrgPrompt width extension logic, to use Clk250 only.
+V8.3 Mar. 13, 2013: Add the GTP ROC_ID, register offset 0xEC, bit(23:16) GTP_ROC_ID, bit(24) GTP_ROC_ID updated.
+V8.4 Mar. 27, 2015: Use multiplexer, do the front panel BUSY output will also reflex TImaster mode BUSY.
+V8.5 Apr. 15, 2015: Change the AutoSyncRst code from 0xDD to 0xEE; Periodic VME trigger extends to 0.5 Hz.
+V9.1 Apr. 22, 2015: Expand the Trigger Rule range.  Use Clock Enable to expand the rule#2, 3, 4 by a factor of 2, 4, 8 respectively.
