@@ -4264,9 +4264,14 @@ tiAddSlaveMask(unsigned int fibermask)
  *                         specified time period
  *
  * @param   value  the specified time period (in steps of timestep)
- * @param timestep 
- *     - 0: 16ns
- *     - 1: 500ns
+ * @param timestep Timestep that is dependent on the trigger rule selected
+ *<pre>
+ *                   rule
+ *    timestep    1      2      3      4
+ *    -------   -----  ----- ------ ------
+ *       0       16ns   16ns   32ns   64ns 
+ *       1      480ns  960ns 1920ns 3840ns 
+ *</pre>
  *
  * @return OK if successful, otherwise ERROR.
  *
