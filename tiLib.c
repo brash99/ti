@@ -88,7 +88,6 @@ static int          tiSlotNumber=0;          /* Slot number in which the TI resi
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
 static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
-static int          tiFirmwareType=1;        /* Firmware Type 2=modTI, 1=prod, 0=rev2 */
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 
@@ -413,12 +412,29 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
     {
-      int supportedVersion=TI_SUPPORTED_MODTI_FIRMWARE;
-      tiFirmwareType = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
+      int supportedVersion = TI_SUPPORTED_FIRMWARE;
+      int supportedType    = TI_SUPPORTED_TYPE;
+      int tiFirmwareType   = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
 
       tiVersion = firmwareInfo&0xFFF;
       printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X\n",
 	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType, tiVersion);
+
+      if(tiFirmwareType != supportedType)
+	{
+	  if(noFirmwareCheck)
+	    {
+	      printf("%s: WARN: Firmware type (%d) not supported by this driver.\n  Supported type = %d  (IGNORED)\n",
+		     __FUNCTION__,tiFirmwareType,supportedType);
+	    }
+	  else
+	    {
+	      printf("%s: ERROR: Firmware Type (%d) not supported by this driver.\n  Supported type = %d\n",
+		     __FUNCTION__,tiFirmwareType,supportedType);
+	      TIp=NULL;
+	      return ERROR;
+	    }
+	}
 
       if(tiVersion < supportedVersion)
 	{
@@ -6561,13 +6577,6 @@ tiRocEnable(int roc)
       return ERROR;
     }
 
-  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
-    {
-      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
-	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
-      return ERROR;
-    }
-
   if((roc<1) || (roc>8))
     {
       printf("%s: ERROR: Invalid roc (%d)\n",
@@ -6592,13 +6601,6 @@ tiRocEnableMask(int rocmask)
       return ERROR;
     }
 
-  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
-    {
-      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
-	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
-      return ERROR;
-    }
-
   if(rocmask>TI_ROCENABLE_MASK)
     {
       printf("%s: ERROR: Invalid rocmask (0x%x)\n",
@@ -6620,13 +6622,6 @@ tiGetRocEnableMask()
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
-    {
-      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
-	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
       return ERROR;
     }
 

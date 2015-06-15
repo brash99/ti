@@ -129,7 +129,8 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_MODTI_FIRMWARE 0x091
+#define TI_SUPPORTED_FIRMWARE 0x017
+#define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
 #define TI_FIRMWARE_ID_MASK              0xFFFF0000
@@ -137,6 +138,7 @@ struct TI_A24RegStruct
 #define TI_FIRMWARE_TYPE_REV2            0
 #define TI_FIRMWARE_TYPE_PROD            1
 #define TI_FIRMWARE_TYPE_MODTI           2
+#define TI_FIRMWARE_TYPE_PROD2           3
 #define TI_FIRMWARE_MAJOR_VERSION_MASK   0x00000FF0
 #define TI_FIRWMARE_MINOR_VERSION_MASK   0x0000000F
 
