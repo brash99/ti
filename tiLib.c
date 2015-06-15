@@ -394,19 +394,16 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	}
     }
   
-  /* Check if we should exit here, or initialize some board defaults */
-  if(noBoardInit)
+  if(!noBoardInit)
     {
-      return OK;
+      if(tiMaster==0) /* Reload only on the TI Slaves */
+	{
+	  tiReload();
+	  taskDelay(60);
+	}
+      tiDisableTriggerSource(0);  
+      tiDisableVXSSignals();
     }
-  
-  if(tiMaster==0) /* Reload only on the TI Slaves */
-    {
-      tiReload();
-      taskDelay(60);
-    }
-  tiDisableTriggerSource(0);  
-  tiDisableVXSSignals();
 
   /* Get the Firmware Information and print out some details */
   firmwareInfo = tiGetFirmwareVersion();
@@ -457,6 +454,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       printf("%s:  ERROR: Invalid firmware 0x%08x\n",
 	     __FUNCTION__,firmwareInfo);
       return ERROR;
+    }
+
+  /* Check if we should exit here, or initialize some board defaults */
+  if(noBoardInit)
+    {
+      return OK;
     }
 
   /* Set some defaults, dependent on Master/Slave status */
@@ -6504,6 +6507,104 @@ tiGetSWBBusy(int pflag)
     }
 
   return rval;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return BUSY counter for specified Busy Source
+ * @param busysrc
+ *  - 0: SWA
+ *  - 1: SWB
+ *  - 2: P2
+ *  - 3: FP-FTDC
+ *  - 4: FP-FADC
+ *  - 5: FP
+ *  - 6: Unused
+ *  - 7: Loopack
+ *  - 8-15: Fiber 1-8
+ * @return
+ *   - Busy counter for specified busy source
+ */
+unsigned int
+tiGetBusyCounter(int busysrc)
+{
+  unsigned int rval=0;
+  
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  TILOCK;
+  if(busysrc<7)
+    rval = vmeRead32(&TIp->busy_scaler1[busysrc]);
+  else
+    rval = vmeRead32(&TIp->busy_scaler2[busysrc-7]);
+  TIUNLOCK;
+  
+  return rval;
+}
+
+/**
+ * @ingroup Status
+ * @brief Print the BUSY counters for all busy sources
+ * @return
+ *   - OK if successful, otherwise ERROR;
+ */
+int
+tiPrintBusyCounters()
+{
+  unsigned int counter[16];
+  const char *scounter[16] =
+    {
+      "SWA    ",
+      "SWB    ",
+      "P2     ",
+      "FP-FTDC",
+      "FP-FADC",
+      "FP     ",
+      "Unused ",
+      "Loopack",
+      "Fiber 1",
+      "Fiber 2",
+      "Fiber 3",
+      "Fiber 4",
+      "Fiber 5",
+      "Fiber 6",
+      "Fiber 7",
+      "Fiber 8"
+    };
+  int icnt=0;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  for(icnt=0; icnt<16; icnt++)
+    {
+      if(icnt<7)
+	counter[icnt] = vmeRead32(&TIp->busy_scaler1[icnt]);
+      else
+	counter[icnt] = vmeRead32(&TIp->busy_scaler2[icnt-7]);
+    }
+  TIUNLOCK;
+
+  printf("\n\n");
+  printf(" Busy Counters \n");
+  printf("--------------------------------------------------------------------------------\n");
+  for(icnt=0; icnt<16; icnt++)
+    {
+      printf("%s   0x%08x (%10d)\n",
+	     scounter[icnt], counter[icnt], counter[icnt]);
+    }
+  printf("--------------------------------------------------------------------------------\n");
+  printf("\n\n");
+
+  return OK;
 }
 
 /**
