@@ -83,6 +83,7 @@ static int          tiFiberLatencyMeasurement = 0; /* Measured fiber latency */
 static int          tiVersion     = 0x0;     /* Firmware version */
 static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
+static int          tiNReadoutEvents = 0;    /* Number of events to readout from crate modules */
 static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
 static int          tiSlotNumber=0;          /* Slot number in which the TI resides */
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
@@ -3761,6 +3762,7 @@ tiBReady()
   rval        = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
   readyInt    = (blockBuffer&TI_BLOCKBUFFER_BREADY_INT_MASK)>>24;
   tiSyncEventReceived = (blockBuffer&TI_BLOCKBUFFER_SYNCEVENT)>>31;
+  tiNReadoutEvents = (blockBuffer&TI_BLOCKBUFFER_RO_NEVENTS_MASK)>>24;
 
   if( (readyInt==1) && (tiSyncEventReceived) )
     tiSyncEventFlag = 1;
@@ -3811,6 +3813,24 @@ tiGetSyncEventReceived()
   
   TILOCK;
   rval = tiSyncEventReceived;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Readout
+ * @brief Return the value of the number of readout events accepted
+ *
+ * @return Number of readout events accepted
+ */
+int
+tiGetReadoutEvents()
+{
+  int rval=0;
+  
+  TILOCK;
+  rval = tiNReadoutEvents;
   TIUNLOCK;
 
   return rval;
@@ -5758,6 +5778,113 @@ tiResetMGT()
 }
 
 /**
+ * @ingroup Config
+ * @brief Set the input delay for the specified front panel TSinput (1-6)
+ * @param chan Front Panel TSInput Channel (1-6)
+ * @param delay Delay in units of 4ns (0=8ns)
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTSInputDelay(int chan, int delay)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((chan<1) || (chan>6))
+    {
+      printf("%s: ERROR: Invalid chan (%d)\n",__FUNCTION__,
+	     chan);
+      return ERROR;
+    }
+
+  if((delay<0) || (delay>0x1ff))
+    {
+      printf("%s: ERROR: Invalid delay (%d)\n",__FUNCTION__,
+	     delay);
+      return ERROR;
+    }
+
+  TILOCK;
+  chan--;
+  vmeWrite32(&TIp->fpDelay[chan%3],
+	     (vmeRead32(&TIp->fpDelay[chan%3]) & ~TI_FPDELAY_MASK(chan))
+	     | delay<<(10*(chan%3)));
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get the input delay for the specified front panel TSinput (1-6)
+ * @param chan Front Panel TSInput Channel (1-6)
+ * @return Channel delay (units of 4ns) if successful, otherwise ERROR
+ */
+int
+tiGetTSInputDelay(int chan)
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((chan<1) || (chan>6))
+    {
+      printf("%s: ERROR: Invalid chan (%d)\n",__FUNCTION__,
+	     chan);
+      return ERROR;
+    }
+
+  TILOCK;
+  chan--;
+  rval = (vmeRead32(&TIp->fpDelay[chan%3]) & TI_FPDELAY_MASK(chan))>>(10*(chan%3));
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Status
+ * @brief Print Front Panel TSinput Delays to Standard Out
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiPrintTSInputDelay()
+{
+  unsigned int reg[11];
+  int ireg=0, ichan=0, delay=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  for(ireg=0; ireg<11; ireg++)
+    reg[ireg] = vmeRead32(&TIp->fpDelay[ireg]);
+  TIUNLOCK;
+
+  printf("%s: Front panel delays:", __FUNCTION__);
+  for(ichan=0;ichan<5;ichan++) 
+    {
+      delay = reg[ichan%3] & TI_FPDELAY_MASK(ichan)>>(10*(ichan%3));
+      if((ichan%4)==0) 
+	{
+	  printf("\n");
+	}
+      printf("Chan %2d: %5d   ",ichan+1,delay);
+    }
+  printf("\n");
+
+  return OK;
+}
+
+/**
  * @ingroup Status
  * @brief Return value of buffer length from GTP
  * @return value of buffer length from GTP
@@ -6330,6 +6457,8 @@ tiIntAck()
 	}
 
       vmeWrite32(&TIp->reset, resetbits);
+
+      tiNReadoutEvents = 0;
       TIUNLOCK;
     }
 

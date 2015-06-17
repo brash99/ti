@@ -65,3 +65,4 @@ V1.4, Apr. 16, 2015: Change the auto sync reset code from 0xDD to 0xEE, fix the 
 V1.5, Apr. 21, 2015: TrigRule range expansion, Rule#4 reached ~500 us.
 V1.6, May 7, 2015: Add the extra trigger word decoding in receiving.  The extra word should be immediately after the trigger word.
 V1.7, May 21, 2015: Add some more BUSY counters (each BUSY source).  Use 0x34 bit(26:24) for number of events for Fastbus readout.
+V1.8, June 17, 2015: use 0x34 bit(23:21) for number of events for FASTBUS readout.  Bit(27:24) back to its original.  

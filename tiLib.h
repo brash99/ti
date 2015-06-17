@@ -100,7 +100,8 @@ struct TI_A24RegStruct
   /** 0x000F0 */          unsigned int blank3[(0xFC-0xF0)/4];
   /** 0x000FC */ volatile unsigned int blocklimit;
   /** 0x00100 */ volatile unsigned int reset;
-  /** 0x00104 */          unsigned int blank4[(0x110-0x104)/4];
+  /** 0x00104 */ volatile unsigned int fpDelay[2];
+  /** 0x0010C */          unsigned int blank4[(0x110-0x10C)/4];
   /** 0x00110 */          unsigned int busy_scaler1[7];
   /** 0x0012C */          unsigned int blank5[(0x180-0x12C)/4];
   /** 0x00180 */ volatile unsigned int ts_scaler[6];
@@ -133,7 +134,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x017
+#define TI_SUPPORTED_FIRMWARE 0x018
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -314,7 +315,8 @@ struct TI_A24RegStruct
 /* 0x34 blockBuffer bits and masks */
 #define TI_BLOCKBUFFER_BUFFERLEVEL_MASK      0x000000FF
 #define TI_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
-#define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
+#define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x001F0000
+#define TI_BLOCKBUFFER_RO_NEVENTS_MASK       0x00E00000
 #define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
 #define TI_BLOCKBUFFER_BREADY_INT_MASK       0x0F000000
 #define TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT    (1<<28)
@@ -488,6 +490,9 @@ struct TI_A24RegStruct
 #define TI_RESET_SCALERS_RESET        (1<<25)
 #define TI_RESET_FILL_TO_END_BLOCK    (1<<31)
 
+/* 0x104 fpDelay Masks */
+#define TI_FPDELAY_MASK(x) (0x1FF<<(10*(x%3)))
+
 /* 0x1D0-0x1F0 TI ID bits and masks */
 #define TI_ID_TRIGSRC_ENABLE_MASK     0x000000FF
 #define TI_ID_CRATEID_MASK            0x0000FF00
@@ -605,6 +610,7 @@ unsigned int  tiGetBlockLimit();
 unsigned int  tiBReady();
 int  tiGetSyncEventFlag();
 int  tiGetSyncEventReceived();
+int  tiGetReadoutEvents();
 int  tiEnableVXSSignals();
 int  tiDisableVXSSignals();
 int  tiSetBlockBufferLevel(unsigned int level);
@@ -656,6 +662,9 @@ int  tiGetSyncResetRequest();
 void tiTriggerReadyReset();
 int  tiFillToEndBlock();
 int  tiResetMGT();
+int  tiSetTSInputDelay(int chan, int delay);
+int  tiGetTSInputDelay(int chan);
+int  tiPrintTSInputDelay();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
