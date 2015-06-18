@@ -2212,8 +2212,8 @@ tiSetEventFormat(int format)
  *  @param nevents  integer number of events to trigger
  *  @param period_inc  period multiplier, depends on range (0-0x7FFF)
  *  @param range  
- *     - 0: small period range (min: 120ns, increments of 30ns up to 983.13us)
- *     - 1: large period range (min: 120ns, increments of 30.72us up to 1.007s)
+ *     - 0: small period range (min: 120ns, increments of 120ns)
+ *     - 1: large period range (min: 120ns, increments of 245.7us)
  *
  * @return OK if successful, ERROR otherwise
  *
@@ -2257,9 +2257,9 @@ tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range
     }
 
   if(range==0)
-    time = 120+30*period_inc;
+    time = 120+120*period_inc;
   if(range==1)
-    time = 120+30*period_inc*1024;
+    time = 120+120*period_inc*2048;
 
   logMsg("\ntiSoftTrig: INFO: Setting software trigger for %d nevents with period of %d\n",
 	 nevents,time,3,4,5,6);
