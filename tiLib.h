@@ -100,18 +100,23 @@ struct TI_A24RegStruct
   /** 0x000F0 */          unsigned int blank3[(0xFC-0xF0)/4];
   /** 0x000FC */ volatile unsigned int blocklimit;
   /** 0x00100 */ volatile unsigned int reset;
-  /** 0x00104 */          unsigned int blank4[(0x180-0x104)/4];
+  /** 0x00104 */ volatile unsigned int fpDelay[2];
+  /** 0x0010C */          unsigned int blank4[(0x110-0x10C)/4];
+  /** 0x00110 */          unsigned int busy_scaler1[7];
+  /** 0x0012C */          unsigned int blank5[(0x180-0x12C)/4];
   /** 0x00180 */ volatile unsigned int ts_scaler[6];
-  /** 0x00198 */          unsigned int blank5[(0x1D0-0x198)/4];
+  /** 0x00198 */          unsigned int blank6;
+  /** 0x0019C */ volatile unsigned int busy_scaler2[9];
+  /** 0x001C0 */          unsigned int blank7[(0x1D0-0x1C0)/4];
   /** 0x001D0 */ volatile unsigned int hfbr_tiID[8];
   /** 0x001F0 */ volatile unsigned int master_tiID;
-  /** 0x001F4 */          unsigned int blank6[(0x8C0-0x1F4)/4];
+  /** 0x001F4 */          unsigned int blank8[(0x8C0-0x1F4)/4];
   /** 0x008C0 */ volatile unsigned int trigTable[(0x900-0x8C0)/4];
-  /** 0x00900 */          unsigned int blank7[(0x2000-0x900)/4];
+  /** 0x00900 */          unsigned int blank9[(0x2000-0x900)/4];
   /** 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
-  /** 0x02200 */          unsigned int blank8[(0x2800-0x2200)/4];
+  /** 0x02200 */          unsigned int blank10[(0x2800-0x2200)/4];
   /** 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
-  /** 0x03000 */          unsigned int blank9[(0xFFFC-0x3000)/4];
+  /** 0x03000 */          unsigned int blank11[(0xFFFC-0x3000)/4];
   /** 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /** 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /** 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
@@ -129,7 +134,8 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_MODTI_FIRMWARE 0x091
+#define TI_SUPPORTED_FIRMWARE 0x018
+#define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
 #define TI_FIRMWARE_ID_MASK              0xFFFF0000
@@ -137,6 +143,7 @@ struct TI_A24RegStruct
 #define TI_FIRMWARE_TYPE_REV2            0
 #define TI_FIRMWARE_TYPE_PROD            1
 #define TI_FIRMWARE_TYPE_MODTI           2
+#define TI_FIRMWARE_TYPE_PROD2           3
 #define TI_FIRMWARE_MAJOR_VERSION_MASK   0x00000FF0
 #define TI_FIRWMARE_MINOR_VERSION_MASK   0x0000000F
 
@@ -308,7 +315,8 @@ struct TI_A24RegStruct
 /* 0x34 blockBuffer bits and masks */
 #define TI_BLOCKBUFFER_BUFFERLEVEL_MASK      0x000000FF
 #define TI_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
-#define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
+#define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x001F0000
+#define TI_BLOCKBUFFER_RO_NEVENTS_MASK       0x00E00000
 #define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
 #define TI_BLOCKBUFFER_BREADY_INT_MASK       0x0F000000
 #define TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT    (1<<28)
@@ -482,6 +490,9 @@ struct TI_A24RegStruct
 #define TI_RESET_SCALERS_RESET        (1<<25)
 #define TI_RESET_FILL_TO_END_BLOCK    (1<<31)
 
+/* 0x104 fpDelay Masks */
+#define TI_FPDELAY_MASK(x) (0x1FF<<(10*(x%3)))
+
 /* 0x1D0-0x1F0 TI ID bits and masks */
 #define TI_ID_TRIGSRC_ENABLE_MASK     0x000000FF
 #define TI_ID_CRATEID_MASK            0x0000FF00
@@ -599,6 +610,7 @@ unsigned int  tiGetBlockLimit();
 unsigned int  tiBReady();
 int  tiGetSyncEventFlag();
 int  tiGetSyncEventReceived();
+int  tiGetReadoutEvents();
 int  tiEnableVXSSignals();
 int  tiDisableVXSSignals();
 int  tiSetBlockBufferLevel(unsigned int level);
@@ -635,10 +647,6 @@ int  tiLive(int sflag);
 unsigned int tiGetTSscaler(int input, int latch);
 unsigned int tiBlockStatus(int fiber, int pflag);
 
-int  tiGetSWBBusy(int pflag);
-int  tiSetTokenTestMode(int mode);
-int  tiSetTokenOutTest(int level);
-
 int  tiGetFiberLatencyMeasurement();
 int  tiSetUserSyncResetReceive(int enable);
 int  tiGetLastSyncCodes(int pflag);
@@ -654,6 +662,9 @@ int  tiGetSyncResetRequest();
 void tiTriggerReadyReset();
 int  tiFillToEndBlock();
 int  tiResetMGT();
+int  tiSetTSInputDelay(int chan, int delay);
+int  tiGetTSInputDelay(int chan);
+int  tiPrintTSInputDelay();
 unsigned int tiGetGTPBufferLength(int pflag);
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
@@ -668,6 +679,10 @@ int  tiIntEnable(int iflag);
 void tiIntDisable();
 unsigned int  tiGetIntCount();
 unsigned int  tiGetAckCount();
+
+int  tiGetSWBBusy(int pflag);
+unsigned int tiGetBusyCounter(int busysrc);
+int  tiPrintBusyCounters();
 
 /* Some token testing routines */
 int  tiSetTokenTestMode(int mode);

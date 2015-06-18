@@ -83,12 +83,12 @@ static int          tiFiberLatencyMeasurement = 0; /* Measured fiber latency */
 static int          tiVersion     = 0x0;     /* Firmware version */
 static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
+static int          tiNReadoutEvents = 0;    /* Number of events to readout from crate modules */
 static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
 static int          tiSlotNumber=0;          /* Slot number in which the TI resides */
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
 static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
-static int          tiFirmwareType=1;        /* Firmware Type 2=modTI, 1=prod, 0=rev2 */
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 
@@ -395,30 +395,44 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	}
     }
   
-  /* Check if we should exit here, or initialize some board defaults */
-  if(noBoardInit)
+  if(!noBoardInit)
     {
-      return OK;
+      if(tiMaster==0) /* Reload only on the TI Slaves */
+	{
+	  tiReload();
+	  taskDelay(60);
+	}
+      tiDisableTriggerSource(0);  
+      tiDisableVXSSignals();
     }
-  
-  if(tiMaster==0) /* Reload only on the TI Slaves */
-    {
-      tiReload();
-      taskDelay(60);
-    }
-  tiDisableTriggerSource(0);  
-  tiDisableVXSSignals();
 
   /* Get the Firmware Information and print out some details */
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
     {
-      int supportedVersion=TI_SUPPORTED_MODTI_FIRMWARE;
-      tiFirmwareType = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
+      int supportedVersion = TI_SUPPORTED_FIRMWARE;
+      int supportedType    = TI_SUPPORTED_TYPE;
+      int tiFirmwareType   = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
 
       tiVersion = firmwareInfo&0xFFF;
       printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X\n",
 	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType, tiVersion);
+
+      if(tiFirmwareType != supportedType)
+	{
+	  if(noFirmwareCheck)
+	    {
+	      printf("%s: WARN: Firmware type (%d) not supported by this driver.\n  Supported type = %d  (IGNORED)\n",
+		     __FUNCTION__,tiFirmwareType,supportedType);
+	    }
+	  else
+	    {
+	      printf("%s: ERROR: Firmware Type (%d) not supported by this driver.\n  Supported type = %d\n",
+		     __FUNCTION__,tiFirmwareType,supportedType);
+	      TIp=NULL;
+	      return ERROR;
+	    }
+	}
 
       if(tiVersion < supportedVersion)
 	{
@@ -441,6 +455,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       printf("%s:  ERROR: Invalid firmware 0x%08x\n",
 	     __FUNCTION__,firmwareInfo);
       return ERROR;
+    }
+
+  /* Check if we should exit here, or initialize some board defaults */
+  if(noBoardInit)
+    {
+      return OK;
     }
 
   /* Set some defaults, dependent on Master/Slave status */
@@ -2192,8 +2212,8 @@ tiSetEventFormat(int format)
  *  @param nevents  integer number of events to trigger
  *  @param period_inc  period multiplier, depends on range (0-0x7FFF)
  *  @param range  
- *     - 0: small period range (min: 120ns, increments of 30ns up to 983.13us)
- *     - 1: large period range (min: 120ns, increments of 30.72us up to 1.007s)
+ *     - 0: small period range (min: 120ns, increments of 120ns)
+ *     - 1: large period range (min: 120ns, increments of 245.7us)
  *
  * @return OK if successful, ERROR otherwise
  *
@@ -2237,9 +2257,9 @@ tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range
     }
 
   if(range==0)
-    time = 120+30*period_inc;
+    time = 120+120*period_inc;
   if(range==1)
-    time = 120+30*period_inc*1024;
+    time = 120+120*period_inc*2048;
 
   logMsg("\ntiSoftTrig: INFO: Setting software trigger for %d nevents with period of %d\n",
 	 nevents,time,3,4,5,6);
@@ -3742,6 +3762,7 @@ tiBReady()
   rval        = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
   readyInt    = (blockBuffer&TI_BLOCKBUFFER_BREADY_INT_MASK)>>24;
   tiSyncEventReceived = (blockBuffer&TI_BLOCKBUFFER_SYNCEVENT)>>31;
+  tiNReadoutEvents = (blockBuffer&TI_BLOCKBUFFER_RO_NEVENTS_MASK)>>24;
 
   if( (readyInt==1) && (tiSyncEventReceived) )
     tiSyncEventFlag = 1;
@@ -3792,6 +3813,24 @@ tiGetSyncEventReceived()
   
   TILOCK;
   rval = tiSyncEventReceived;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Readout
+ * @brief Return the value of the number of readout events accepted
+ *
+ * @return Number of readout events accepted
+ */
+int
+tiGetReadoutEvents()
+{
+  int rval=0;
+  
+  TILOCK;
+  rval = tiNReadoutEvents;
   TIUNLOCK;
 
   return rval;
@@ -5739,6 +5778,113 @@ tiResetMGT()
 }
 
 /**
+ * @ingroup Config
+ * @brief Set the input delay for the specified front panel TSinput (1-6)
+ * @param chan Front Panel TSInput Channel (1-6)
+ * @param delay Delay in units of 4ns (0=8ns)
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiSetTSInputDelay(int chan, int delay)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((chan<1) || (chan>6))
+    {
+      printf("%s: ERROR: Invalid chan (%d)\n",__FUNCTION__,
+	     chan);
+      return ERROR;
+    }
+
+  if((delay<0) || (delay>0x1ff))
+    {
+      printf("%s: ERROR: Invalid delay (%d)\n",__FUNCTION__,
+	     delay);
+      return ERROR;
+    }
+
+  TILOCK;
+  chan--;
+  vmeWrite32(&TIp->fpDelay[chan%3],
+	     (vmeRead32(&TIp->fpDelay[chan%3]) & ~TI_FPDELAY_MASK(chan))
+	     | delay<<(10*(chan%3)));
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get the input delay for the specified front panel TSinput (1-6)
+ * @param chan Front Panel TSInput Channel (1-6)
+ * @return Channel delay (units of 4ns) if successful, otherwise ERROR
+ */
+int
+tiGetTSInputDelay(int chan)
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((chan<1) || (chan>6))
+    {
+      printf("%s: ERROR: Invalid chan (%d)\n",__FUNCTION__,
+	     chan);
+      return ERROR;
+    }
+
+  TILOCK;
+  chan--;
+  rval = (vmeRead32(&TIp->fpDelay[chan%3]) & TI_FPDELAY_MASK(chan))>>(10*(chan%3));
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Status
+ * @brief Print Front Panel TSinput Delays to Standard Out
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiPrintTSInputDelay()
+{
+  unsigned int reg[11];
+  int ireg=0, ichan=0, delay=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  for(ireg=0; ireg<11; ireg++)
+    reg[ireg] = vmeRead32(&TIp->fpDelay[ireg]);
+  TIUNLOCK;
+
+  printf("%s: Front panel delays:", __FUNCTION__);
+  for(ichan=0;ichan<5;ichan++) 
+    {
+      delay = reg[ichan%3] & TI_FPDELAY_MASK(ichan)>>(10*(ichan%3));
+      if((ichan%4)==0) 
+	{
+	  printf("\n");
+	}
+      printf("Chan %2d: %5d   ",ichan+1,delay);
+    }
+  printf("\n");
+
+  return OK;
+}
+
+/**
  * @ingroup Status
  * @brief Return value of buffer length from GTP
  * @return value of buffer length from GTP
@@ -6311,6 +6457,8 @@ tiIntAck()
 	}
 
       vmeWrite32(&TIp->reset, resetbits);
+
+      tiNReadoutEvents = 0;
       TIUNLOCK;
     }
 
@@ -6491,6 +6639,104 @@ tiGetSWBBusy(int pflag)
 }
 
 /**
+ * @ingroup Status
+ * @brief Return BUSY counter for specified Busy Source
+ * @param busysrc
+ *  - 0: SWA
+ *  - 1: SWB
+ *  - 2: P2
+ *  - 3: FP-FTDC
+ *  - 4: FP-FADC
+ *  - 5: FP
+ *  - 6: Unused
+ *  - 7: Loopack
+ *  - 8-15: Fiber 1-8
+ * @return
+ *   - Busy counter for specified busy source
+ */
+unsigned int
+tiGetBusyCounter(int busysrc)
+{
+  unsigned int rval=0;
+  
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  TILOCK;
+  if(busysrc<7)
+    rval = vmeRead32(&TIp->busy_scaler1[busysrc]);
+  else
+    rval = vmeRead32(&TIp->busy_scaler2[busysrc-7]);
+  TIUNLOCK;
+  
+  return rval;
+}
+
+/**
+ * @ingroup Status
+ * @brief Print the BUSY counters for all busy sources
+ * @return
+ *   - OK if successful, otherwise ERROR;
+ */
+int
+tiPrintBusyCounters()
+{
+  unsigned int counter[16];
+  const char *scounter[16] =
+    {
+      "SWA    ",
+      "SWB    ",
+      "P2     ",
+      "FP-FTDC",
+      "FP-FADC",
+      "FP     ",
+      "Unused ",
+      "Loopack",
+      "Fiber 1",
+      "Fiber 2",
+      "Fiber 3",
+      "Fiber 4",
+      "Fiber 5",
+      "Fiber 6",
+      "Fiber 7",
+      "Fiber 8"
+    };
+  int icnt=0;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  for(icnt=0; icnt<16; icnt++)
+    {
+      if(icnt<7)
+	counter[icnt] = vmeRead32(&TIp->busy_scaler1[icnt]);
+      else
+	counter[icnt] = vmeRead32(&TIp->busy_scaler2[icnt-7]);
+    }
+  TIUNLOCK;
+
+  printf("\n\n");
+  printf(" Busy Counters \n");
+  printf("--------------------------------------------------------------------------------\n");
+  for(icnt=0; icnt<16; icnt++)
+    {
+      printf("%s   0x%08x (%10d)\n",
+	     scounter[icnt], counter[icnt], counter[icnt]);
+    }
+  printf("--------------------------------------------------------------------------------\n");
+  printf("\n\n");
+
+  return OK;
+}
+
+/**
  * @ingroup Config
  * @brief Turn on Token out test mode
  * @sa tiSetTokenOutTest
@@ -6561,13 +6807,6 @@ tiRocEnable(int roc)
       return ERROR;
     }
 
-  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
-    {
-      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
-	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
-      return ERROR;
-    }
-
   if((roc<1) || (roc>8))
     {
       printf("%s: ERROR: Invalid roc (%d)\n",
@@ -6592,13 +6831,6 @@ tiRocEnableMask(int rocmask)
       return ERROR;
     }
 
-  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
-    {
-      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
-	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
-      return ERROR;
-    }
-
   if(rocmask>TI_ROCENABLE_MASK)
     {
       printf("%s: ERROR: Invalid rocmask (0x%x)\n",
@@ -6620,13 +6852,6 @@ tiGetRocEnableMask()
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
-      return ERROR;
-    }
-
-  if(tiFirmwareType!=TI_FIRMWARE_TYPE_MODTI)
-    {
-      printf("%s: ERROR: This routine is not supported by current firmware type (%d).  Required = %d",
-	     __FUNCTION__,tiFirmwareType,TI_FIRMWARE_TYPE_MODTI);
       return ERROR;
     }
 
