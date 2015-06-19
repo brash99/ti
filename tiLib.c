@@ -1841,6 +1841,62 @@ tiGetCurrentBlockLevel()
   return bl;
 }
 
+/**
+ * @ingroup Config
+ * @brief Set TS to instantly change blocklevel when broadcast is received.
+ *
+ * @param enable Option to enable or disable this feature
+ *       - 0: Disable
+ *        !0: Enable
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiSetInstantBlockLevelChange(int enable)
+{
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->vmeControl, 
+	       vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_BLOCKLEVEL_UPDATE);
+  else
+    vmeWrite32(&TIp->vmeControl, 
+	       vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_BLOCKLEVEL_UPDATE);
+  TIUNLOCK;
+  
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get Status of instant blocklevel change when broadcast is received.
+ *
+ * @return 1 if enabled, 0 if disabled , ERROR otherwise
+ *
+ */
+int
+tiGetInstantBlockLevelChange()
+{
+  int rval=0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->vmeControl) & TI_VMECONTROL_BLOCKLEVEL_UPDATE)>>21;
+  TIUNLOCK;
+  
+  return rval;
+}
+
 
 /**
  * @ingroup Config

@@ -229,6 +229,7 @@ struct TI_A24RegStruct
 #define TI_VMECONTROL_FIRST_BOARD    (1<<10)
 #define TI_VMECONTROL_LAST_BOARD     (1<<11)
 #define TI_VMECONTROL_BUFFER_DISABLE (1<<15)
+#define TI_VMECONTROL_BLOCKLEVEL_UPDATE (1<<21)
 
 /* 0x20 trigsrc bits and masks */
 #define TI_TRIGSRC_SOURCEMASK       0x0000F3FF
@@ -566,6 +567,8 @@ int  tiSetBlockLevel(int blockLevel);
 int  tiBroadcastNextBlockLevel(int blockLevel);
 int  tiGetNextBlockLevel();
 int  tiGetCurrentBlockLevel();
+int  tiSetInstantBlockLevelChange(int enable);
+int  tiGetInstantBlockLevelChange();
 int  tiSetTriggerSource(int trig);
 int  tiSetTriggerSourceMask(int trigmask);
 int  tiEnableTriggerSource();
