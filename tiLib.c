@@ -728,6 +728,18 @@ tiCheckAddresses()
     printf("%s: ERROR TIp->reset not at offset = 0x%x (@ 0x%x)\n",
 	   __FUNCTION__,expected,offset);
     
+  offset = ((unsigned int) &TIp->SWB_status) - base;
+  expected = 0x2000;
+  if(offset != expected)
+    printf("%s: ERROR TIp->SWB_status not at offset = 0x%x (@ 0x%x)\n",
+	   __FUNCTION__,expected,offset);
+    
+  offset = ((unsigned int) &TIp->SWA_status) - base;
+  expected = 0x2800;
+  if(offset != expected)
+    printf("%s: ERROR TIp->SWA_status not at offset = 0x%x (@ 0x%x)\n",
+	   __FUNCTION__,expected,offset);
+    
   offset = ((unsigned int) &TIp->JTAGPROMBase[0]) - base;
   expected = 0x10000;
   if(offset != expected)
