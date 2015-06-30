@@ -153,8 +153,11 @@ main(int argc, char *argv[]) {
   /* Set the TI structure pointer */
   /*     tiInit((2<<19),TI_READOUT_EXT_POLL,0); */
   tiA32Base=0x09000000;
+  tiSetFiberLatencyOffset_preInit(0x20);
   tiInit(0,TI_READOUT_EXT_POLL,0);
   tiCheckAddresses();
+
+  tiDefinePulserEventType(0xAA,0xCD);
 
   tiSetSyncEventInterval(10);
 
@@ -200,10 +203,10 @@ main(int argc, char *argv[]) {
 
   tiSetBlockBufferLevel(1);
 
-  tiSetFiberDelay(1,2);
-  tiSetSyncDelayWidth(1,0x3f,1);
+/*   tiSetFiberDelay(1,2); */
+/*   tiSetSyncDelayWidth(1,0x3f,1); */
     
-  tiSetBlockLimit(0);
+  tiSetBlockLimit(100);
 
   printf("Hit enter to reset stuff\n");
   getchar();
@@ -230,9 +233,9 @@ main(int argc, char *argv[]) {
   tiStatus(1);
 #define SOFTTRIG
 #ifdef SOFTTRIG
-  tiSetRandomTrigger(1,0x7);
+/*   tiSetRandomTrigger(1,0x7); */
 /*   taskDelay(10); */
-/*   tiSoftTrig(1,0x1,0x700,0); */
+  tiSoftTrig(1,0x1000,0x700,0);
 #endif
 
   printf("Hit any key to Disable TID and exit.\n");
