@@ -55,9 +55,9 @@ pthread_mutex_t   tiMutex = PTHREAD_MUTEX_INITIALIZER;
 /* Global Variables */
 volatile struct TI_A24RegStruct  *TIp=NULL;    /* pointer to TI memory map */
 volatile        unsigned int     *TIpd=NULL;  /* pointer to TI data FIFO */
-int tiA24Offset=0;                            /* Difference in CPU A24 Base and VME A24 Base */
-int tiA32Base  =0x08000000;                   /* Minimum VME A32 Address for use by TI */
-int tiA32Offset=0;                            /* Difference in CPU A32 Base and VME A32 Base */
+unsigned long tiA24Offset=0;                            /* Difference in CPU A24 Base and VME A24 Base */
+unsigned int  tiA32Base  =0x08000000;                   /* Minimum VME A32 Address for use by TI */
+unsigned long tiA32Offset=0;                            /* Difference in CPU A32 Base and VME A32 Base */
 int tiMaster=1;                               /* Whether or not this TI is the Master */
 int tiCrateID=0x59;                           /* Crate ID */
 int tiBlockLevel=0;                           /* Current Block level for TI */
@@ -257,7 +257,7 @@ tiSetFiberIn_preInit(int port)
 int
 tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 {
-  unsigned int laddr;
+  unsigned long laddr;
   unsigned int rval, boardID, prodID, i2cread=0;
   unsigned int firmwareInfo;
   int stat;
@@ -317,7 +317,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       printf("TI address = 0x%x\n",laddr);
     }
 #else
-  stat = vmeBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
+  stat = vmeBusToLocalAdrs(0x39,(char *)(unsigned long)tAddr,(char **)&laddr);
   if (stat != 0) 
     {
       printf("%s: ERROR: Error in vmeBusToLocalAdrs res=%d \n",__FUNCTION__,stat);
@@ -326,7 +326,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   else 
     {
       if(!noBoardInit)
-	printf("TI VME (Local) address = 0x%.8x (0x%.8x)\n",tAddr,laddr);
+	printf("TI VME (Local) address = 0x%.8x (0x%.8lx)\n",tAddr,laddr);
     }
 #endif
   tiA24Offset = laddr-tAddr;
@@ -629,7 +629,8 @@ unsigned int
 tiFind()
 {
   int islot, stat, tiFound=0;
-  unsigned int tAddr, laddr, rval;
+  unsigned int tAddr, rval;
+  unsigned long laddr;
 
   for(islot = 0; islot<20; islot++)
     {
@@ -650,7 +651,7 @@ tiFind()
 #ifdef VXWORKS
       stat = sysBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
 #else
-      stat = vmeBusToLocalAdrs(0x39,(char *)tAddr,(char **)&laddr);
+      stat = vmeBusToLocalAdrs(0x39,(char *)(unsigned long)tAddr,(char **)&laddr);
 #endif
       if(stat != 0)
 	continue;
@@ -692,7 +693,7 @@ tiFind()
 int
 tiCheckAddresses()
 {
-  unsigned int offset=0, expected=0, base=0;
+  unsigned long offset=0, expected=0, base=0;
   
   if(TIp==NULL)
     {
@@ -702,66 +703,66 @@ tiCheckAddresses()
 
   printf("%s:\n\t ---------- Checking TI address space ---------- \n",__FUNCTION__);
 
-  base = (unsigned int) &TIp->boardID;
+  base = (unsigned long) &TIp->boardID;
 
-  offset = ((unsigned int) &TIp->trigsrc) - base;
+  offset = ((unsigned long) &TIp->trigsrc) - base;
   expected = 0x20;
   if(offset != expected)
-    printf("%s: ERROR TIp->triggerSource not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->triggerSource not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
 
-  offset = ((unsigned int) &TIp->syncWidth) - base;
+  offset = ((unsigned long) &TIp->syncWidth) - base;
   expected = 0x80;
   if(offset != expected)
-    printf("%s: ERROR TIp->syncWidth not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->syncWidth not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->adr24) - base;
+  offset = ((unsigned long) &TIp->adr24) - base;
   expected = 0xD0;
   if(offset != expected)
-    printf("%s: ERROR TIp->adr24 not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->adr24 not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->reset) - base;
+  offset = ((unsigned long) &TIp->reset) - base;
   expected = 0x100;
   if(offset != expected)
-    printf("%s: ERROR TIp->reset not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->reset not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->SWB_status) - base;
+  offset = ((unsigned long) &TIp->SWB_status) - base;
   expected = 0x2000;
   if(offset != expected)
-    printf("%s: ERROR TIp->SWB_status not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->SWB_status not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->SWA_status) - base;
+  offset = ((unsigned long) &TIp->SWA_status) - base;
   expected = 0x2800;
   if(offset != expected)
-    printf("%s: ERROR TIp->SWA_status not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->SWA_status not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->JTAGPROMBase[0]) - base;
+  offset = ((unsigned long) &TIp->JTAGPROMBase[0]) - base;
   expected = 0x10000;
   if(offset != expected)
-    printf("%s: ERROR TIp->JTAGPROMBase[0] not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->JTAGPROMBase[0] not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->JTAGFPGABase[0]) - base;
+  offset = ((unsigned long) &TIp->JTAGFPGABase[0]) - base;
   expected = 0x20000;
   if(offset != expected)
-    printf("%s: ERROR TIp->JTAGFPGABase[0] not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->JTAGFPGABase[0] not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->SWA) - base;
+  offset = ((unsigned long) &TIp->SWA) - base;
   expected = 0x30000;
   if(offset != expected)
-    printf("%s: ERROR TIp->SWA not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->SWA not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
     
-  offset = ((unsigned int) &TIp->SWB) - base;
+  offset = ((unsigned long) &TIp->SWB) - base;
   expected = 0x40000;
   if(offset != expected)
-    printf("%s: ERROR TIp->SWB not at offset = 0x%x (@ 0x%x)\n",
+    printf("%s: ERROR TIp->SWB not at offset = 0x%lx (@ 0x%lx)\n",
 	   __FUNCTION__,expected,offset);
 
   return OK;
@@ -782,7 +783,7 @@ tiStatus(int pflag)
   int iinp, iblock, ifiber;
   unsigned int blockStatus[5], nblocksReady, nblocksNeedAck;
   unsigned int fibermask;
-  unsigned int TIBase;
+  unsigned long TIBase;
   unsigned long long int l1a_count=0;
 
   if(TIp==NULL)
@@ -837,15 +838,15 @@ tiStatus(int pflag)
   ro.GTPtriggerBufferLength = vmeRead32(&TIp->GTPtriggerBufferLength);
   TIUNLOCK;
 
-  TIBase = (unsigned int)TIp;
+  TIBase = (unsigned long)TIp;
 
   printf("\n");
 #ifdef VXWORKS
   printf("STATUS for TI at base address 0x%08x \n",
 	 (unsigned int) TIp);
 #else
-  printf("STATUS for TI at VME (Local) base address 0x%08x (0x%08x) \n",
-	 (unsigned int) TIp - tiA24Offset, (unsigned int) TIp);
+  printf("STATUS for TI at VME (Local) base address 0x%08lx (0x%lx) \n",
+	 (unsigned long) TIp - tiA24Offset, (unsigned long) TIp);
 #endif
   printf("--------------------------------------------------------------------------------\n");
   printf(" A32 Data buffer ");
@@ -854,10 +855,10 @@ tiStatus(int pflag)
       printf("ENABLED at ");
 #ifdef VXWORKS
       printf("base address 0x%08x\n",
-	     (unsigned int)TIpd);
+	     (unsigned long)TIpd);
 #else
-      printf("VME (Local) base address 0x%08x (0x%08x)\n",
-	     (unsigned int)TIpd - tiA32Offset, (unsigned int)TIpd);
+      printf("VME (Local) base address 0x%08lx (0x%lx)\n",
+	     (unsigned long)TIpd - tiA32Offset, (unsigned long)TIpd);
 #endif
     }
   else
@@ -878,28 +879,28 @@ tiStatus(int pflag)
   if(pflag>0)
     {
       printf(" Registers (offset):\n");
-      printf("  boardID        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->boardID) - TIBase, ro.boardID);
-      printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiber) - TIBase, ro.fiber);
-      printf("  intsetup       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->intsetup) - TIBase, ro.intsetup);
-      printf("  trigDelay      (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->trigDelay) - TIBase, ro.trigDelay);
-      printf("  adr32          (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->adr32) - TIBase, ro.adr32);
-      printf("  blocklevel     (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->blocklevel) - TIBase, ro.blocklevel);
-      printf("  vmeControl     (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->vmeControl) - TIBase, ro.vmeControl);
-      printf("  trigger        (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->trigsrc) - TIBase, ro.trigsrc);
-      printf("  sync           (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->sync) - TIBase, ro.sync);
-      printf("  busy           (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->busy) - TIBase, ro.busy);
-      printf("  clock          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->clock) - TIBase, ro.clock);
-      printf("  blockBuffer    (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->blockBuffer) - TIBase, ro.blockBuffer);
+      printf("  boardID        (0x%04lx) = 0x%08x\t", (unsigned long)&TIp->boardID - TIBase, ro.boardID);
+      printf("  fiber          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiber) - TIBase, ro.fiber);
+      printf("  intsetup       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->intsetup) - TIBase, ro.intsetup);
+      printf("  trigDelay      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->trigDelay) - TIBase, ro.trigDelay);
+      printf("  adr32          (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->adr32) - TIBase, ro.adr32);
+      printf("  blocklevel     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->blocklevel) - TIBase, ro.blocklevel);
+      printf("  vmeControl     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->vmeControl) - TIBase, ro.vmeControl);
+      printf("  trigger        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->trigsrc) - TIBase, ro.trigsrc);
+      printf("  sync           (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->sync) - TIBase, ro.sync);
+      printf("  busy           (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->busy) - TIBase, ro.busy);
+      printf("  clock          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->clock) - TIBase, ro.clock);
+      printf("  blockBuffer    (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->blockBuffer) - TIBase, ro.blockBuffer);
       
-      printf("  output         (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->output) - TIBase, ro.output);
-      printf("  fiberSyncDelay (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiberSyncDelay) - TIBase, ro.fiberSyncDelay);
+      printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->output) - TIBase, ro.output);
+      printf("  fiberSyncDelay (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro.fiberSyncDelay);
 
-      printf("  GTPStatusA     (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->GTPStatusA) - TIBase, ro.GTPStatusA);
-      printf("  GTPStatusB     (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->GTPStatusB) - TIBase, ro.GTPStatusB);
+      printf("  GTPStatusA     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro.GTPStatusA);
+      printf("  GTPStatusB     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro.GTPStatusB);
       
-      printf("  livetime       (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->livetime) - TIBase, ro.livetime);
-      printf("  busytime       (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->busytime) - TIBase, ro.busytime);
-      printf("  GTPTrgBufLen   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->GTPtriggerBufferLength) - TIBase, ro.GTPtriggerBufferLength);
+      printf("  livetime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->livetime) - TIBase, ro.livetime);
+      printf("  busytime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->busytime) - TIBase, ro.busytime);
+      printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro.GTPtriggerBufferLength);
     }
   printf("\n");
 
@@ -921,7 +922,7 @@ tiStatus(int pflag)
     {
       if(fibermask)
 	{
-	  printf(" HFBR enabled (0x%x)= \n",fibermask);
+	  printf(" HFBR enabled (0x%x)= \n",fibermask&0xf);
 	  for(ifiber=0; ifiber<8; ifiber++)
 	    {
 	      if( fibermask & (1<<ifiber) ) 
@@ -1306,23 +1307,23 @@ tiSlaveStatus(int pflag)
 
   TIUNLOCK;
 
-  TIBase = (unsigned int)TIp;
+  TIBase = (unsigned long)TIp;
 
   if(pflag>0)
     {
       printf(" Registers (offset):\n");
-      printf("  TIBase     (0x%08x)\n",TIBase-tiA24Offset);
-      printf("  busy           (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->busy) - TIBase, busy);
-      printf("  fiber          (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->fiber) - TIBase, fiber);
-      printf("  hfbr_tiID[0]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[0]) - TIBase, hfbr_tiID[0]);
-      printf("  hfbr_tiID[1]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[1]) - TIBase, hfbr_tiID[1]);
-      printf("  hfbr_tiID[2]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[2]) - TIBase, hfbr_tiID[2]);
-      printf("  hfbr_tiID[3]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[3]) - TIBase, hfbr_tiID[3]);
-      printf("  hfbr_tiID[4]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[4]) - TIBase, hfbr_tiID[4]);
-      printf("  hfbr_tiID[5]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[5]) - TIBase, hfbr_tiID[5]);
-      printf("  hfbr_tiID[6]   (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->hfbr_tiID[6]) - TIBase, hfbr_tiID[6]);
-      printf("  hfbr_tiID[7]   (0x%04x) = 0x%08x\n", (unsigned int)(&TIp->hfbr_tiID[7]) - TIBase, hfbr_tiID[7]);
-      printf("  master_tiID    (0x%04x) = 0x%08x\t", (unsigned int)(&TIp->master_tiID) - TIBase, master_tiID);
+      printf("  TIBase     (0x%08x)\n",(unsigned int)(TIBase-tiA24Offset));
+      printf("  busy           (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->busy) - TIBase, busy);
+      printf("  fiber          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiber) - TIBase, fiber);
+      printf("  hfbr_tiID[0]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->hfbr_tiID[0]) - TIBase, hfbr_tiID[0]);
+      printf("  hfbr_tiID[1]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->hfbr_tiID[1]) - TIBase, hfbr_tiID[1]);
+      printf("  hfbr_tiID[2]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->hfbr_tiID[2]) - TIBase, hfbr_tiID[2]);
+      printf("  hfbr_tiID[3]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->hfbr_tiID[3]) - TIBase, hfbr_tiID[3]);
+      printf("  hfbr_tiID[4]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->hfbr_tiID[4]) - TIBase, hfbr_tiID[4]);
+      printf("  hfbr_tiID[5]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->hfbr_tiID[5]) - TIBase, hfbr_tiID[5]);
+      printf("  hfbr_tiID[6]   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->hfbr_tiID[6]) - TIBase, hfbr_tiID[6]);
+      printf("  hfbr_tiID[7]   (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->hfbr_tiID[7]) - TIBase, hfbr_tiID[7]);
+      printf("  master_tiID    (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->master_tiID) - TIBase, master_tiID);
 
       printf("\n");
     }
@@ -1960,6 +1961,8 @@ tiSetTriggerSource(int trig)
 		     __FUNCTION__);
 	      trigenable |= TI_TRIGSRC_HFBR5;
 	    }
+
+	  trigenable |= TI_TRIGSRC_HFBR1;
 	  switch(trig)
 	    {
 	    case TI_TRIGGER_PART_1:
@@ -2483,7 +2486,7 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	 to calling the read routine */
       
       /* Check for 8 byte boundary for address - insert dummy word (Slot 0 FADC Dummy DATA)*/
-      if((unsigned long) (data)&0x7) 
+      if((unsigned long) (data)&0x7)
 	{
 #ifdef VXWORKS
 	  *data = (TI_DATA_TYPE_DEFINE_MASK) | (TI_FILLER_WORD_TYPE) | (tiSlotNumber<<22);
@@ -2499,12 +2502,12 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	  laddr = data;
 	}
       
-      vmeAdr = ((unsigned int)(TIpd) - tiA32Offset);
+      vmeAdr = (unsigned long)TIpd - tiA32Offset;
 
 #ifdef VXWORKS
       retVal = sysVmeDmaSend((UINT32)laddr, vmeAdr, (nwrds<<2), 0);
 #else
-      retVal = vmeDmaSend((UINT32)laddr, vmeAdr, (nwrds<<2));
+      retVal = vmeDmaSend((unsigned long)laddr, vmeAdr, (nwrds<<2));
 #endif
       if(retVal != 0) 
 	{
@@ -2659,11 +2662,15 @@ tiReadTriggerBlock(volatile unsigned int *data)
   if(rval < 0)
     {
       /* Error occurred */
+      logMsg("tiReadTriggerBlock: ERROR: tiReadBlock returned ERROR\n",
+	     1,2,3,4,5,6);
       return ERROR;
     }
   else if (rval == 0)
     {
       /* No data returned */
+      logMsg("tiReadTriggerBlock: WARN: No data available\n",
+	     1,2,3,4,5,6);
       return 0; 
     }
 
@@ -2765,6 +2772,126 @@ tiReadTriggerBlock(volatile unsigned int *data)
 
   return rval;
 
+}
+
+int
+tiCheckTriggerBlock(volatile unsigned int *data)
+{
+  unsigned int blen=0, blevel=0, evlen=0;
+  int iword=0, iev=0, ievword=0;
+  int rval=OK;
+
+  printf("--------------------------------------------------------------------------------\n");
+  /* First word should be the trigger bank length */
+  blen = data[iword];
+  printf("%4d: %08X - TRIGGER BANK LENGTH - len = %d\n",iword, data[iword], blen);
+  iword++;
+
+  /* Trigger Bank Header */
+  if( ((data[iword] & 0xFF100000)>>16 != 0xFF10) ||
+      ((data[iword] & 0x0000FF00)>>8 != 0x20) )
+    {
+      rval = ERROR;
+      printf("%4d: %08X - **** INVALID TRIGGER BANK HEADER ****\n",
+	     iword, 
+	     data[iword]);
+      iword++;
+      while(iword<blen+1)
+	{
+	  if(iword>blen)
+	    {
+	      rval = ERROR;
+	      printf("----: **** ERROR: Data continues past Trigger Bank Length (%d) ****\n",blen);
+	    }
+	  printf("%4d: %08X - **** REST OF DATA ****\n",
+		 iword,
+		 data[iword]);
+	  iword++;
+	}
+    }
+  else
+    {
+      if(iword>blen)
+	{
+	  rval = ERROR;
+	  printf("----: **** ERROR: Data continues past Trigger Bank Length (%d) ****\n",blen);
+	}
+      blevel = data[iword] & 0xFF;
+      printf("%4d: %08X - TRIGGER BANK HEADER - type = %d  blocklevel = %d\n",
+	     iword, 
+	     data[iword],
+	     (data[iword] & 0x000F0000)>>16, 
+	     blevel);
+      iword++;
+
+      for(iev=0; iev<blevel; iev++)
+	{
+	  if(iword>blen)
+	    {
+	      rval = ERROR;
+	      printf("----: **** ERROR: Data continues past Trigger Bank Length (%d) ****\n",blen);
+	    }
+	  
+	  if((data[iword] & 0x00FF0000)>>16!=0x01)
+	    {
+	      rval = ERROR;
+	      printf("%4d: %08x - **** INVALID EVENT HEADER ****\n",
+		     iword, data[iword]);
+	      iword++;
+	      while(iword<blen+1)
+		{
+		  printf("%4d: %08X - **** REST OF DATA ****\n",
+			 iword,
+			 data[iword]);
+		  iword++;
+		}
+	      break;
+	    }
+	  else
+	    {
+	      if(iword>blen)
+		{
+		  rval = ERROR;
+		  printf("----: **** ERROR: Data continues past Trigger Bank Length (%d) ****\n",blen);
+		}
+	      
+	      evlen = data[iword] & 0x0000FFFF;
+	      printf("%4d: %08x - EVENT HEADER - trigtype = %d  len = %d\n",
+		     iword,
+		     data[iword],
+		     (data[iword] & 0xFF000000)>>24,
+		     evlen);
+	      iword++;
+
+	      if(iword>blen)
+		{
+		  rval = ERROR;
+		  printf("----: **** ERROR: Data continues past Trigger Bank Length (%d) ****\n",blen);
+		}
+
+	      printf("%4d: %08x - EVENT NUMBER - evnum = %d\n",
+		     iword,
+		     data[iword],
+		     data[iword]);
+	      iword++;
+	      for(ievword=1; ievword<evlen; ievword++)
+		{
+		  if(iword>blen)
+		    {
+		      rval = ERROR;
+		      printf("----: **** ERROR: Data continues past Trigger Bank Length (%d) ****\n",blen);
+		    }
+		  printf("%4d: %08X - EVENT DATA\n",
+			 iword,
+			 data[iword]);
+		  iword++;
+		}
+	    }
+	}
+    }
+
+  printf("--------------------------------------------------------------------------------\n");
+  return rval;
 }
 
 /**
@@ -3635,7 +3762,7 @@ tiSetAdr32(unsigned int a32base)
       return(ERROR);
     }
 #else
-  res = vmeBusToLocalAdrs(0x09,(char *)a32base,(char **)&laddr);
+  res = vmeBusToLocalAdrs(0x09,(char *)(unsigned long)a32base,(char **)&laddr);
   if (res != 0) 
     {
       printf("%s: ERROR in vmeBusToLocalAdrs(0x09,0x%x,&laddr) \n",
