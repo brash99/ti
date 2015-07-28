@@ -23,7 +23,7 @@ extern unsigned int *dma_dabufp;
 
 extern int tiA32Base;
 
-#define BLOCKLEVEL 2
+#define BLOCKLEVEL 30
 
 #define DO_READOUT
 
@@ -36,6 +36,7 @@ mytiISR(int arg)
   DMANODE *outEvent;
   int tibready=0, timeout=0;
   int printout = 1;
+  int dataCheck=0;
 
   unsigned int tiIntCount = tiGetIntCount();
 
@@ -49,7 +50,6 @@ mytiISR(int arg)
       printf("%s: ERROR: tiIntPoll returned ERROR.\n",__FUNCTION__);
       return;
     }
-
   if(tibready==0 && timeout<100)
     {
       printf("NOT READY!\n");
@@ -63,15 +63,19 @@ mytiISR(int arg)
       return;
     }
 #endif
+  /* *dma_dabufp++; */
 
-  dCnt = tiReadBlock(dma_dabufp,3*BLOCKLEVEL+10,1);
-/*   dCnt = tiReadTriggerBlock(dma_dabufp); */
+/*   dCnt = tiReadBlock(dma_dabufp,3*BLOCKLEVEL+10,1); */
+  dCnt = tiReadTriggerBlock(dma_dabufp);
+  jlabgefReadDMARegs();
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);
+      dataCheck=ERROR;
     }
   else
     {
+      dataCheck = tiCheckTriggerBlock(dma_dabufp);
       dma_dabufp += dCnt;
       /*       printf("dCnt = %d\n",dCnt); */
     
@@ -105,13 +109,18 @@ mytiISR(int arg)
     printf("intCount = %d\n",tiIntCount );
 /*     sleep(1); */
 
-  static int bl = BLOCKLEVEL;
-  if(tiGetSyncEventFlag())                                                      
-    {                                                                           
-/*       tiSetBlockLevel(bl++);                                               */
-      printf("SE: Curr BL = %d\n",tiGetCurrentBlockLevel());                    
-      printf("SE: Next BL = %d\n",tiGetNextBlockLevel());                       
-    }                                                                           
+/*   static int bl = BLOCKLEVEL; */
+/*   if(tiGetSyncEventFlag())                                                       */
+/*     {                                                                            */
+/* /\*       tiSetBlockLevel(bl++);                                               *\/ */
+/*       printf("SE: Curr BL = %d\n",tiGetCurrentBlockLevel());                     */
+/*       printf("SE: Next BL = %d\n",tiGetNextBlockLevel());                        */
+/*     }                                                                            */
+
+  if(dataCheck!=OK)
+    {
+      tiSetBlockLimit(1);
+    }
  
 }
 
@@ -126,6 +135,9 @@ main(int argc, char *argv[]) {
 
 /*   remexSetCmsgServer("dafarm28"); */
 /*   remexInit(NULL,1); */
+
+  printf("Size of DMANODE    = %d (0x%x)\n",sizeof(DMANODE),sizeof(DMANODE));
+  printf("Size of DMA_MEM_ID = %d (0x%x)\n",sizeof(DMA_MEM_ID),sizeof(DMA_MEM_ID));
 
   vmeOpenDefaultWindows();
 
@@ -142,7 +154,7 @@ main(int argc, char *argv[]) {
   /* INIT dmaPList */
 
   dmaPFreeAll();
-  vmeIN  = dmaPCreate("vmeIN",10244,500,0);
+  vmeIN  = dmaPCreate("vmeIN",10240,50,0);
   vmeOUT = dmaPCreate("vmeOUT",0,0,0);
     
   dmaPStatsAll();
@@ -154,7 +166,7 @@ main(int argc, char *argv[]) {
   /*     tiInit((2<<19),TI_READOUT_EXT_POLL,0); */
   tiA32Base=0x09000000;
   tiSetFiberLatencyOffset_preInit(0x20);
-  tiInit(0,TI_READOUT_EXT_POLL,0);
+  tiInit(0,TI_READOUT_EXT_POLL,TI_INIT_SKIP_FIRMWARE_CHECK);
   tiCheckAddresses();
 
   tiDefinePulserEventType(0xAA,0xCD);
@@ -199,7 +211,7 @@ main(int argc, char *argv[]) {
   /*     tiSetGenInput(0xffff); */
   /*     tiSetGTPInput(0x0); */
 
-/*   tiSetBusySource(TI_BUSY_LOOPBACK,1); */
+  tiSetBusySource(TI_BUSY_LOOPBACK,1);
 
   tiSetBlockBufferLevel(1);
 
@@ -233,9 +245,9 @@ main(int argc, char *argv[]) {
   tiStatus(1);
 #define SOFTTRIG
 #ifdef SOFTTRIG
-/*   tiSetRandomTrigger(1,0x7); */
+  tiSetRandomTrigger(1,0x7);
 /*   taskDelay(10); */
-  tiSoftTrig(1,0x1000,0x700,0);
+/*   tiSoftTrig(1,0x1000,0x700,0); */
 #endif
 
   printf("Hit any key to Disable TID and exit.\n");

@@ -136,7 +136,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x018
+#define TI_SUPPORTED_FIRMWARE 0x019
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -582,6 +582,7 @@ int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
 int  tiReadTriggerBlock(volatile unsigned int *data);
+int  tiCheckTriggerBlock(volatile unsigned int *data);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
