@@ -7,9 +7,6 @@
 #    running on an Intel-based controller running Linux
 #
 #
-# $Date$
-# $Rev$
-#
 # Uncomment DEBUG line for debugging info ( -g and -Wall )
 DEBUG=1
 #
