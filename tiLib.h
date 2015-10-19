@@ -106,19 +106,21 @@ struct TI_A24RegStruct
   /** 0x00104 */ volatile unsigned int fpDelay[2];
   /** 0x0010C */          unsigned int blank6[(0x110-0x10C)/4];
   /** 0x00110 */          unsigned int busy_scaler1[7];
-  /** 0x0012C */          unsigned int blank7[(0x140-0x12C)/4];
+  /** 0x0012C */          unsigned int blank7[(0x138-0x12C)/4];
+  /** 0x00138 */ volatile unsigned int triggerRuleMin;
+  /** 0x0013C */          unsigned int blank8;
   /** 0x00140 */ volatile unsigned int trigTable[(0x180-0x140)/4];
   /** 0x00180 */ volatile unsigned int ts_scaler[6];
-  /** 0x00198 */          unsigned int blank8;
+  /** 0x00198 */          unsigned int blank9;
   /** 0x0019C */ volatile unsigned int busy_scaler2[9];
-  /** 0x001C0 */          unsigned int blank9[(0x1D0-0x1C0)/4];
+  /** 0x001C0 */          unsigned int blank10[(0x1D0-0x1C0)/4];
   /** 0x001D0 */ volatile unsigned int hfbr_tiID[8];
   /** 0x001F0 */ volatile unsigned int master_tiID;
-  /** 0x001F4 */          unsigned int blank10[(0x2000-0x1F4)/4];
+  /** 0x001F4 */          unsigned int blank11[(0x2000-0x1F4)/4];
   /** 0x02000 */ volatile unsigned int SWB_status[(0x2200-0x2000)/4];
-  /** 0x02200 */          unsigned int blank11[(0x2800-0x2200)/4];
+  /** 0x02200 */          unsigned int blank12[(0x2800-0x2200)/4];
   /** 0x02800 */ volatile unsigned int SWA_status[(0x3000-0x2800)/4];
-  /** 0x03000 */          unsigned int blank12[(0xFFFC-0x3000)/4];
+  /** 0x03000 */          unsigned int blank13[(0xFFFC-0x3000)/4];
   /** 0x0FFFC */ volatile unsigned int eJTAGLoad;
   /** 0x10000 */ volatile unsigned int JTAGPROMBase[(0x20000-0x10000)/4];
   /** 0x20000 */ volatile unsigned int JTAGFPGABase[(0x30000-0x20000)/4];
@@ -136,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x019
+#define TI_SUPPORTED_FIRMWARE 0x021
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -496,6 +498,14 @@ struct TI_A24RegStruct
 /* 0x104 fpDelay Masks */
 #define TI_FPDELAY_MASK(x) (0x1FF<<(10*(x%3)))
 
+/* 0x138 triggerRuleMin bits and masks */
+#define TI_TRIGGERRULEMIN_MIN2_MASK  0x00007F00
+#define TI_TRIGGERRULEMIN_MIN2_EN    (1<<15)
+#define TI_TRIGGERRULEMIN_MIN3_MASK  0x007F0000
+#define TI_TRIGGERRULEMIN_MIN3_EN    (1<<23)
+#define TI_TRIGGERRULEMIN_MIN4_MASK  0x7F000000
+#define TI_TRIGGERRULEMIN_MIN4_EN    (1<<31)
+
 /* 0x1D0-0x1F0 TI ID bits and masks */
 #define TI_ID_TRIGSRC_ENABLE_MASK     0x000000FF
 #define TI_ID_CRATEID_MASK            0x0000FF00
@@ -629,6 +639,8 @@ void  tiSetFiberDelay(unsigned int delay, unsigned int offset);
 int  tiAddSlave(unsigned int fiber);
 int  tiSetTriggerHoldoff(int rule, unsigned int value, int timestep);
 int  tiGetTriggerHoldoff(int rule);
+int  tiSetTriggerHoldoffMin(int rule, unsigned int value);
+int  tiGetTriggerHoldoffMin(int rule, int pflag);
 
 int  tiDisableDataReadout();
 int  tiEnableDataReadout();

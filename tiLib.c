@@ -4588,7 +4588,7 @@ tiGetTriggerHoldoff(int rule)
   
   if(rule<1 || rule>5)
     {
-      printf("%s: ERROR: Invalid value for rule (%d).  Must be 1 or 2.\n",
+      printf("%s: ERROR: Invalid value for rule (%d).  Must be 1-4.\n",
 	     __FUNCTION__,rule);
       return ERROR;
     }
@@ -4620,6 +4620,144 @@ tiGetTriggerHoldoff(int rule)
 
 }
 
+/**
+ * @ingroup MasterConfig
+ * @brief Set the value for the minimum time of specified trigger rule.
+ *
+ * @param   rule  the number of triggers within some time period..
+ *            e.g. rule=1: No more than ONE trigger within the
+ *                         specified time period
+ *
+ * @param   value  the specified time period (in steps of timestep)
+ *<pre>
+ *       	 	      rule
+ *    		         2      3      4
+ *    		       ----- ------ ------
+ *    		        16ns  480ns  480ns 
+ *</pre>
+ *
+ * @return OK if successful, otherwise ERROR.
+ *
+ */
+int
+tiSetTriggerHoldoffMin(int rule, unsigned int value)
+{
+  unsigned int mask=0, enable=0, shift=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  if(rule<2 || rule>5)
+    {
+      printf("%s: ERROR: Invalid rule (%d).  Must be 2-4.\n",
+	     __FUNCTION__,rule);
+      return ERROR;
+    }
+
+  if(value > 0x7f)
+    {
+      printf("%s: ERROR: Invalid value (%d). Must be less than %d.\n",
+	     __FUNCTION__,value,0x7f);
+      return ERROR;
+    }
+
+  switch(rule)
+    {
+    case 2:
+      mask = ~(TI_TRIGGERRULEMIN_MIN2_MASK | TI_TRIGGERRULEMIN_MIN2_EN);
+      enable = TI_TRIGGERRULEMIN_MIN2_EN;
+      shift = 8;
+      break;
+    case 3:
+      mask = ~(TI_TRIGGERRULEMIN_MIN3_MASK | TI_TRIGGERRULEMIN_MIN3_EN);
+      enable = TI_TRIGGERRULEMIN_MIN3_EN;
+      shift = 16;
+      break;
+    case 4:
+      mask = ~(TI_TRIGGERRULEMIN_MIN4_MASK | TI_TRIGGERRULEMIN_MIN4_EN);
+      enable = TI_TRIGGERRULEMIN_MIN4_EN;
+      shift = 24;
+      break;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerRuleMin, 
+	     (vmeRead32(&TIp->triggerRuleMin) & mask) |
+	     enable |
+	     (value << shift) );
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get the value for a specified trigger rule minimum busy.
+ *
+ * @param   rule   the number of triggers within some time period..
+ *            e.g. rule=1: No more than ONE trigger within the
+ *                         specified time period
+ *
+ * @param  pflag  if not 0, print the setting to standard out.
+ *
+ * @return If successful, returns the value 
+ *          (in steps of 16ns for rule 2, 480ns otherwise) 
+ *            for the specified rule. ERROR, otherwise.
+ *
+ */
+int
+tiGetTriggerHoldoffMin(int rule, int pflag)
+{
+  int rval=0;
+  unsigned int mask=0, enable=0, shift=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  if(rule<2 || rule>5)
+    {
+      printf("%s: ERROR: Invalid rule (%d).  Must be 2-4.\n",
+	     __FUNCTION__,rule);
+      return ERROR;
+    }
+
+  switch(rule)
+    {
+    case 2:
+      mask = TI_TRIGGERRULEMIN_MIN2_MASK;
+      enable = TI_TRIGGERRULEMIN_MIN2_EN;
+      shift = 8;
+      break;
+    case 3:
+      mask = TI_TRIGGERRULEMIN_MIN3_MASK;
+      enable = TI_TRIGGERRULEMIN_MIN3_EN;
+      shift = 16;
+      break;
+    case 4:
+      mask = TI_TRIGGERRULEMIN_MIN4_MASK;
+      enable = TI_TRIGGERRULEMIN_MIN4_EN;
+      shift = 24;
+      break;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->triggerRuleMin) & mask)>>shift;
+  TIUNLOCK;
+
+  if(pflag)
+    {
+      printf("%s: Trigger rule %d  minimum busy = %d - %s\n",
+	     __FUNCTION__,rule,
+	     rval & 0x7f,
+	     (rval & (1<<7))?"ENABLED":"DISABLED");
+    }
+
+  return rval & ~(1<<8);
+}
 
 /**
  *  @ingroup Config
