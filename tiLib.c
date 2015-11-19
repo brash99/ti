@@ -589,9 +589,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   /* Set Event format for CODA 3.0 */
   tiSetEventFormat(3);
 
-  /* Set Default Trig1 and Trig2 delay=4ns (0+1)*4ns, width=64ns (15+1)*4ns */
-  tiSetTriggerPulse(1,0,15);
-  tiSetTriggerPulse(2,0,15);
+  /* Set Default Trig1 and Trig2 delay=16ns (0+1)*16ns, width=64ns (15+1)*4ns */
+  tiSetTriggerPulse(1,0,15,0);
+  tiSetTriggerPulse(2,0,15,0);
 
   /* Set the default prescale factor to 0 for rate/(0+1) */
   tiSetPrescale(0);
@@ -3397,13 +3397,16 @@ tiGetInputPrescale(int input)
  *  @param trigger
  *           - 1: set for trigger 1
  *           - 2: set for trigger 2 (playback trigger)
- *  @param delay    delay in units of 4ns
+ *  @param delay    delay in units of delay_step
  *  @param width    pulse width in units of 4ns
+ *  @param delay_step step size of the delay
+ *         - 0: 16ns
+ *          !0: 64ns (with an offset of ~4.1 us)
  *
  * @return OK if successful, otherwise ERROR
  */
 int
-tiSetTriggerPulse(int trigger, int delay, int width)
+tiSetTriggerPulse(int trigger, int delay, int width, int delay_step)
 {
   unsigned int rval=0;
   if(TIp==NULL)
@@ -3418,7 +3421,7 @@ tiSetTriggerPulse(int trigger, int delay, int width)
 	     __FUNCTION__,trigger);
       return ERROR;
     }
-  if(delay<0 || delay>TI_TRIGDELAY_TRIG1_DELAY_MASK)
+  if(delay<0 || delay>0x7F)
     {
       printf("%s: ERROR: Invalid delay (%d).  Must be less than %d\n",
 	     __FUNCTION__,delay,TI_TRIGDELAY_TRIG1_DELAY_MASK);
@@ -3430,12 +3433,16 @@ tiSetTriggerPulse(int trigger, int delay, int width)
 	     __FUNCTION__,width,TI_TRIGDELAY_TRIG1_WIDTH_MASK);
     }
 
+
   TILOCK;
   if(trigger==1)
     {
       rval = vmeRead32(&TIp->trigDelay) & 
 	~(TI_TRIGDELAY_TRIG1_DELAY_MASK | TI_TRIGDELAY_TRIG1_WIDTH_MASK) ;
       rval |= ( (delay) | (width<<8) );
+      if(delay_step)
+	rval |= TI_TRIGDELAY_TRIG1_64NS_STEP;
+
       vmeWrite32(&TIp->trigDelay, rval);
     }
   if(trigger==2)
@@ -3443,6 +3450,9 @@ tiSetTriggerPulse(int trigger, int delay, int width)
       rval = vmeRead32(&TIp->trigDelay) & 
 	~(TI_TRIGDELAY_TRIG2_DELAY_MASK | TI_TRIGDELAY_TRIG2_WIDTH_MASK) ;
       rval |= ( (delay<<16) | (width<<24) );
+      if(delay_step)
+	rval |= TI_TRIGDELAY_TRIG2_64NS_STEP;
+
       vmeWrite32(&TIp->trigDelay, rval);
     }
   TIUNLOCK;
