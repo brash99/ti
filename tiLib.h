@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x021
+#define TI_SUPPORTED_FIRMWARE 0x023
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -204,6 +204,8 @@ struct TI_A24RegStruct
 #define TI_TRIGDELAY_TRIG1_WIDTH_MASK 0x0000FF00
 #define TI_TRIGDELAY_TRIG2_DELAY_MASK 0x00FF0000
 #define TI_TRIGDELAY_TRIG2_WIDTH_MASK 0xFF000000
+#define TI_TRIGDELAY_TRIG1_64NS_STEP  (1<<7)
+#define TI_TRIGDELAY_TRIG2_64NS_STEP  (1<<23)
 
 /* 0x10 adr32 bits and masks */
 #define TI_ADR32_MBLK_ADDR_MAX_MASK  0x000003FE
@@ -608,7 +610,7 @@ int  tiSetPrescale(int prescale);
 int  tiGetPrescale();
 int  tiSetInputPrescale(int input, int prescale);
 int  tiGetInputPrescale(int input);
-int  tiSetTriggerPulse(int trigger, int delay, int width);
+int  tiSetTriggerPulse(int trigger, int delay, int width, int delay_step);
 int  tiSetPromptTriggerWidth(int width);
 int  tiGetPromptTriggerWidth();
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
