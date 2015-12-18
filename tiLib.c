@@ -26,6 +26,7 @@
 
 #define DEVEL
 
+#include <stdio.h>
 #ifdef VXWORKS
 #include <vxWorks.h>
 #include <sysLib.h>
@@ -42,7 +43,6 @@
 #include <unistd.h>
 #include "jvme.h"
 #endif
-#include <stdio.h>
 #include <string.h>
 #include <pthread.h>
 #include "tiLib.h"
@@ -2330,8 +2330,8 @@ tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range
   if(range==1)
     time = 120+120*period_inc*2048;
 
-  logMsg("\ntiSoftTrig: INFO: Setting software trigger for %d nevents with period of %d\n",
-	 nevents,time,3,4,5,6);
+/*   logMsg("\ntiSoftTrig: INFO: Setting software trigger for %d nevents with period of %d\n", */
+/* 	 nevents,time,3,4,5,6); */
 
   reg = (range<<31)| (period_inc<<16) | (nevents);
   TILOCK;

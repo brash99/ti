@@ -110,12 +110,13 @@ mytiISR(int arg)
 /*     sleep(1); */
 
 /*   static int bl = BLOCKLEVEL; */
-/*   if(tiGetSyncEventFlag())                                                       */
-/*     {                                                                            */
-/* /\*       tiSetBlockLevel(bl++);                                               *\/ */
-/*       printf("SE: Curr BL = %d\n",tiGetCurrentBlockLevel());                     */
-/*       printf("SE: Next BL = %d\n",tiGetNextBlockLevel());                        */
-/*     }                                                                            */
+  if(tiGetSyncEventFlag())
+    {
+      printf("SYNC EVENT\n");
+/*       tiSetBlockLevel(bl++);                                               */
+/*       printf("SE: Curr BL = %d\n",tiGetCurrentBlockLevel()); */
+/*       printf("SE: Next BL = %d\n",tiGetNextBlockLevel()); */
+    }
 
   if(dataCheck!=OK)
     {
@@ -218,7 +219,7 @@ main(int argc, char *argv[]) {
 /*   tiSetFiberDelay(1,2); */
 /*   tiSetSyncDelayWidth(1,0x3f,1); */
     
-  tiSetBlockLimit(100);
+  tiSetBlockLimit(0);
 
   printf("Hit enter to reset stuff\n");
   getchar();

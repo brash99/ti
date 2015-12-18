@@ -66,3 +66,9 @@ V1.5, Apr. 21, 2015: TrigRule range expansion, Rule#4 reached ~500 us.
 V1.6, May 7, 2015: Add the extra trigger word decoding in receiving.  The extra word should be immediately after the trigger word.
 V1.7, May 21, 2015: Add some more BUSY counters (each BUSY source).  Use 0x34 bit(26:24) for number of events for Fastbus readout.
 V1.8, June 17, 2015: use 0x34 bit(23:21) for number of events for FASTBUS readout.  Bit(27:24) back to its original.  
+V1.9, July 23, 2015: Delay the ForcedBlkEnd by one clock cycle (4ns), to match with the ReadOutTrg generated BlkEnd
+     Added the explicit limit on register setting Command(15:9)=0000000.
+V2.1, Oct. 8, 2015: Add a minimum BUSY rule width setting (0x138).
+V2.2, Oct. 13, 2015: Add another event data word for trigger input patterns (raw input pattern).  Use common GTP and MgtpReset modules.
+V2.3, Nov. 18, 2015: Add the trigger pulse delay adjustment.  0x0C, When bit7=1 or bit23=1, use larger step.
+V2.4, Dec. 18, 2015: The added trigger pulse delay affected the ReadoutTrg timing relative to the DSyncEvt (v2.3), fix it
