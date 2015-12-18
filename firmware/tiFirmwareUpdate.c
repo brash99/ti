@@ -463,7 +463,7 @@ tiFirmwareEMload(char *filename)
   char bufRead[1024],bufRead2[256];
   unsigned int sndData[256];
   char *Word[16], *lastn;
-  unsigned int nbits, nbytes, extrType, i, Count, nWords;// nlines;
+  unsigned int nbits, nbytes, extrType, i, Count, nWords, nlines=0;
   unsigned int rval=0;
   int stat=0;
   
@@ -558,11 +558,18 @@ tiFirmwareEMload(char *filename)
   printf("\n");
   fflush(stdout);
 
-  //  for (nlines=0; nlines<200; nlines++)
+  /* Count the total number of lines */
+  while (fgets(bufRead,256,svfFile) != NULL)
+    { 
+      nlines++;
+    }
+
+  rewind(svfFile);
+
   while (fgets(bufRead,256,svfFile) != NULL)
     { 
       lineRead +=1;
-      if((lineRead%15000) ==0)
+      if((lineRead%((int)(nlines/40))) ==0)
 	{
 #ifdef VXWORKS
 	  /* This is pretty filthy... but at least shows some output when it's updating */
@@ -663,7 +670,7 @@ tiFirmwareEMload(char *filename)
 	      //	    printf("RUNTEST delay: %d \n",nbits);
 	      if(nbits>100000)
 		{
-		  printf("Erasing: ..");
+		  printf("Erasing (%.1f seconds): ..",((float)nbits)/2./1000000.);
 		  fflush(stdout);
 		}
 #ifdef VXWORKS
@@ -675,6 +682,7 @@ tiFirmwareEMload(char *filename)
 		{
 		  printf("Done\n");
 		  fflush(stdout);
+		  printf("          ----------------------------------------\n");
 		  printf("Updating: ");
 		  fflush(stdout);
 		}

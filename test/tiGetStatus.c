@@ -46,13 +46,6 @@ main(int argc, char *argv[])
   printf("Firmware version = 0x%x\n",tiGetFirmwareVersion());
   tiStatus(1);
 
-  int i;
-  for(i=1; i<=18; i++)
-    printf("PP %2d = VME %2d\n",i,vxsPayloadPort2vmeSlot(i));
-
-  for(i=1; i<=21; i++)
-    printf("VME %2d = PP %2d\n",i,vmeSlot2vxsPayloadPort(i));
-
  CLOSE:
 
   vmeCloseDefaultWindows();
