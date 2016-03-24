@@ -4508,11 +4508,12 @@ tiAddSlaveMask(unsigned int fibermask)
  * @param   value  the specified time period (in steps of timestep)
  * @param timestep Timestep that is dependent on the trigger rule selected
  *<pre>
- *                   rule
- *    timestep    1      2      3      4
- *    -------   -----  ----- ------ ------
- *       0       16ns   16ns   32ns   64ns 
- *       1      480ns  960ns 1920ns 3840ns 
+ *                           rule
+ *    timestep    1       2       3       4
+ *    --------  ------ ------- ------- --------
+ *       0        16ns    16ns    32ns     64ns
+ *       1       480ns   960ns  1920ns   3840ns
+ *       2     15360ns 30720ns 61440ns 122880ns
  *</pre>
  *
  * @return OK if successful, otherwise ERROR.
@@ -4567,6 +4568,13 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
     }
 
   vmeWrite32(&TIp->triggerRule,wval);
+
+  if(timestep==2)
+    vmeWrite32(&TIp->vmeControl, 
+	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+  else
+    vmeWrite32(&TIp->vmeControl, 
+	     vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
   TIUNLOCK;
 
   return OK;
