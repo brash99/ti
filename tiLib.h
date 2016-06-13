@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x043
+#define TI_SUPPORTED_FIRMWARE 0x054
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -470,8 +470,10 @@ struct TI_A24RegStruct
 
 
 /* 0xEC rocEnable bits and masks */
-#define TI_ROCENABLE_MASK             0x000000FF
-#define TI_ROCENABLE_ROC(x)           (1<<(x))
+#define TI_ROCENABLE_MASK                           0x000000FF
+#define TI_ROCENABLE_ROC(x)                         (1<<(x))
+#define TI_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK  0x0007FC00
+#define TI_ROCENABLE_SYNCRESET_REQUEST_MONITOR_MASK 0x1FF00000
 
 /* 0x100 reset bits and masks */
 #define TI_RESET_I2C                  (1<<1)
@@ -681,6 +683,8 @@ int  tiGetSyncEventInterval();
 int  tiForceSyncEvent();
 int  tiSyncResetRequest();
 int  tiGetSyncResetRequest();
+int  tiEnableSyncResetRequest(unsigned int portMask, int self);
+int  tiSyncResetRequestStatus(int pflag);
 void tiTriggerReadyReset();
 int  tiFillToEndBlock();
 int  tiResetMGT();
