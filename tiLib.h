@@ -222,6 +222,7 @@ struct TI_A24RegStruct
 #define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
 #define TI_DATAFORMAT_TIMING_WORD          (1<<1)
 #define TI_DATAFORMAT_HIGHERBITS_WORD      (1<<2)
+#define TI_DATAFORMAT_FPINPUT_READOUT      (1<<3)
 
 /* 0x1C vmeControl bits and masks */
 #define TI_VMECONTROL_BERR           (1<<0)
@@ -592,6 +593,7 @@ int  tiEnableTriggerSource();
 int  tiDisableTriggerSource(int fflag);
 int  tiSetSyncSource(unsigned int sync);
 int  tiSetEventFormat(int format);
+int  tiSetFPInputReadout(int enable);
 int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range);
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();

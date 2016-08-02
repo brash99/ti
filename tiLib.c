@@ -2278,6 +2278,9 @@ tiSetEventFormat(int format)
 
   TILOCK;
 
+  formatset = vmeRead32(&TIp->dataFormat)
+    & ~(TI_DATAFORMAT_TIMING_WORD | TI_DATAFORMAT_HIGHERBITS_WORD);
+
   switch(format)
     {
     case 0:
@@ -2299,6 +2302,38 @@ tiSetEventFormat(int format)
  
   vmeWrite32(&TIp->dataFormat,formatset);
 
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Config
+ * @brief Set whether or not the latched pattern of FP Inputs in block readout
+ *
+ * @param enable
+ *    - 0: Disable
+ *    - >0: Enable
+ *    
+ * @return OK if successful, otherwise ERROR
+ *    
+ */
+int
+tiSetFPInputReadout(int enable)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->dataFormat,
+	       vmeRead32(&TIp->dataFormat) | TI_DATAFORMAT_FPINPUT_READOUT);
+  else
+    vmeWrite32(&TIp->dataFormat,
+	       vmeRead32(&TIp->dataFormat) & ~TI_DATAFORMAT_FPINPUT_READOUT);
   TIUNLOCK;
 
   return OK;
