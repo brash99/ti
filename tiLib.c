@@ -836,6 +836,8 @@ tiStatus(int pflag)
   ro.nblocks      = vmeRead32(&TIp->nblocks);
 
   ro.GTPtriggerBufferLength = vmeRead32(&TIp->GTPtriggerBufferLength);
+
+  ro.rocEnable    = vmeRead32(&TIp->rocEnable);
   TIUNLOCK;
 
   TIBase = (unsigned long)TIp;
@@ -1094,6 +1096,35 @@ tiStatus(int pflag)
       printf(" No BUSY input source configured\n");
     }
 
+
+  if(ro.rocEnable & TI_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK)
+    {
+      printf(" SyncReset Request ENABLED from ");
+
+      if(ro.rocEnable & (1 << 10))
+	{
+	  printf("SELF ");
+	}
+
+      for(ifiber=0; ifiber<8; ifiber++)
+	{
+	  if(ro.rocEnable & (1 << (ifiber + 1 + 10)))
+	    {
+	      printf("%d ", ifiber + 1);
+	    }
+	}
+
+      printf("\n");
+    }
+  else
+    {
+      printf(" SyncReset Requests DISABLED\n");
+    }
+
+  printf("\n");
+  tiSyncResetRequestStatus(1);
+  printf("\n");
+  
   if(ro.intsetup&TI_INTSETUP_ENABLE)
     printf(" Interrupts ENABLED\n");
   else
@@ -2247,6 +2278,9 @@ tiSetEventFormat(int format)
 
   TILOCK;
 
+  formatset = vmeRead32(&TIp->dataFormat)
+    & ~(TI_DATAFORMAT_TIMING_WORD | TI_DATAFORMAT_HIGHERBITS_WORD);
+
   switch(format)
     {
     case 0:
@@ -2268,6 +2302,38 @@ tiSetEventFormat(int format)
  
   vmeWrite32(&TIp->dataFormat,formatset);
 
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Config
+ * @brief Set whether or not the latched pattern of FP Inputs in block readout
+ *
+ * @param enable
+ *    - 0: Disable
+ *    - >0: Enable
+ *    
+ * @return OK if successful, otherwise ERROR
+ *    
+ */
+int
+tiSetFPInputReadout(int enable)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->dataFormat,
+	       vmeRead32(&TIp->dataFormat) | TI_DATAFORMAT_FPINPUT_READOUT);
+  else
+    vmeWrite32(&TIp->dataFormat,
+	       vmeRead32(&TIp->dataFormat) & ~TI_DATAFORMAT_FPINPUT_READOUT);
   TIUNLOCK;
 
   return OK;
@@ -4508,11 +4574,12 @@ tiAddSlaveMask(unsigned int fibermask)
  * @param   value  the specified time period (in steps of timestep)
  * @param timestep Timestep that is dependent on the trigger rule selected
  *<pre>
- *                   rule
- *    timestep    1      2      3      4
- *    -------   -----  ----- ------ ------
- *       0       16ns   16ns   32ns   64ns 
- *       1      480ns  960ns 1920ns 3840ns 
+ *                           rule
+ *    timestep    1       2       3       4
+ *    --------  ------ ------- ------- --------
+ *       0        16ns    16ns    32ns     64ns
+ *       1       480ns   960ns  1920ns   3840ns
+ *       2     15360ns 30720ns 61440ns 122880ns
  *</pre>
  *
  * @return OK if successful, otherwise ERROR.
@@ -4567,6 +4634,13 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
     }
 
   vmeWrite32(&TIp->triggerRule,wval);
+
+  if(timestep==2)
+    vmeWrite32(&TIp->vmeControl, 
+	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+  else
+    vmeWrite32(&TIp->vmeControl, 
+	     vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
   TIUNLOCK;
 
   return OK;
@@ -6071,6 +6145,113 @@ tiGetSyncResetRequest()
 
   return request;
 }
+
+/**
+ * @ingroup MasterConfig
+ * @brief Configure which ports (and self) to enable response of a SyncReset request.
+ * @param portMask Mask of ports to enable (port 1 = bit 0)
+ * @param self 1 to enable self, 0 to disable
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiEnableSyncResetRequest(unsigned int portMask, int self)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(portMask > 0xFF)
+    {
+      printf("%s: ERROR: Invalid portMask (0x%x)\n",
+	     __FUNCTION__, portMask);
+      return ERROR;
+    }
+
+  /* Mask sure self is binary */
+  if(self)
+    self = 1;
+  else
+    self = 0;
+  
+  TILOCK;
+  vmeWrite32(&TIp->rocEnable,
+	   (vmeRead32(&TIp->rocEnable) & TI_ROCENABLE_MASK) |
+	   (portMask << 11) | (self << 10) );
+  TIUNLOCK;
+  
+  return OK;
+}
+
+/**
+ * @ingroup MasterStatus
+ * @brief Status of SyncReset Request received bits.
+ * @param pflag Print to standard out if not 0
+ * @return Port mask of SyncReset Request received (port 1 = bit 0, TI-Master = bit 8), otherwise ERROR;
+ */
+int
+tiSyncResetRequestStatus(int pflag)
+{
+  int self = 0, rval = 0, ibit = 0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (int)(vmeRead32(&TIp->rocEnable) & TI_ROCENABLE_SYNCRESET_REQUEST_MONITOR_MASK);
+  TIUNLOCK;
+
+  /* Reorganize the bits */
+  if(rval)
+    {
+      self = (rval & 0x1);
+      rval = rval >> 1;
+      rval = rval | (self<<8);
+    }
+
+  if(pflag)
+    {
+      if(rval)
+	{
+	  printf("    ***** SyncReset Requested from ");
+
+	  for(ibit = 0; ibit < 8; ibit++)
+	    {
+	      printf("%d ", ibit + 1);
+	    }
+	  
+	  if(rval & (1 << 8))
+	    {
+	      printf("SELF ");
+	    }
+	  
+	  printf("*****\n");
+	}
+      else
+	{
+	  printf("    No SyncReset Requested\n");
+	}
+    }
+  
+  return rval;
+}
+
 
 /**
  * @ingroup MasterConfig

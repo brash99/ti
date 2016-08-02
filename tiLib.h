@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x024
+#define TI_SUPPORTED_FIRMWARE 0x054
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -222,6 +222,7 @@ struct TI_A24RegStruct
 #define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
 #define TI_DATAFORMAT_TIMING_WORD          (1<<1)
 #define TI_DATAFORMAT_HIGHERBITS_WORD      (1<<2)
+#define TI_DATAFORMAT_FPINPUT_READOUT      (1<<3)
 
 /* 0x1C vmeControl bits and masks */
 #define TI_VMECONTROL_BERR           (1<<0)
@@ -236,6 +237,7 @@ struct TI_A24RegStruct
 #define TI_VMECONTROL_LAST_BOARD     (1<<11)
 #define TI_VMECONTROL_BUFFER_DISABLE (1<<15)
 #define TI_VMECONTROL_BLOCKLEVEL_UPDATE (1<<21)
+#define TI_VMECONTROL_SLOWER_TRIGGER_RULES (1<<31)
 
 /* 0x20 trigsrc bits and masks */
 #define TI_TRIGSRC_SOURCEMASK       0x0000F3FF
@@ -469,8 +471,10 @@ struct TI_A24RegStruct
 
 
 /* 0xEC rocEnable bits and masks */
-#define TI_ROCENABLE_MASK             0x000000FF
-#define TI_ROCENABLE_ROC(x)           (1<<(x))
+#define TI_ROCENABLE_MASK                           0x000000FF
+#define TI_ROCENABLE_ROC(x)                         (1<<(x))
+#define TI_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK  0x0007FC00
+#define TI_ROCENABLE_SYNCRESET_REQUEST_MONITOR_MASK 0x1FF00000
 
 /* 0x100 reset bits and masks */
 #define TI_RESET_I2C                  (1<<1)
@@ -589,6 +593,7 @@ int  tiEnableTriggerSource();
 int  tiDisableTriggerSource(int fflag);
 int  tiSetSyncSource(unsigned int sync);
 int  tiSetEventFormat(int format);
+int  tiSetFPInputReadout(int enable);
 int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range);
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
@@ -680,6 +685,8 @@ int  tiGetSyncEventInterval();
 int  tiForceSyncEvent();
 int  tiSyncResetRequest();
 int  tiGetSyncResetRequest();
+int  tiEnableSyncResetRequest(unsigned int portMask, int self);
+int  tiSyncResetRequestStatus(int pflag);
 void tiTriggerReadyReset();
 int  tiFillToEndBlock();
 int  tiResetMGT();

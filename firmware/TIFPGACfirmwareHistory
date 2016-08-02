@@ -72,3 +72,15 @@ V2.1, Oct. 8, 2015: Add a minimum BUSY rule width setting (0x138).
 V2.2, Oct. 13, 2015: Add another event data word for trigger input patterns (raw input pattern).  Use common GTP and MgtpReset modules.
 V2.3, Nov. 18, 2015: Add the trigger pulse delay adjustment.  0x0C, When bit7=1 or bit23=1, use larger step.
 V2.4, Dec. 18, 2015: The added trigger pulse delay affected the ReadoutTrg timing relative to the DSyncEvt (v2.3), fix it
+V3.1, Jan. 14, 2015: Added the ReadOutFifo_full to TI busy (when BusySrcEn(7) is set).  The DataBuffer_full sets BUSY unconditionally.
+V3.2, Jan. 27, 2016: Updated the ClkSelTrgRule (VmeSetting#31); Added the I2C for optic transceivers. (device#5),
+      Feb. 3, 2016: Added the Trigger_word trigger protection, that is if Triggered, the bit(8) is set to 1;
+V3.3, Feb. 4, 2016: Undo the VmeSetting(30), set the I2CAddr to 0xA0 from 0xD0.
+		Feb. 5, 2016: Add new block I2C_Std, which use StateEn to control the transitions (slowed down by a factor of 16).
+      Feb. 16, 2016: Use I2C_state.vhd for optic transceiver I2C, while the SD/CTP still use the old I2C. I2C_std not used.
+V4.1, Mar. 21, 2016: In TsType module, use BUSY to disable FPtriggered, and DLYBUSY to disable TSxbit.
+     Enable the TsBitPreRst when DlyBusy is true in module TSType.
+V4.2, Mar. 21, 2016: Adjust the Front_panel trigger input timing (quadrant).  Donot use this version
+      Mar. 22, 2016: Remove one clock delay in TimreResetGen, added three clocks for TsxBit(11:10) in TSgen
+		This works for the prod_TI, but not the Rev2_TI.  Racing between Clk250 and Clk625 in TimerResetGen block
+V4.3, Mar. 23, 2016: Add an AND gate in TimerResetGen block to delay the signal from FD_clk625 to FD_clk250.
