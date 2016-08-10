@@ -5317,7 +5317,7 @@ tiGetTriggerWindow()
     }
 
   TILOCK;
-  rval = vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_COINC_MASK;
+  rval = vmeRead32(&TIp->triggerWindow) & TI_TRIGGERWINDOW_COINC_MASK;
   TIUNLOCK;
 
   return rval;
@@ -5434,6 +5434,62 @@ tiGetTrig21Delay()
   return rval;
 }
 
+/**
+ *  @ingroup MasterConfig
+ *  @brief Set the trigger latch pattern readout in the data stream to include
+ *          the Level of the input trigger OR the transition to Hi.
+ *
+ *  @param enable
+ *      1 to enable
+ *     <1 to disable
+ *
+ *  @return OK if successful, otherwise ERROR
+ */
+
+int
+tiSetTriggerLatchOnLevel(int enable)
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(enable < 1)
+    enable = 0;
+
+  TILOCK;
+  vmeWrite32(&TIp->triggerWindow, 
+	     (vmeRead32(&TIp->triggerWindow) & ~TI_TRIGGERWINDOW_LEVEL_LATCH) |
+	     (enable<<31));
+  TIUNLOCK;
+  return OK;
+}
+
+/**
+ *  @ingroup MasterStatus
+ *  @brief Get the trigger latch pattern readout in the data stream to include
+ *          the Level of the input trigger OR the transition to Hi.
+ *
+ *  @return 1 if enabled, 0 if disabled, otherwise ERROR
+ */
+
+int
+tiGetTriggerLatchOnLevel()
+{
+  int rval=0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->triggerWindow) & TI_TRIGGERWINDOW_LEVEL_LATCH)>>31;
+  TIUNLOCK;
+
+return rval;
+}
 
 /**
  *  @ingroup MasterConfig
