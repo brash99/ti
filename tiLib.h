@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x054
+#define TI_SUPPORTED_FIRMWARE 0x061
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -342,6 +342,7 @@ struct TI_A24RegStruct
 #define TI_TRIGGERWINDOW_COINC_MASK   0x000000FF
 #define TI_TRIGGERWINDOW_INHIBIT_MASK 0x0000FF00
 #define TI_TRIGGERWINDOW_TRIG21_MASK  0x01FF0000
+#define TI_TRIGGERWINDOW_LEVEL_LATCH  (1<<31)
 
 /* 0x48 tsInput bits and masks */
 #define TI_TSINPUT_MASK      0x0000003F
@@ -666,6 +667,8 @@ int  tiSetTriggerInhibitWindow(int window_width);
 int  tiGetTriggerInhibitWindow();
 int  tiSetTrig21Delay(int delay);
 int  tiGetTrig21Delay();
+int  tiSetTriggerLatchOnLevel(int enable);
+int  tiGetTriggerLatchOnLevel();
 int  tiLatchTimers();
 unsigned int tiGetLiveTime();
 unsigned int tiGetBusyTime();
