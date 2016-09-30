@@ -6317,6 +6317,7 @@ tiSyncResetRequestStatus(int pflag)
 void
 tiTriggerReadyReset()
 {
+  unsigned int syncsource=0;
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -6330,7 +6331,22 @@ tiTriggerReadyReset()
     }
   
   TILOCK;
+  /* Reset Receiver */
+  vmeWrite32(&TIp->reset, TI_RESET_MGT_RX_RESET);
+  taskDelay(1);
+
+  /* Get the current SyncReset Source */
+  syncsource = vmeRead32(&TIp->sync) & TI_SYNC_SOURCEMASK;
+
+  /* Set Loopback as Source */
+  vmeWrite32(&TIp->sync, TI_SYNC_LOOPBACK);
+
+  /* Send the Trigger Source Enabled Reset */
   vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_TRIGGER_READY_RESET); 
+
+  /* Restore original SyncReset Source */
+  vmeWrite32(&TIp->sync, syncsource);
+
   TIUNLOCK;
 
 
@@ -6387,6 +6403,27 @@ tiResetMGT()
 
   TILOCK;
   vmeWrite32(&TIp->reset, TI_RESET_MGT);
+  TIUNLOCK;
+  taskDelay(1);
+
+  return OK;
+}
+
+/**
+ * @ingroup Config
+ * @brief Reset the MGT Rx CDR
+ */
+int
+tiResetMGTRx()
+{
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_MGT_RX_RESET);
   TIUNLOCK;
   taskDelay(1);
 
