@@ -497,6 +497,7 @@ struct TI_A24RegStruct
 #define TI_RESET_TAKE_TOKEN           (1<<16)
 #define TI_RESET_BLOCK_READOUT        (1<<17)
 #define TI_RESET_FORCE_SYNCEVENT      (1<<20)
+#define TI_RESET_MGT_RX_RESET         (1<<22)
 #define TI_RESET_SYNCRESET_REQUEST    (1<<23)
 #define TI_RESET_SCALERS_LATCH        (1<<24)
 #define TI_RESET_SCALERS_RESET        (1<<25)
