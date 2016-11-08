@@ -9,6 +9,7 @@
 # $Date$
 # $Rev$
 #
+DEBUG=1
 
 ifndef ARCH
 	ifdef LINUXVME_LIB
@@ -45,8 +46,13 @@ LINUXVME_FW	?= ../../firmware
 CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
 RANLIB                  = ranlib
-CFLAGS			= -Wall -O2 -I${LINUXVME_INC} -I. -I/usr/include \
+CFLAGS			= -I${LINUXVME_INC} -I. -I/usr/include \
 			  -L${LINUXVME_LIB} -L.
+ifdef DEBUG
+CFLAGS			+= -Wall -g
+else
+CFLAGS			+= -O2
+endif
 OBJS			=
 PROGS			= tiFirmwareUpdate
 endif

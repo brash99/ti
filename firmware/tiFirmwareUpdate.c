@@ -45,7 +45,7 @@ extern unsigned int sysUnivSetLSI(unsigned short, unsigned short);
 
 
 extern volatile struct TI_A24RegStruct *TIp;
-unsigned int BoardSerialNumber;
+unsigned int BoardSerialNumber = 0;
 unsigned int firmwareInfo;
 char *programName;
 
@@ -62,11 +62,12 @@ tiFirmwareUpdate(unsigned int arg_vmeAddr, char *arg_filename)
 main(int argc, char *argv[])
 #endif
 {
-  int stat;
+  int stat = 0, badInit = 0;
   int BoardNumber;
   char *filename;
   int inputchar=10;
   unsigned int vme_addr=0,laddr=0;
+  int geo = 0;
 
   printf("\nTI firmware update via VME\n");
   printf("----------------------------\n");
@@ -88,6 +89,7 @@ main(int argc, char *argv[])
   else
     {
       vme_addr = (unsigned int) strtoll(argv[1],NULL,16)&0xffffffff;
+      if(vme_addr <= 21) vme_addr = vme_addr << 19;
       filename = argv[2];
     }
 
@@ -97,15 +99,15 @@ main(int argc, char *argv[])
     goto CLOSE;
 #endif
 
-  stat = tiInit(vme_addr,TI_READOUT_EXT_POLL,TI_INIT_SKIP_FIRMWARE_CHECK);
+  stat = tiInit(vme_addr,TI_READOUT_EXT_POLL,TI_INIT_SKIP_FIRMWARE_CHECK | TI_INIT_NO_INIT);
   if(stat != OK)
     {
       printf("\n");
       printf("*** Failed to initialize TI ***\nThis may indicate (either):\n");
       printf("   a) an incorrect VME Address provided\n");
-      printf("   b) new firmware must be loaded at provided VME address\n");
+      printf("   b) TI is unresponsive and needs firmware reloaded\n");
       printf("\n");
-      printf("Proceed with the update with the provided VME address?\n");
+      printf("Proceed with the update with the provided VME address (0x%x)?\n", vme_addr);
     REPEAT:
       printf(" (y/n): ");
       inputchar = getchar();
@@ -117,7 +119,9 @@ main(int argc, char *argv[])
 	}
       else if((inputchar == 'y') || (inputchar == 'Y'))
 	{
-	  printf("--- Continuing update, assuming VME address is correct ---\n");
+	  printf("--- Continuing update, assuming VME address (0x%x) is correct ---\n", vme_addr);
+	  printf("\n");
+	  badInit = 1;
 	}
       else
 	{
@@ -125,37 +129,45 @@ main(int argc, char *argv[])
 	}
     }
 
-  /* Read out the board serial number first */
-  BoardSerialNumber = tiGetSerialNumber(NULL);
-
-  /* Check if this board should be relabled as a TIMaster */
-  if( ((BoardSerialNumber&0xF800)==0) && (tiMasterID(BoardSerialNumber)!=0) )
+  if(badInit == 0)
     {
-      BoardSerialNumber |= tiMasterID(BoardSerialNumber);
-    }
-  
-  if(BoardSerialNumber & 0xF800) /* TIMaster */
-    {
-      printf(" Board Serial Number from PROM usercode is: 0x%08x (TIM-%d  TI-%d) \n", 
-	     BoardSerialNumber,
-	     (BoardSerialNumber&0xF000)>>12,
-	     BoardSerialNumber&0x7FF);
+      /* Read out the board serial number first */
+      BoardSerialNumber = tiGetSerialNumber(NULL);
+      
+      /* Check if this board should be relabled as a TIMaster */
+      if( ((BoardSerialNumber&0xF800)==0) && (tiMasterID(BoardSerialNumber)!=0) )
+	{
+	  BoardSerialNumber |= tiMasterID(BoardSerialNumber);
+	}
+      
+      if(BoardSerialNumber & 0xF800) /* TIMaster */
+	{
+	  printf("\n Board Serial Number from PROM usercode is: 0x%08x (TIM-%d  TI-%d) \n", 
+		 BoardSerialNumber,
+		 (BoardSerialNumber&0xF000)>>12,
+		 BoardSerialNumber&0x7FF);
+	}
+      else
+	{
+	  printf("\n Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
+		 BoardSerialNumber&0xffff);
+	}
+      
+      firmwareInfo = tiGetFirmwareVersion();
+      if(firmwareInfo>0)
+	{
+	  printf("\n  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
+		 (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
+	  printf("\n");
+	}
+      else
+	{
+	  printf("  Error reading Firmware Version\n");
+	}
     }
   else
     {
-      printf(" Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
-	     BoardSerialNumber&0xffff);
-    }
-
-  firmwareInfo = tiGetFirmwareVersion();
-  if(firmwareInfo>0)
-    {
-      printf("  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
-	     (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
-    }
-  else
-    {
-      printf("  Error reading Firmware Version\n");
+      BoardSerialNumber = 0;
     }
 
 
@@ -164,6 +176,7 @@ main(int argc, char *argv[])
   if (!((BoardSerialNumber&0xffff0000) == 0x71000000))
     { 
       printf(" This TI has an invalid serial number (0x%08x)\n",BoardSerialNumber);
+      printf("\n");
       printf (" Enter a new board number (0-4095), or -1 to quit: ");
 
       scanf("%d",&BoardNumber);
@@ -213,13 +226,22 @@ main(int argc, char *argv[])
   else
     goto REPEAT2;
 
-  /* Check to see if the TI is in a VME-64X crate */
-  if(tiGetGeoAddress()==0)
-    {
-      printf("  ...Detected non VME-64X crate...\n");
+  /* Check to see if the TI is in a VME-64X crate or Trying to recover corrupted firmware */
+  if(badInit == 0)
+    geo = tiGetGeoAddress();
+  else
+    geo = -1;
 
-      /* Need to reset the Address to 0 to communicate with the emergency loading AM */
-      vme_addr = 0;
+  if(geo <= 0)
+    {
+      if(geo == 0)
+	{
+	  printf("  ...Detected non VME-64X crate...\n");
+	  
+	  /* Need to reset the Address to 0 to communicate with the emergency loading AM */
+	  vme_addr = 0;
+	}
+
 #ifdef VXWORKS
       stat = sysBusToLocalAdrs(0x39,(char *)vme_addr,(char **)&laddr);
       if (stat != 0) 
@@ -464,8 +486,10 @@ tiFirmwareEMload(char *filename)
   unsigned int sndData[256];
   char *Word[16], *lastn;
   unsigned int nbits, nbytes, extrType, i, Count, nWords, nlines=0;
+#ifdef CHECKREAD
   unsigned int rval=0;
   int stat=0;
+#endif
   
   //A24 Address modifier redefined
 #ifdef VXWORKS
@@ -477,6 +501,7 @@ tiFirmwareEMload(char *filename)
   sysUnivSetLSI(2,6);
 #endif /*TEMPE*/
 #else
+  printf("\n");
   vmeBusLock();
   vmeSetA24AM(0x19);
 #endif
@@ -695,14 +720,14 @@ tiFirmwareEMload(char *filename)
 	    }
 	  else if (strcmp(Word[0],"ENDIR") == 0)
 	    {
-	      if ((strcmp(Word[1],"IDLE") ==0 ) || (strcmp(Word[1],"IDLE;") ==0 ))
+	      if (strncmp(Word[1], "IDLE", 4) == 0)
 		{
 		  extrType = 0;
 #ifdef DEBUGFW
 		  printf(" ExtraType: %d \n",extrType);
 #endif
 		}
-	      else if ((strcmp(Word[1],"IRPAUSE") ==0) || (strcmp(Word[1],"IRPAUSE;") ==0))
+	      else if (strncmp(Word[1], "IRPAUSE", 7) == 0)
 		{
 		  extrType = 2;
 #ifdef DEBUGFW
@@ -711,7 +736,7 @@ tiFirmwareEMload(char *filename)
 		}
 	      else
 		{
-		  printf(" Unknown ENDIR type %s\n",Word[1]);
+		  printf(" Unknown ENDIR type %s\n", Word[1]);
 		}
 	    }
 	  else
