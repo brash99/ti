@@ -779,7 +779,7 @@ tiCheckAddresses()
 void
 tiStatus(int pflag)
 {
-  struct TI_A24RegStruct ro;
+  struct TI_A24RegStruct *ro;
   int iinp, iblock, ifiber;
   unsigned int blockStatus[5], nblocksReady, nblocksNeedAck;
   unsigned int fibermask;
@@ -792,52 +792,54 @@ tiStatus(int pflag)
       return;
     }
 
+  ro = (struct TI_A24RegStruct *) malloc(sizeof(struct TI_A24RegStruct));
+  
   /* latch live and busytime scalers */
   tiLatchTimers();
   l1a_count    = tiGetEventCounter();
   tiGetCurrentBlockLevel();
 
   TILOCK;
-  ro.boardID      = vmeRead32(&TIp->boardID);
-  ro.fiber        = vmeRead32(&TIp->fiber);
-  ro.intsetup     = vmeRead32(&TIp->intsetup);
-  ro.trigDelay    = vmeRead32(&TIp->trigDelay);
-  ro.adr32        = vmeRead32(&TIp->adr32);
-  ro.blocklevel   = vmeRead32(&TIp->blocklevel);
-  ro.vmeControl   = vmeRead32(&TIp->vmeControl);
-  ro.trigsrc      = vmeRead32(&TIp->trigsrc);
-  ro.sync         = vmeRead32(&TIp->sync);
-  ro.busy         = vmeRead32(&TIp->busy);
-  ro.clock        = vmeRead32(&TIp->clock);
-  ro.trig1Prescale = vmeRead32(&TIp->trig1Prescale);
-  ro.blockBuffer  = vmeRead32(&TIp->blockBuffer);
+  ro->boardID      = vmeRead32(&TIp->boardID);
+  ro->fiber        = vmeRead32(&TIp->fiber);
+  ro->intsetup     = vmeRead32(&TIp->intsetup);
+  ro->trigDelay    = vmeRead32(&TIp->trigDelay);
+  ro->adr32        = vmeRead32(&TIp->adr32);
+  ro->blocklevel   = vmeRead32(&TIp->blocklevel);
+  ro->vmeControl   = vmeRead32(&TIp->vmeControl);
+  ro->trigsrc      = vmeRead32(&TIp->trigsrc);
+  ro->sync         = vmeRead32(&TIp->sync);
+  ro->busy         = vmeRead32(&TIp->busy);
+  ro->clock        = vmeRead32(&TIp->clock);
+  ro->trig1Prescale = vmeRead32(&TIp->trig1Prescale);
+  ro->blockBuffer  = vmeRead32(&TIp->blockBuffer);
 
-  ro.tsInput      = vmeRead32(&TIp->tsInput);
+  ro->tsInput      = vmeRead32(&TIp->tsInput);
 
-  ro.output       = vmeRead32(&TIp->output);
-  ro.blocklimit   = vmeRead32(&TIp->blocklimit);
-  ro.fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
+  ro->output       = vmeRead32(&TIp->output);
+  ro->blocklimit   = vmeRead32(&TIp->blocklimit);
+  ro->fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
 
-  ro.GTPStatusA   = vmeRead32(&TIp->GTPStatusA);
-  ro.GTPStatusB   = vmeRead32(&TIp->GTPStatusB);
+  ro->GTPStatusA   = vmeRead32(&TIp->GTPStatusA);
+  ro->GTPStatusB   = vmeRead32(&TIp->GTPStatusB);
 
   /* Latch scalers first */
   vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
-  ro.livetime     = vmeRead32(&TIp->livetime);
-  ro.busytime     = vmeRead32(&TIp->busytime);
+  ro->livetime     = vmeRead32(&TIp->livetime);
+  ro->busytime     = vmeRead32(&TIp->busytime);
 
-  ro.inputCounter = vmeRead32(&TIp->inputCounter);
+  ro->inputCounter = vmeRead32(&TIp->inputCounter);
 
   for(iblock=0;iblock<4;iblock++)
     blockStatus[iblock] = vmeRead32(&TIp->blockStatus[iblock]);
 
   blockStatus[4] = vmeRead32(&TIp->adr24);
 
-  ro.nblocks      = vmeRead32(&TIp->nblocks);
+  ro->nblocks      = vmeRead32(&TIp->nblocks);
 
-  ro.GTPtriggerBufferLength = vmeRead32(&TIp->GTPtriggerBufferLength);
+  ro->GTPtriggerBufferLength = vmeRead32(&TIp->GTPtriggerBufferLength);
 
-  ro.rocEnable    = vmeRead32(&TIp->rocEnable);
+  ro->rocEnable    = vmeRead32(&TIp->rocEnable);
   TIUNLOCK;
 
   TIBase = (unsigned long)TIp;
@@ -852,7 +854,7 @@ tiStatus(int pflag)
 #endif
   printf("--------------------------------------------------------------------------------\n");
   printf(" A32 Data buffer ");
-  if((ro.vmeControl&TI_VMECONTROL_A32) == TI_VMECONTROL_A32)
+  if((ro->vmeControl&TI_VMECONTROL_A32) == TI_VMECONTROL_A32)
     {
       printf("ENABLED at ");
 #ifdef VXWORKS
@@ -874,35 +876,35 @@ tiStatus(int pflag)
   printf(" Readout Count: %d\n",tiIntCount);
   printf("     Ack Count: %d\n",tiAckCount);
   printf("     L1A Count: %llu\n",l1a_count);
-  printf("   Block Limit: %d   %s\n",ro.blocklimit,
-	 (ro.blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"- In Progress -");
-  printf("   Block Count: %d\n",ro.nblocks & TI_NBLOCKS_COUNT_MASK);
+  printf("   Block Limit: %d   %s\n",ro->blocklimit,
+	 (ro->blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"- In Progress -");
+  printf("   Block Count: %d\n",ro->nblocks & TI_NBLOCKS_COUNT_MASK);
 
   if(pflag>0)
     {
       printf(" Registers (offset):\n");
-      printf("  boardID        (0x%04lx) = 0x%08x\t", (unsigned long)&TIp->boardID - TIBase, ro.boardID);
-      printf("  fiber          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiber) - TIBase, ro.fiber);
-      printf("  intsetup       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->intsetup) - TIBase, ro.intsetup);
-      printf("  trigDelay      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->trigDelay) - TIBase, ro.trigDelay);
-      printf("  adr32          (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->adr32) - TIBase, ro.adr32);
-      printf("  blocklevel     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->blocklevel) - TIBase, ro.blocklevel);
-      printf("  vmeControl     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->vmeControl) - TIBase, ro.vmeControl);
-      printf("  trigger        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->trigsrc) - TIBase, ro.trigsrc);
-      printf("  sync           (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->sync) - TIBase, ro.sync);
-      printf("  busy           (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->busy) - TIBase, ro.busy);
-      printf("  clock          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->clock) - TIBase, ro.clock);
-      printf("  blockBuffer    (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->blockBuffer) - TIBase, ro.blockBuffer);
+      printf("  boardID        (0x%04lx) = 0x%08x\t", (unsigned long)&TIp->boardID - TIBase, ro->boardID);
+      printf("  fiber          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiber) - TIBase, ro->fiber);
+      printf("  intsetup       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->intsetup) - TIBase, ro->intsetup);
+      printf("  trigDelay      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->trigDelay) - TIBase, ro->trigDelay);
+      printf("  adr32          (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->adr32) - TIBase, ro->adr32);
+      printf("  blocklevel     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->blocklevel) - TIBase, ro->blocklevel);
+      printf("  vmeControl     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->vmeControl) - TIBase, ro->vmeControl);
+      printf("  trigger        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->trigsrc) - TIBase, ro->trigsrc);
+      printf("  sync           (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->sync) - TIBase, ro->sync);
+      printf("  busy           (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->busy) - TIBase, ro->busy);
+      printf("  clock          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->clock) - TIBase, ro->clock);
+      printf("  blockBuffer    (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->blockBuffer) - TIBase, ro->blockBuffer);
       
-      printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->output) - TIBase, ro.output);
-      printf("  fiberSyncDelay (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro.fiberSyncDelay);
+      printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->output) - TIBase, ro->output);
+      printf("  fiberSyncDelay (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro->fiberSyncDelay);
 
-      printf("  GTPStatusA     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro.GTPStatusA);
-      printf("  GTPStatusB     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro.GTPStatusB);
+      printf("  GTPStatusA     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro->GTPStatusA);
+      printf("  GTPStatusB     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro->GTPStatusB);
       
-      printf("  livetime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->livetime) - TIBase, ro.livetime);
-      printf("  busytime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->busytime) - TIBase, ro.busytime);
-      printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro.GTPtriggerBufferLength);
+      printf("  livetime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->livetime) - TIBase, ro->livetime);
+      printf("  busytime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->busytime) - TIBase, ro->busytime);
+      printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro->GTPtriggerBufferLength);
     }
   printf("\n");
 
@@ -919,7 +921,7 @@ tiStatus(int pflag)
 	printf("\n");
     }
 
-  fibermask = ro.fiber;
+  fibermask = ro->fiber;
   if(tiMaster)
     {
       if(fibermask)
@@ -929,8 +931,8 @@ tiStatus(int pflag)
 	    {
 	      if( fibermask & (1<<ifiber) ) 
 		printf("   %d: -%s-   -%s-\n",ifiber+1,
-		       (ro.fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
-		       (ro.fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
+		       (ro->fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
+		       (ro->fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
 	    }
 	  printf("\n");
 	}
@@ -956,8 +958,8 @@ tiStatus(int pflag)
       
     }
 
-  printf(" Clock Source (%d) = \n",ro.clock & TI_CLOCK_MASK);
-  switch(ro.clock & TI_CLOCK_MASK)
+  printf(" Clock Source (%d) = \n",ro->clock & TI_CLOCK_MASK);
+  switch(ro->clock & TI_CLOCK_MASK)
     {
     case TI_CLOCK_INTERNAL:
       printf("   Internal\n");
@@ -981,9 +983,9 @@ tiStatus(int pflag)
 
   if(tiTriggerSource&TI_TRIGSRC_SOURCEMASK)
     {
-      if(ro.trigsrc)
+      if(ro->trigsrc)
 	printf(" Trigger input source (%s) =\n",
-	       (ro.blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"DISABLED on Block Limit":
+	       (ro->blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"DISABLED on Block Limit":
 	       "ENABLED");
       else
 	printf(" Trigger input source (DISABLED) =\n");
@@ -1019,12 +1021,12 @@ tiStatus(int pflag)
       printf(" No Trigger input sources\n");
     }
 
-  if(ro.tsInput & TI_TSINPUT_MASK)
+  if(ro->tsInput & TI_TSINPUT_MASK)
     {
       printf(" Front Panel TS Inputs Enabled: ");
       for(iinp=0; iinp<6; iinp++)
 	{
-	  if( (ro.tsInput & TI_TSINPUT_MASK) & (1<<iinp)) 
+	  if( (ro->tsInput & TI_TSINPUT_MASK) & (1<<iinp)) 
 	    printf(" %d",iinp+1);
 	}
       printf("\n");	
@@ -1034,20 +1036,20 @@ tiStatus(int pflag)
       printf(" All Front Panel TS Inputs Disabled\n");
     }
 
-  if(ro.sync&TI_SYNC_SOURCEMASK)
+  if(ro->sync&TI_SYNC_SOURCEMASK)
     {
       printf(" Sync source = \n");
-      if(ro.sync & TI_SYNC_P0)
+      if(ro->sync & TI_SYNC_P0)
 	printf("   P0 Input\n");
-      if(ro.sync & TI_SYNC_HFBR1)
+      if(ro->sync & TI_SYNC_HFBR1)
 	printf("   HFBR #1 Input\n");
-      if(ro.sync & TI_SYNC_HFBR5)
+      if(ro->sync & TI_SYNC_HFBR5)
 	printf("   HFBR #5 Input\n");
-      if(ro.sync & TI_SYNC_FP)
+      if(ro->sync & TI_SYNC_FP)
 	printf("   Front Panel Input\n");
-      if(ro.sync & TI_SYNC_LOOPBACK)
+      if(ro->sync & TI_SYNC_LOOPBACK)
 	printf("   Loopback\n");
-      if(ro.sync & TI_SYNC_USER_SYNCRESET_ENABLED)
+      if(ro->sync & TI_SYNC_USER_SYNCRESET_ENABLED)
 	printf("   User SYNCRESET Receieve Enabled\n");
     }
   else
@@ -1055,41 +1057,41 @@ tiStatus(int pflag)
       printf(" No SYNC input source configured\n");
     }
 
-  if(ro.busy&TI_BUSY_SOURCEMASK)
+  if(ro->busy&TI_BUSY_SOURCEMASK)
     {
       printf(" BUSY input source = \n");
-      if(ro.busy & TI_BUSY_SWA)
-	printf("   Switch Slot A    %s\n",(ro.busy&TI_BUSY_MONITOR_SWA)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_SWB)
-	printf("   Switch Slot B    %s\n",(ro.busy&TI_BUSY_MONITOR_SWB)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_P2)
-	printf("   P2 Input         %s\n",(ro.busy&TI_BUSY_MONITOR_P2)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_TRIGGER_LOCK)
+      if(ro->busy & TI_BUSY_SWA)
+	printf("   Switch Slot A    %s\n",(ro->busy&TI_BUSY_MONITOR_SWA)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_SWB)
+	printf("   Switch Slot B    %s\n",(ro->busy&TI_BUSY_MONITOR_SWB)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_P2)
+	printf("   P2 Input         %s\n",(ro->busy&TI_BUSY_MONITOR_P2)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_TRIGGER_LOCK)
 	printf("   Trigger Lock     \n");
-      if(ro.busy & TI_BUSY_FP_FTDC)
-	printf("   Front Panel TDC  %s\n",(ro.busy&TI_BUSY_MONITOR_FP_FTDC)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_FP_FADC)
-	printf("   Front Panel ADC  %s\n",(ro.busy&TI_BUSY_MONITOR_FP_FADC)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_FP)
-	printf("   Front Panel      %s\n",(ro.busy&TI_BUSY_MONITOR_FP)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_LOOPBACK)
-	printf("   Loopback         %s\n",(ro.busy&TI_BUSY_MONITOR_LOOPBACK)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR1)
-	printf("   HFBR #1          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR2)
-	printf("   HFBR #2          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR2)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR3)
-	printf("   HFBR #3          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR3)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR4)
-	printf("   HFBR #4          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR4)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR5)
-	printf("   HFBR #5          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR5)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR6)
-	printf("   HFBR #6          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR6)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR7)
-	printf("   HFBR #7          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR7)?"** BUSY **":"");
-      if(ro.busy & TI_BUSY_HFBR8)
-	printf("   HFBR #8          %s\n",(ro.busy&TI_BUSY_MONITOR_HFBR8)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_FP_FTDC)
+	printf("   Front Panel TDC  %s\n",(ro->busy&TI_BUSY_MONITOR_FP_FTDC)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_FP_FADC)
+	printf("   Front Panel ADC  %s\n",(ro->busy&TI_BUSY_MONITOR_FP_FADC)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_FP)
+	printf("   Front Panel      %s\n",(ro->busy&TI_BUSY_MONITOR_FP)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_LOOPBACK)
+	printf("   Loopback         %s\n",(ro->busy&TI_BUSY_MONITOR_LOOPBACK)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR1)
+	printf("   HFBR #1          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR1)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR2)
+	printf("   HFBR #2          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR2)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR3)
+	printf("   HFBR #3          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR3)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR4)
+	printf("   HFBR #4          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR4)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR5)
+	printf("   HFBR #5          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR5)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR6)
+	printf("   HFBR #6          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR6)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR7)
+	printf("   HFBR #7          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR7)?"** BUSY **":"");
+      if(ro->busy & TI_BUSY_HFBR8)
+	printf("   HFBR #8          %s\n",(ro->busy&TI_BUSY_MONITOR_HFBR8)?"** BUSY **":"");
     }
   else
     {
@@ -1097,18 +1099,18 @@ tiStatus(int pflag)
     }
 
 
-  if(ro.rocEnable & TI_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK)
+  if(ro->rocEnable & TI_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK)
     {
       printf(" SyncReset Request ENABLED from ");
 
-      if(ro.rocEnable & (1 << 10))
+      if(ro->rocEnable & (1 << 10))
 	{
 	  printf("SELF ");
 	}
 
       for(ifiber=0; ifiber<8; ifiber++)
 	{
-	  if(ro.rocEnable & (1 << (ifiber + 1 + 10)))
+	  if(ro->rocEnable & (1 << (ifiber + 1 + 10)))
 	    {
 	      printf("%d ", ifiber + 1);
 	    }
@@ -1125,23 +1127,23 @@ tiStatus(int pflag)
   tiSyncResetRequestStatus(1);
   printf("\n");
   
-  if(ro.intsetup&TI_INTSETUP_ENABLE)
+  if(ro->intsetup&TI_INTSETUP_ENABLE)
     printf(" Interrupts ENABLED\n");
   else
     printf(" Interrupts DISABLED\n");
   printf("   Level = %d   Vector = 0x%02x\n",
-	 (ro.intsetup&TI_INTSETUP_LEVEL_MASK)>>8, (ro.intsetup&TI_INTSETUP_VECTOR_MASK));
+	 (ro->intsetup&TI_INTSETUP_LEVEL_MASK)>>8, (ro->intsetup&TI_INTSETUP_VECTOR_MASK));
   
-  if(ro.vmeControl&TI_VMECONTROL_BERR)
+  if(ro->vmeControl&TI_VMECONTROL_BERR)
     printf(" Bus Errors Enabled\n");
   else
     printf(" Bus Errors Disabled\n");
 
-  printf(" Blocks ready for readout: %d\n",(ro.blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8);
+  printf(" Blocks ready for readout: %d\n",(ro->blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8);
   if(tiMaster)
     {
       printf(" Slave Block Status:   %s\n",
-	     (ro.busy&TI_BUSY_MONITOR_TRIG_LOST)?"** Waiting for Trigger Ack **":"");
+	     (ro->busy&TI_BUSY_MONITOR_TRIG_LOST)?"** Waiting for Trigger Ack **":"");
       /* TI slave block status */
       fibermask = tiSlaveMask;
       for(ifiber=0; ifiber<8; ifiber++)
@@ -1170,11 +1172,13 @@ tiStatus(int pflag)
 	     nblocksReady, nblocksNeedAck);
 
     }
-  printf(" Input counter %d\n",ro.inputCounter);
+  printf(" Input counter %d\n",ro->inputCounter);
 
   printf("--------------------------------------------------------------------------------\n");
   printf("\n\n");
 
+  if(ro)
+    free(ro);
 }
 
 /**
