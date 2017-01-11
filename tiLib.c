@@ -24,9 +24,8 @@
 
 #define _GNU_SOURCE
 
-#define DEVEL
-
 #include <stdio.h>
+#include <stdlib.h>
 #ifdef VXWORKS
 #include <vxWorks.h>
 #include <sysLib.h>
@@ -314,7 +313,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     } 
   else 
     {
-      printf("TI address = 0x%x\n",laddr);
+      printf("TI address = 0x%.8lx\n",laddr);
     }
 #else
   stat = vmeBusToLocalAdrs(0x39,(char *)(unsigned long)tAddr,(char **)&laddr);
@@ -793,6 +792,12 @@ tiStatus(int pflag)
     }
 
   ro = (struct TI_A24RegStruct *) malloc(sizeof(struct TI_A24RegStruct));
+  if(ro == NULL)
+    {
+      printf("%s: ERROR allocating memory for TI register structure\n",
+	     __FUNCTION__);
+      return;
+    }
   
   /* latch live and busytime scalers */
   tiLatchTimers();
@@ -858,7 +863,7 @@ tiStatus(int pflag)
     {
       printf("ENABLED at ");
 #ifdef VXWORKS
-      printf("base address 0x%08x\n",
+      printf("base address 0x%.8lx\n",
 	     (unsigned long)TIpd);
 #else
       printf("VME (Local) base address 0x%08lx (0x%lx)\n",
