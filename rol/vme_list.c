@@ -178,6 +178,7 @@ rocTrigger(int arg)
   *dma_dabufp++ = LSWAP(0xcebaf111);
   BANKCLOSE;
 
+
 #ifdef TI_DATA_READOUT
   BANKOPEN(4,BT_UI4,0);
 
