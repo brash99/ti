@@ -17,8 +17,8 @@ CROSS_COMPILE		=
 CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
 RANLIB                  = ranlib
-CFLAGS			= -Wall -O2 -I${LINUXVME_INC} -I. -I/usr/include \
-			  -L${LINUXVME_LIB} -L.
+CFLAGS			= -Wall -g -I. -I${LINUXVME_INC} \
+			  -L. -L${LINUXVME_LIB}
 
 PROGS			= tiLibTest
 
