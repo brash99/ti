@@ -4643,9 +4643,11 @@ static int tiTriggerRuleClockPrescale[3][4] =
 int
 tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 {
-  unsigned int wval=0, rval=0;
-  unsigned int maxvalue=0x3f;
-
+  unsigned int wval = 0, rval = 0;
+  unsigned int maxvalue = 0x7f;
+  unsigned int vmeControl = 0;
+  static int slow_clock_previously_switched = 0;
+  
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -4671,6 +4673,7 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
   /* Read the previous values */
   TILOCK;
   rval = vmeRead32(&TIp->triggerRule);
+  vmeControl = vmeRead32(&TIp->vmeControl);
   
   switch(rule)
     {
@@ -4691,11 +4694,35 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
   vmeWrite32(&TIp->triggerRule,wval);
 
   if(timestep==2)
-    vmeWrite32(&TIp->vmeControl, 
-	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+    {
+      if(!(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES))
+	{
+	  if(slow_clock_previously_switched == 1)
+	    {
+	      printf("%s: WARNING: Using slower clock for trigger rules.\n",
+		     __FUNCTION__);
+	      printf("\tThis may affect previously set rules!\n");
+	    }
+	  vmeWrite32(&TIp->vmeControl, 
+		     vmeControl | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+	  slow_clock_previously_switched = 1;
+	}
+    }
   else
-    vmeWrite32(&TIp->vmeControl, 
-	     vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+    {
+      if(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES)
+	{
+	  if(slow_clock_previously_switched == 1)
+	    {
+	      printf("%s: WARNING: Using faster clock for trigger rules.\n",
+		     __FUNCTION__);
+	      printf("\tThis may affect previously set rules!\n");
+	    }
+	  vmeWrite32(&TIp->vmeControl, 
+		     vmeControl & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+	  slow_clock_previously_switched = 1;
+	}
+    }
   TIUNLOCK;
 
   return OK;
@@ -4823,11 +4850,11 @@ tiPrintTriggerHoldoff(int dflag)
 
       min = (float) minticks * stepsize;
       
-      printf("    %4d     %7.1f     %7.1f     %7.1f ",
+      printf("    %4d     %8.1f    %8.1f    %8.1f ",
 	     irule + 1, 1E3 * time, 1E3 * stepsize, min);
 
       if(dflag)
-	printf("    %3d   %5.1f        %3d\n",
+	printf("   %3d    %5.1f       %3d\n",
 	       clockticks, clock[timestep],
 	       tiTriggerRuleClockPrescale[timestep][irule]);
       else
