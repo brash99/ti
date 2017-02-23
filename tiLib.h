@@ -602,6 +602,7 @@ int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
 int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiCheckTriggerBlock(volatile unsigned int *data);
+int  tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);

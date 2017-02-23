@@ -3011,6 +3011,80 @@ tiCheckTriggerBlock(volatile unsigned int *data)
   return rval;
 }
 
+int
+tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
+{
+  int rval = -1;
+  int iword = 0;
+  int blocklevel = -1;
+  int event_len = -1;
+  int ievent = 1;
+  int trigger_type = -1;
+  
+  if(TIp==NULL)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: TI not initialized\n",0,1,2,3,4,5);
+      return ERROR;
+    }
+
+  /* Loop until we find the trigger bank */
+  while(iword < data_len)
+    {
+      if( ((data[iword] & 0xFF100000)>>16 == 0xFF10) &&
+	  ((data[iword] & 0x0000FF00)>>8 == 0x20) )
+	{
+	  blocklevel =  data[iword] & 0xFF;
+	  iword++;
+	  break;
+	}
+      iword++;
+    }
+
+  if(blocklevel == -1)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: Failed to find Trigger Bank header\n",
+	     0,1,2,3,4,5);
+      return ERROR;
+    }
+
+  if(event > blocklevel)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: event (%d) greater than blocklevel (%d)\n",
+	     event, blocklevel, 2, 3, 4, 5);
+      return ERROR;
+    }
+  
+  /* Loop until we get to the event requested */
+  while((iword < data_len) && (ievent <= blocklevel))
+    {
+      if((data[iword] & 0x00FF0000)>>16 == 0x01)
+	{
+	  trigger_type = (data[iword] & 0xFF000000) >> 24;
+	  if(ievent == event)
+	    {
+	      rval = trigger_type;
+	      break;
+	    }
+	  event_len = data[iword] & 0xFFFF;
+	  ievent++;
+	  iword += event_len + 1;
+	}
+      else
+	{
+	  /* we're lost... just increment */
+	  iword++;
+	}
+    }
+
+  if(rval == -1)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: Failed to find trigger type for event %d\n",
+	     event, 1, 2, 3, 4, 5);
+    }
+  
+  return rval;
+}
+
 /**
  * @ingroup Config
  * @brief Enable Fiber transceiver
