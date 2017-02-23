@@ -83,7 +83,7 @@ mytiISR(int arg)
   PUTEVENT(vmeOUT);
 
   outEvent = dmaPGetItem(vmeOUT);
-#define READOUT
+/* #define READOUT */
 #ifdef READOUT
   if(tiIntCount%printout==0)
     {

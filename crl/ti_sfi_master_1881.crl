@@ -279,7 +279,15 @@ begin trigger titrig
 	}
       else
 	{
-	  ev_type=(tiData[2]&(0x0F000000))>>24; /* Conform to CODA 2.x event type limit */
+	  ev_type = tiDecodeTriggerType(tiData, dCnt, 1);
+	  if(ev_type <= 0)
+	    {
+	      /* Could not find trigger type */
+	      ev_type = 1;
+	    }
+
+	  /* CODA 2.x only allows for 4 bits of trigger type */
+	  ev_type &= 0xF; 
 	}
     }
   
