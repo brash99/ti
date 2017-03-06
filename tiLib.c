@@ -464,7 +464,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     }
 
   /* Perform Soft Reset */
-  /* tiReset(); */
+  tiReset();
 
   /* Set some defaults, dependent on Master/Slave status */
   tiReadoutMode = mode;
