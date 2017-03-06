@@ -196,7 +196,7 @@ begin go
   printf("rocGo: Block Level set to %d\n",blockLevel);
 
   /* Allocate some memory for TI data */
-  tiData = (unsigned int*)malloc(50*sizeof(unsigned int));
+  tiData = (unsigned int*)malloc((8+5*blockLevel)*sizeof(unsigned int));
 
   tiStatus(0);
 }
@@ -232,7 +232,7 @@ begin trigger titrig
   ev_type=1; /* Default event type (for example) */
   if(READOUT_TI==1)
     {
-      dCnt = tiReadBlock(tiData,50,0);
+      dCnt = tiReadBlock(tiData,8+5*blockLevel,0);
       if(dCnt<=0)
 	{
 	  logMsg("No data or error.  dCnt = %d\n",dCnt);

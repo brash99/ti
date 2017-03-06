@@ -464,7 +464,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     }
 
   /* Perform Soft Reset */
-  tiReset();
+  /* tiReset(); */
 
   /* Set some defaults, dependent on Master/Slave status */
   tiReadoutMode = mode;
@@ -913,7 +913,8 @@ tiStatus(int pflag)
       printf("  blockBuffer    (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->blockBuffer) - TIBase, ro->blockBuffer);
       
       printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->output) - TIBase, ro->output);
-      printf("  fiberSyncDelay (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro->fiberSyncDelay);
+      printf("  fiberSyncDelay (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro->fiberSyncDelay);
+      printf("  nblocks        (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->nblocks) - TIBase, ro->nblocks);
 
       printf("  GTPStatusA     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro->GTPStatusA);
       printf("  GTPStatusB     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro->GTPStatusB);
@@ -3020,6 +3021,7 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
   int event_len = -1;
   int ievent = 1;
   int trigger_type = -1;
+  unsigned int dataword = 0;
   
   if(TIp==NULL)
     {
@@ -3030,10 +3032,14 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
   /* Loop until we find the trigger bank */
   while(iword < data_len)
     {
-      if( ((data[iword] & 0xFF100000)>>16 == 0xFF10) &&
-	  ((data[iword] & 0x0000FF00)>>8 == 0x20) )
+      dataword = data[iword];
+#ifndef VXWORKS
+      dataword = LSWAP(dataword);
+#endif
+      if( ((dataword & 0xFF100000)>>16 == 0xFF10) &&
+	  ((dataword & 0x0000FF00)>>8 == 0x20) )
 	{
-	  blocklevel =  data[iword] & 0xFF;
+	  blocklevel =  dataword & 0xFF;
 	  iword++;
 	  break;
 	}
@@ -3057,15 +3063,19 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
   /* Loop until we get to the event requested */
   while((iword < data_len) && (ievent <= blocklevel))
     {
-      if((data[iword] & 0x00FF0000)>>16 == 0x01)
+      dataword = data[iword];
+#ifndef VXWORKS
+      dataword = LSWAP(dataword);
+#endif
+      if((dataword & 0x00FF0000)>>16 == 0x01)
 	{
-	  trigger_type = (data[iword] & 0xFF000000) >> 24;
+	  trigger_type = (dataword & 0xFF000000) >> 24;
 	  if(ievent == event)
 	    {
 	      rval = trigger_type;
 	      break;
 	    }
-	  event_len = data[iword] & 0xFFFF;
+	  event_len = dataword & 0xFFFF;
 	  ievent++;
 	  iword += event_len + 1;
 	}
@@ -3982,6 +3992,23 @@ tiSetAdr32(unsigned int a32base)
 	 __FUNCTION__,tiA32Base);
 
   return OK;
+}
+
+unsigned int
+tiGetAdr32()
+{
+  unsigned int rval = 0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->adr32) & TI_ADR32_BASE_MASK;
+  TIUNLOCK;
+  
+  return rval;
 }
 
 /**

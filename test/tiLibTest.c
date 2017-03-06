@@ -23,7 +23,7 @@ extern unsigned int *dma_dabufp;
 
 extern int tiA32Base;
 
-#define BLOCKLEVEL 30
+#define BLOCKLEVEL 8
 
 #define DO_READOUT
 
@@ -65,9 +65,9 @@ mytiISR(int arg)
 #endif
   /* *dma_dabufp++; */
 
-/*   dCnt = tiReadBlock(dma_dabufp,3*BLOCKLEVEL+10,1); */
-  dCnt = tiReadTriggerBlock(dma_dabufp);
-  jlabgefReadDMARegs();
+  dCnt = tiReadBlock(dma_dabufp,5*BLOCKLEVEL+3+4,1);
+  /* dCnt = tiReadTriggerBlock(dma_dabufp); */
+
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);
@@ -75,9 +75,9 @@ mytiISR(int arg)
     }
   else
     {
-      dataCheck = tiCheckTriggerBlock(dma_dabufp);
+      printf("ev_type = %d\n",tiDecodeTriggerType(dma_dabufp, dCnt, 1));
+      /* dataCheck = tiCheckTriggerBlock(dma_dabufp); */
       dma_dabufp += dCnt;
-      /*       printf("dCnt = %d\n",dCnt); */
     
     }
   PUTEVENT(vmeOUT);
@@ -89,7 +89,7 @@ mytiISR(int arg)
     {
       printf("Received %d triggers...\n",
 	     tiIntCount);
-
+      
       len = outEvent->length;
       
       for(idata=0;idata<len;idata++)
@@ -113,9 +113,24 @@ mytiISR(int arg)
   if(tiGetSyncEventFlag())
     {
       printf("SYNC EVENT\n");
-/*       tiSetBlockLevel(bl++);                                               */
-/*       printf("SE: Curr BL = %d\n",tiGetCurrentBlockLevel()); */
-/*       printf("SE: Next BL = %d\n",tiGetNextBlockLevel()); */
+
+      /* Check for data available */
+      int davail = tiBReady();
+      if(davail > 0)
+	{
+	  printf("%s: ERROR: Data available (%d) after readout in SYNC event \n",
+		 __func__, davail);
+	  dataCheck = ERROR;
+
+	  printf("A32 = 0x%08x\n",
+		 tiGetAdr32());
+	  printf("tiBReady() = %d  ... Call vmeDmaFlush\n",
+		 tiBReady());
+	  vmeDmaFlush(tiGetAdr32());
+	  printf("tiBReady() = %d\n",
+		 tiBReady());
+	  
+	}
     }
 
   if(dataCheck!=OK)
