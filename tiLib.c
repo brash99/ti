@@ -2565,11 +2565,12 @@ tiDisableRandomTrigger()
 int
 tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 {
-  int ii, dummy=0;
-  int dCnt, retVal, xferCount;
+  int ii, dummy=0, iword = 0;
+  int dCnt, retVal, xferCount, trailerFound = 0;
   volatile unsigned int *laddr;
   unsigned int vmeAdr, val;
-
+  int ntrig=0, itrig = 0, trigwords = 0;
+  
   if(TIp==NULL)
     {
       logMsg("\ntiReadBlock: ERROR: TI not initialized\n",1,2,3,4,5,6);
@@ -2691,50 +2692,104 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
       dCnt = 0;
       ii=0;
 
-      while(ii<nwrds) 
+      /* First word should be the block header */
+      val = (unsigned int) *TIpd;
+      data[ii++] = val;
+#ifndef VXWORKS
+      val = LSWAP(val);
+#endif
+      if((val & 0xffc00000) == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_HEADER_WORD_TYPE 
+		 | (tiSlotNumber<<22) ) )
 	{
+	  ntrig = val & TI_DATA_BLKLEVEL_MASK;
+
+	  /* Next word is the CODA 3.0 header */
 	  val = (unsigned int) *TIpd;
+	  data[ii++] = val;
 #ifndef VXWORKS
 	  val = LSWAP(val);
 #endif
-	  if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE 
-		     | (tiSlotNumber<<22) | (ii+1)) )
+	  if((val & 0xFF102000) == 0xFF102000)
 	    {
-#ifndef VXWORKS
-	      val = LSWAP(val);
-#endif
-	      data[ii] = val;
-	      if(((ii+1)%2)!=0)
+	      if((val & 0xff) != ntrig)
 		{
-		  /* Read out an extra word (filler) in the fifo */
+		  logMsg("\ntiReadBlock: ERROR: TI Blocklevel %d inconsistent with TI Trigger Bank Header (0x%08x)",ntrig, val, 3, 4, 5, 6);
+		  // return?
+
+		}
+
+	      /* Loop over triggers in block */
+	      for(itrig = 0; itrig < ntrig; itrig++)
+		{
+		  /* Trigger type word contains number of words to follow */
 		  val = (unsigned int) *TIpd;
+		  data[ii++] = val;
+
 #ifndef VXWORKS
 		  val = LSWAP(val);
 #endif
-		  if(((val & TI_DATA_TYPE_DEFINE_MASK) != TI_DATA_TYPE_DEFINE_MASK) ||
-		     ((val & TI_WORD_TYPE_MASK) != TI_FILLER_WORD_TYPE))
+		  trigwords = val & 0xFFFF;
+		  for(iword = 0; iword < trigwords; iword++)
 		    {
-		      logMsg("\ntiReadBlock: ERROR: Unexpected word after block trailer (0x%08x)\n",
-			     val,2,3,4,5,6);
+		      val = (unsigned int) *TIpd;
+		      data[ii++] = val;
 		    }
 		}
-	      break;
-	    }
+
+	      /* Next word should be block trailer */
+	      val = (unsigned int) *TIpd;
+	      data[ii++] = val;
 #ifndef VXWORKS
-	  val = LSWAP(val);
+	      val = LSWAP(val);
 #endif
-	  data[ii] = val;
-	  ii++;
+	      if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE 
+			 | (tiSlotNumber<<22) | ii) )
+		{
+		  trailerFound = 1;
+
+		  if((ii%2)!=0)
+		    {
+		      /* Read out an extra word (filler) in the fifo */
+		      val = (unsigned int) *TIpd;
+#ifndef VXWORKS
+		      val = LSWAP(val);
+#endif
+		      if(((val & TI_DATA_TYPE_DEFINE_MASK) != TI_DATA_TYPE_DEFINE_MASK) ||
+			 ((val & TI_WORD_TYPE_MASK) != TI_FILLER_WORD_TYPE))
+			{
+			  logMsg("\ntiReadBlock: ERROR: Unexpected word after block trailer (0x%08x)\n",
+				 val,2,3,4,5,6);
+			}
+		    }
+
+		  dCnt = ii;
+		}
+	      else
+		{
+		  logMsg("\ntiReadBlock: ERROR: Invalid TI block trailer 0x%08x\n",
+			 val, 2, 3, 4, 5, 6);
+		  dCnt = ii;
+		}
+	    }
+	  else
+	    {
+	      logMsg("\ntiReadBlock: ERROR: Invalid Trigger bank header from TI 0x%08x\n",val, 2, 3, 4, 5, 6);
+	      dCnt = ii;
+	    }
+	  
 	}
-      ii++;
-      dCnt += ii;
-
+      else
+	{
+	  logMsg("\ntiReadBlock: ERROR: Invalid block header from TI 0x%08x\n",
+		 val, 2, 3, 4, 5, 6);
+	  dCnt = ii;
+	}
       TIUNLOCK;
-      return(dCnt);
+      return dCnt;
     }
-
+  
   TIUNLOCK;
-
+  
   return OK;
 }
 
