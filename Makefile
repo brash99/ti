@@ -99,7 +99,7 @@ endif
 	@echo " CC     $@"
 	${Q}$(CC) -fpic -shared $(CFLAGS) $(INCS) -o $(@:%.a=%.so) $(SRC)
 
-%.a: $(SRC)
+%.a: $(OBJ)
 	@echo " AR     $@"
 	${Q}$(AR) ru $@ $<
 	@echo " RANLIB $@"
