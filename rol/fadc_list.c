@@ -426,7 +426,7 @@ rocTrigger(int arg)
   BANKOPEN(4,BT_UI4,0);
 
   vmeDmaConfig(2,5,1); 
-  dCnt = tiReadBlock(dma_dabufp,8+(3*BLOCKLEVEL),1);
+  dCnt = tiReadBlock(dma_dabufp,8+(5*BLOCKLEVEL),1);
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);

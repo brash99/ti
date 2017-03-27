@@ -121,7 +121,7 @@ IMPORT  STATUS sysVmeDmaDone(int, int);
 IMPORT  STATUS sysVmeDmaSend(UINT32, UINT32, int, BOOL);
 #endif
 
-static void FiberMeas();
+static int FiberMeas();
 
 /* VXS Payload Port to VME Slot map */
 #define MAX_VME_SLOTS 21    /* This is either 20 or 21 */
@@ -453,6 +453,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     {
       printf("%s:  ERROR: Invalid firmware 0x%08x\n",
 	     __FUNCTION__,firmwareInfo);
+      TIp=NULL;
       return ERROR;
     }
 
@@ -461,6 +462,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     {
       return OK;
     }
+
+  /* Perform Soft Reset */
+  tiReset();
 
   /* Set some defaults, dependent on Master/Slave status */
   tiReadoutMode = mode;
@@ -530,7 +534,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   /* Setup some Other Library Defaults */
   if(tiMaster!=1)
     {
-      FiberMeas();
+      if(FiberMeas() == ERROR)
+	{
+	  printf("%s: Fiber Measurement failure.  Check fiber and/or fiber port,\n",
+		 __FUNCTION__);
+	  return ERROR;
+	}
 
       vmeWrite32(&TIp->syncWidth, 0x24);
       // TI IODELAY reset
@@ -822,6 +831,7 @@ tiStatus(int pflag)
   ro->tsInput      = vmeRead32(&TIp->tsInput);
 
   ro->output       = vmeRead32(&TIp->output);
+  ro->syncEventCtrl= vmeRead32(&TIp->syncEventCtrl);
   ro->blocklimit   = vmeRead32(&TIp->blocklimit);
   ro->fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
 
@@ -882,11 +892,12 @@ tiStatus(int pflag)
   printf("     Ack Count: %d\n",tiAckCount);
   printf("     L1A Count: %llu\n",l1a_count);
   printf("   Block Limit: %d   %s\n",ro->blocklimit,
-	 (ro->blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"- In Progress -");
+	 (ro->blockBuffer & TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT)?"* Finished *":"");
   printf("   Block Count: %d\n",ro->nblocks & TI_NBLOCKS_COUNT_MASK);
 
   if(pflag>0)
     {
+      printf("\n");
       printf(" Registers (offset):\n");
       printf("  boardID        (0x%04lx) = 0x%08x\t", (unsigned long)&TIp->boardID - TIBase, ro->boardID);
       printf("  fiber          (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiber) - TIBase, ro->fiber);
@@ -902,7 +913,8 @@ tiStatus(int pflag)
       printf("  blockBuffer    (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->blockBuffer) - TIBase, ro->blockBuffer);
       
       printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->output) - TIBase, ro->output);
-      printf("  fiberSyncDelay (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro->fiberSyncDelay);
+      printf("  fiberSyncDelay (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro->fiberSyncDelay);
+      printf("  nblocks        (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->nblocks) - TIBase, ro->nblocks);
 
       printf("  GTPStatusA     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro->GTPStatusA);
       printf("  GTPStatusB     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro->GTPStatusB);
@@ -910,6 +922,7 @@ tiStatus(int pflag)
       printf("  livetime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->livetime) - TIBase, ro->livetime);
       printf("  busytime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->busytime) - TIBase, ro->busytime);
       printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro->GTPtriggerBufferLength);
+      printf("\n");
     }
   printf("\n");
 
@@ -919,31 +932,45 @@ tiStatus(int pflag)
     }      
   else
     {
-      printf(" Block Level = %d ", tiBlockLevel);
+      printf(" Block Level        = %d ", tiBlockLevel);
       if(tiBlockLevel != tiNextBlockLevel)
 	printf("(To be set = %d)\n", tiNextBlockLevel);
       else
 	printf("\n");
     }
 
-  fibermask = ro->fiber;
   if(tiMaster)
     {
-      if(fibermask)
-	{
-	  printf(" HFBR enabled (0x%x)= \n",fibermask&0xf);
-	  for(ifiber=0; ifiber<8; ifiber++)
-	    {
-	      if( fibermask & (1<<ifiber) ) 
-		printf("   %d: -%s-   -%s-\n",ifiber+1,
-		       (ro->fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"    CONNECTED":"NOT CONNECTED",
-		       (ro->fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"TRIGSRC ENABLED":"TRIGSRC DISABLED");
-	    }
-	  printf("\n");
-	}
+      printf(" Block Buffer Level = %d\n",
+	     ro->blockBuffer & TI_BLOCKBUFFER_BUFFERLEVEL_MASK);
+      
+      if((ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK) == 0)
+	printf(" Sync Events DISABLED\n");
       else
-	printf(" All HFBR Disabled\n");
+	printf(" Sync Event period  = %d blocks\n",
+	       ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK);
     }
+  
+  printf("\n");
+  printf(" Fiber Status         1     2     3     4     5     6     7     8\n");
+  printf("                    ----- ----- ----- ----- ----- ----- ----- -----\n");
+  printf("  Connected          ");
+  for(ifiber=0; ifiber<8; ifiber++)
+    {
+      printf("%s   ",
+	     (ro->fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"YES":"   ");
+    }
+  printf("\n");
+  if(tiMaster)
+    {
+      printf("  Trig Src Enabled   ");
+      for(ifiber=0; ifiber<8; ifiber++)
+	{
+	  printf("%s   ",
+		 (ro->fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"YES":"   ");
+	}
+    }
+  printf("\n\n");
 
   if(tiMaster)
     {
@@ -1026,21 +1053,6 @@ tiStatus(int pflag)
       printf(" No Trigger input sources\n");
     }
 
-  if(ro->tsInput & TI_TSINPUT_MASK)
-    {
-      printf(" Front Panel TS Inputs Enabled: ");
-      for(iinp=0; iinp<6; iinp++)
-	{
-	  if( (ro->tsInput & TI_TSINPUT_MASK) & (1<<iinp)) 
-	    printf(" %d",iinp+1);
-	}
-      printf("\n");	
-    }
-  else
-    {
-      printf(" All Front Panel TS Inputs Disabled\n");
-    }
-
   if(ro->sync&TI_SYNC_SOURCEMASK)
     {
       printf(" Sync source = \n");
@@ -1102,36 +1114,62 @@ tiStatus(int pflag)
     {
       printf(" No BUSY input source configured\n");
     }
-
-
-  if(ro->rocEnable & TI_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK)
+  if(tiMaster)
     {
-      printf(" SyncReset Request ENABLED from ");
-
-      if(ro->rocEnable & (1 << 10))
+      if(ro->tsInput & TI_TSINPUT_MASK)
 	{
-	  printf("SELF ");
-	}
-
-      for(ifiber=0; ifiber<8; ifiber++)
-	{
-	  if(ro->rocEnable & (1 << (ifiber + 1 + 10)))
+	  printf(" Front Panel TS Inputs Enabled: ");
+	  for(iinp=0; iinp<6; iinp++)
 	    {
-	      printf("%d ", ifiber + 1);
+	      if( (ro->tsInput & TI_TSINPUT_MASK) & (1<<iinp)) 
+		printf(" %d",iinp+1);
 	    }
+	  printf("\n");	
 	}
-
-      printf("\n");
+      else
+	{
+	  printf(" All Front Panel TS Inputs Disabled\n");
+	}
     }
-  else
+
+  if(tiMaster)
     {
-      printf(" SyncReset Requests DISABLED\n");
+      printf("\n");
+      printf(" Trigger Rules:\n");
+      tiPrintTriggerHoldoff(pflag);
     }
 
+  if(tiMaster)
+    {
+      if(ro->rocEnable & TI_ROCENABLE_SYNCRESET_REQUEST_ENABLE_MASK)
+	{
+	  printf(" SyncReset Request ENABLED from ");
+	  
+	  if(ro->rocEnable & (1 << 10))
+	    {
+	      printf("SELF ");
+	    }
+	  
+	  for(ifiber=0; ifiber<8; ifiber++)
+	    {
+	      if(ro->rocEnable & (1 << (ifiber + 1 + 10)))
+		{
+		  printf("%d ", ifiber + 1);
+		}
+	    }
+	  
+	  printf("\n");
+	}
+      else
+	{
+	  printf(" SyncReset Requests DISABLED\n");
+	}
+      
+      printf("\n");
+      tiSyncResetRequestStatus(1);
+    }
   printf("\n");
-  tiSyncResetRequestStatus(1);
-  printf("\n");
-  
+      
   if(ro->intsetup&TI_INTSETUP_ENABLE)
     printf(" Interrupts ENABLED\n");
   else
@@ -1144,6 +1182,7 @@ tiStatus(int pflag)
   else
     printf(" Bus Errors Disabled\n");
 
+  printf("\n");
   printf(" Blocks ready for readout: %d\n",(ro->blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8);
   if(tiMaster)
     {
@@ -1177,6 +1216,8 @@ tiStatus(int pflag)
 	     nblocksReady, nblocksNeedAck);
 
     }
+
+  printf("\n");
   printf(" Input counter %d\n",ro->inputCounter);
 
   printf("--------------------------------------------------------------------------------\n");
@@ -1256,7 +1297,8 @@ tiSetSlavePort(int port)
     }
 
   /* Measure and apply fiber compensation */
-  FiberMeas();
+  if(FiberMeas() == ERROR)
+    return ERROR;
   
   /* TI IODELAY reset */
   TILOCK;
@@ -2032,7 +2074,8 @@ tiSetTriggerSource(int trig)
 	    {
 	      trigenable |= TI_TRIGSRC_HFBR5;
 	    }
-	  if( (trig != TI_TRIGGER_HFBR1) || (trig != TI_TRIGGER_HFBR5) )
+	  if( ((trig != TI_TRIGGER_HFBR1) && (tiSlaveFiberIn == 1))
+	      || ((trig != TI_TRIGGER_HFBR5) && (tiSlaveFiberIn == 5)) )
 	    {
 	      printf("%s: WARN:  Only valid trigger source for TI Slave is HFBR%d (trig = %d)",
 		     __FUNCTION__, tiSlaveFiberIn,
@@ -2522,11 +2565,12 @@ tiDisableRandomTrigger()
 int
 tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 {
-  int ii, dummy=0;
-  int dCnt, retVal, xferCount;
+  int ii, dummy=0, iword = 0;
+  int dCnt, retVal, xferCount, trailerFound = 0;
   volatile unsigned int *laddr;
   unsigned int vmeAdr, val;
-
+  int ntrig=0, itrig = 0, trigwords = 0;
+  
   if(TIp==NULL)
     {
       logMsg("\ntiReadBlock: ERROR: TI not initialized\n",1,2,3,4,5,6);
@@ -2648,50 +2692,104 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
       dCnt = 0;
       ii=0;
 
-      while(ii<nwrds) 
+      /* First word should be the block header */
+      val = (unsigned int) *TIpd;
+      data[ii++] = val;
+#ifndef VXWORKS
+      val = LSWAP(val);
+#endif
+      if((val & 0xffc00000) == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_HEADER_WORD_TYPE 
+		 | (tiSlotNumber<<22) ) )
 	{
+	  ntrig = val & TI_DATA_BLKLEVEL_MASK;
+
+	  /* Next word is the CODA 3.0 header */
 	  val = (unsigned int) *TIpd;
+	  data[ii++] = val;
 #ifndef VXWORKS
 	  val = LSWAP(val);
 #endif
-	  if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE 
-		     | (tiSlotNumber<<22) | (ii+1)) )
+	  if((val & 0xFF102000) == 0xFF102000)
 	    {
-#ifndef VXWORKS
-	      val = LSWAP(val);
-#endif
-	      data[ii] = val;
-	      if(((ii+1)%2)!=0)
+	      if((val & 0xff) != ntrig)
 		{
-		  /* Read out an extra word (filler) in the fifo */
+		  logMsg("\ntiReadBlock: ERROR: TI Blocklevel %d inconsistent with TI Trigger Bank Header (0x%08x)",ntrig, val, 3, 4, 5, 6);
+		  // return?
+
+		}
+
+	      /* Loop over triggers in block */
+	      for(itrig = 0; itrig < ntrig; itrig++)
+		{
+		  /* Trigger type word contains number of words to follow */
 		  val = (unsigned int) *TIpd;
+		  data[ii++] = val;
+
 #ifndef VXWORKS
 		  val = LSWAP(val);
 #endif
-		  if(((val & TI_DATA_TYPE_DEFINE_MASK) != TI_DATA_TYPE_DEFINE_MASK) ||
-		     ((val & TI_WORD_TYPE_MASK) != TI_FILLER_WORD_TYPE))
+		  trigwords = val & 0xFFFF;
+		  for(iword = 0; iword < trigwords; iword++)
 		    {
-		      logMsg("\ntiReadBlock: ERROR: Unexpected word after block trailer (0x%08x)\n",
-			     val,2,3,4,5,6);
+		      val = (unsigned int) *TIpd;
+		      data[ii++] = val;
 		    }
 		}
-	      break;
-	    }
+
+	      /* Next word should be block trailer */
+	      val = (unsigned int) *TIpd;
+	      data[ii++] = val;
 #ifndef VXWORKS
-	  val = LSWAP(val);
+	      val = LSWAP(val);
 #endif
-	  data[ii] = val;
-	  ii++;
+	      if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE 
+			 | (tiSlotNumber<<22) | ii) )
+		{
+		  trailerFound = 1;
+
+		  if((ii%2)!=0)
+		    {
+		      /* Read out an extra word (filler) in the fifo */
+		      val = (unsigned int) *TIpd;
+#ifndef VXWORKS
+		      val = LSWAP(val);
+#endif
+		      if(((val & TI_DATA_TYPE_DEFINE_MASK) != TI_DATA_TYPE_DEFINE_MASK) ||
+			 ((val & TI_WORD_TYPE_MASK) != TI_FILLER_WORD_TYPE))
+			{
+			  logMsg("\ntiReadBlock: ERROR: Unexpected word after block trailer (0x%08x)\n",
+				 val,2,3,4,5,6);
+			}
+		    }
+
+		  dCnt = ii;
+		}
+	      else
+		{
+		  logMsg("\ntiReadBlock: ERROR: Invalid TI block trailer 0x%08x\n",
+			 val, 2, 3, 4, 5, 6);
+		  dCnt = ii;
+		}
+	    }
+	  else
+	    {
+	      logMsg("\ntiReadBlock: ERROR: Invalid Trigger bank header from TI 0x%08x\n",val, 2, 3, 4, 5, 6);
+	      dCnt = ii;
+	    }
+	  
 	}
-      ii++;
-      dCnt += ii;
-
+      else
+	{
+	  logMsg("\ntiReadBlock: ERROR: Invalid block header from TI 0x%08x\n",
+		 val, 2, 3, 4, 5, 6);
+	  dCnt = ii;
+	}
       TIUNLOCK;
-      return(dCnt);
+      return dCnt;
     }
-
+  
   TIUNLOCK;
-
+  
   return OK;
 }
 
@@ -2966,6 +3064,89 @@ tiCheckTriggerBlock(volatile unsigned int *data)
     }
 
   printf("--------------------------------------------------------------------------------\n");
+  return rval;
+}
+
+int
+tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
+{
+  int rval = -1;
+  int iword = 0;
+  int blocklevel = -1;
+  int event_len = -1;
+  int ievent = 1;
+  int trigger_type = -1;
+  unsigned int dataword = 0;
+  
+  if(TIp==NULL)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: TI not initialized\n",0,1,2,3,4,5);
+      return ERROR;
+    }
+
+  /* Loop until we find the trigger bank */
+  while(iword < data_len)
+    {
+      dataword = data[iword];
+#ifndef VXWORKS
+      dataword = LSWAP(dataword);
+#endif
+      if( ((dataword & 0xFF100000)>>16 == 0xFF10) &&
+	  ((dataword & 0x0000FF00)>>8 == 0x20) )
+	{
+	  blocklevel =  dataword & 0xFF;
+	  iword++;
+	  break;
+	}
+      iword++;
+    }
+
+  if(blocklevel == -1)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: Failed to find Trigger Bank header\n",
+	     0,1,2,3,4,5);
+      return ERROR;
+    }
+
+  if(event > blocklevel)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: event (%d) greater than blocklevel (%d)\n",
+	     event, blocklevel, 2, 3, 4, 5);
+      return ERROR;
+    }
+  
+  /* Loop until we get to the event requested */
+  while((iword < data_len) && (ievent <= blocklevel))
+    {
+      dataword = data[iword];
+#ifndef VXWORKS
+      dataword = LSWAP(dataword);
+#endif
+      if((dataword & 0x00FF0000)>>16 == 0x01)
+	{
+	  trigger_type = (dataword & 0xFF000000) >> 24;
+	  if(ievent == event)
+	    {
+	      rval = trigger_type;
+	      break;
+	    }
+	  event_len = dataword & 0xFFFF;
+	  ievent++;
+	  iword += event_len + 1;
+	}
+      else
+	{
+	  /* we're lost... just increment */
+	  iword++;
+	}
+    }
+
+  if(rval == -1)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: Failed to find trigger type for event %d\n",
+	     event, 1, 2, 3, 4, 5);
+    }
+  
   return rval;
 }
 
@@ -3868,6 +4049,23 @@ tiSetAdr32(unsigned int a32base)
   return OK;
 }
 
+unsigned int
+tiGetAdr32()
+{
+  unsigned int rval = 0;
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->adr32) & TI_ADR32_BASE_MASK;
+  TIUNLOCK;
+  
+  return rval;
+}
+
 /**
  * @ingroup Config
  * @brief Disable A32
@@ -4572,6 +4770,13 @@ tiAddSlaveMask(unsigned int fibermask)
  
 }
 
+static int tiTriggerRuleClockPrescale[3][4] =
+  {
+    {4, 4, 8, 16}, // 250 MHz ref
+    {16, 32, 64, 128}, // 33.3 MHz ref
+    {16, 32, 64, 128} // 33.3 MHz ref prescaled by 32
+  };
+
 /**
  * @ingroup MasterConfig
  * @brief Set the value for a specified trigger rule.
@@ -4597,9 +4802,11 @@ tiAddSlaveMask(unsigned int fibermask)
 int
 tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 {
-  unsigned int wval=0, rval=0;
-  unsigned int maxvalue=0x3f;
-
+  unsigned int wval = 0, rval = 0;
+  unsigned int maxvalue = 0x7f;
+  unsigned int vmeControl = 0;
+  static int slow_clock_previously_switched = 0;
+  
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -4625,6 +4832,7 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
   /* Read the previous values */
   TILOCK;
   rval = vmeRead32(&TIp->triggerRule);
+  vmeControl = vmeRead32(&TIp->vmeControl);
   
   switch(rule)
     {
@@ -4645,11 +4853,35 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
   vmeWrite32(&TIp->triggerRule,wval);
 
   if(timestep==2)
-    vmeWrite32(&TIp->vmeControl, 
-	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+    {
+      if(!(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES))
+	{
+	  if(slow_clock_previously_switched == 1)
+	    {
+	      printf("%s: WARNING: Using slower clock for trigger rules.\n",
+		     __FUNCTION__);
+	      printf("\tThis may affect previously set rules!\n");
+	    }
+	  vmeWrite32(&TIp->vmeControl, 
+		     vmeControl | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+	  slow_clock_previously_switched = 1;
+	}
+    }
   else
-    vmeWrite32(&TIp->vmeControl, 
-	     vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+    {
+      if(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES)
+	{
+	  if(slow_clock_previously_switched == 1)
+	    {
+	      printf("%s: WARNING: Using faster clock for trigger rules.\n",
+		     __FUNCTION__);
+	      printf("\tThis may affect previously set rules!\n");
+	    }
+	  vmeWrite32(&TIp->vmeControl, 
+		     vmeControl & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
+	  slow_clock_previously_switched = 1;
+	}
+    }
   TIUNLOCK;
 
   return OK;
@@ -4711,6 +4943,86 @@ tiGetTriggerHoldoff(int rule)
 
   return rval;
 
+}
+
+int
+tiPrintTriggerHoldoff(int dflag)
+{
+  unsigned long TIBase = 0;
+  unsigned int triggerRule = 0, triggerRuleMin = 0, vmeControl = 0;
+  int irule = 0, slowclock = 0, clockticks = 0, timestep = 0, minticks = 0;
+  float clock[3] = {250, 33.3, 33.3/32.}, stepsize = 0., time = 0., min = 0.;
+
+  if(TIp == NULL) 
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+  
+  TILOCK;
+  triggerRule    = vmeRead32(&TIp->triggerRule);
+  triggerRuleMin = vmeRead32(&TIp->triggerRuleMin);
+  vmeControl     = vmeRead32(&TIp->vmeControl);
+  TIUNLOCK;
+
+  if(dflag)
+    {
+      printf("  Registers:\n");
+      TIBase = (unsigned long)TIp;
+      printf("   triggerRule    (0x%04lx) = 0x%08x\t",
+	     (unsigned long)(&TIp->triggerRule) - TIBase, triggerRule);
+      printf(" triggerRuleMin (0x%04lx) = 0x%08x\n",
+	     (unsigned long)(&TIp->triggerRuleMin) - TIBase, triggerRuleMin);
+    }
+
+  printf("\n");
+  printf("    Rule   Timesteps    + Up to     Minimum  ");
+  if(dflag)
+    printf("  ticks   clock   prescale\n");
+  else
+    printf("\n");
+  printf("    ----   ---[ns]---  ---[ns]---  ---[ns]---");
+  if(dflag)
+    printf("  -----  -[MHz]-  --------\n");
+  else
+    printf("\n");
+
+  slowclock = (vmeControl & (1 << 31)) >> 31;
+  for(irule = 0; irule < 4; irule++)
+    {
+      clockticks = (triggerRule >> (irule*8)) & 0x7F;
+      timestep   = ((triggerRule >> (irule*8)) >> 7) & 0x1;
+      if((triggerRuleMin >> (irule*8)) & 0x80)
+	minticks = (triggerRuleMin >> (irule*8)) & 0x7F;
+      else
+	minticks = 0;
+      
+      if((timestep == 1) && (slowclock == 1))
+	{
+	  timestep = 2;
+	}
+
+      stepsize = ((float) tiTriggerRuleClockPrescale[timestep][irule] /
+		  (float) clock[timestep]);
+
+      time = (float)clockticks * stepsize;
+
+      min = (float) minticks * stepsize;
+      
+      printf("    %4d     %8.1f    %8.1f    %8.1f ",
+	     irule + 1, 1E3 * time, 1E3 * stepsize, min);
+
+      if(dflag)
+	printf("   %3d    %5.1f       %3d\n",
+	       clockticks, clock[timestep],
+	       tiTriggerRuleClockPrescale[timestep][irule]);
+      else
+	printf("\n");
+
+    }
+  printf("\n");
+  
+  return OK;
 }
 
 /**
@@ -5755,13 +6067,15 @@ tiBlockStatus(int fiber, int pflag)
   return rval;
 }
 
-static void 
+static int
 FiberMeas()
 {
-  int clksrc=0;
+  int clksrc=0, itry = 0, ntries = 2;
   unsigned int defaultDelay=0x1f1f1f00, fiberLatency=0, syncDelay=0, syncDelay_write=0;
-
-
+  unsigned int firstMeas = 0;
+  int failed = 0;
+  int rval = OK;
+  
   clksrc = tiGetClockSource();
   /* Check to be sure the TI has external HFBR1/5 clock enabled */
   if((clksrc != TI_CLOCK_HFBR1) && (clksrc != TI_CLOCK_HFBR5))
@@ -5775,40 +6089,66 @@ FiberMeas()
       vmeWrite32(&TIp->fiberSyncDelay,defaultDelay);
       TIUNLOCK;
 
-      return;
+      return ERROR;
     }
 
   TILOCK;
-  vmeWrite32(&TIp->reset,TI_RESET_IODELAY); // reset the IODELAY
-  taskDelay(1);
-  vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);  // auto adjust the return signal phase
-  taskDelay(1);
-  vmeWrite32(&TIp->reset,TI_RESET_MEASURE_LATENCY);  // measure the fiber latency
-  taskDelay(1);
+  for(itry = 0; itry < ntries; itry++)
+    {
+      /* Reset the IODELAY */
+      vmeWrite32(&TIp->reset,TI_RESET_IODELAY); 
+      taskDelay(1);
+      
+      /* Auto adjust the return signal phase */
+      vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);
+      taskDelay(1);
+      
+      /* Measure the fiber latency */
+      vmeWrite32(&TIp->reset,TI_RESET_MEASURE_LATENCY);
+      taskDelay(1);
+      
+      /* Get the fiber latency measurement result */
+      if(tiSlaveFiberIn==1)
+	fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);
+      else
+	fiberLatency = vmeRead32(&TIp->fiberAlignment);
+      
+#ifdef DEBUGFIBERMEAS
+      printf("Software offset = 0x%08x (%d)\n",
+	     tiFiberLatencyOffset, tiFiberLatencyOffset);
+      printf("Fiber Latency is 0x%08x\n",
+	     fiberLatency);
+      printf("  Latency data = 0x%08x (%d ns)\n",
+	     (fiberLatency>>23), (fiberLatency>>23) * 4);
+#endif /* DEBUGFIBERMEAS */
+      
+      /* Auto adjust the sync phase */
+      if(tiSlaveFiberIn==1)
+	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
+      else
+	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);
+      
+      taskDelay(1);
+      
+      /* Get the fiber latency measurement result */
+      if(tiSlaveFiberIn==1)
+	fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);
+      else
+	fiberLatency = vmeRead32(&TIp->fiberAlignment);
+      
+      /* Divide by two to get the one way trip */
+      tiFiberLatencyMeasurement =
+	((fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23)>>1;
 
-  if(tiSlaveFiberIn==1)
-    fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber 1 latency measurement result
-  else
-    fiberLatency = vmeRead32(&TIp->fiberAlignment);  //fiber 5 latency measurement result
+      if(itry == 0)
+	firstMeas = tiFiberLatencyMeasurement;
+      else
+	{
+	  if(firstMeas != tiFiberLatencyMeasurement)
+	    failed = 1;
+	}
+    }
 
-  printf("Software offset = 0x%08x (%d)\n",tiFiberLatencyOffset, tiFiberLatencyOffset);
-  printf("Fiber Latency is 0x%08x\n",fiberLatency);
-  printf("  Latency data = 0x%08x (%d ns)\n",(fiberLatency>>23), (fiberLatency>>23) * 4);
-
-
-  if(tiSlaveFiberIn==1)
-    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);   // auto adjust the sync phase for HFBR#1
-  else
-    vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);   // auto adjust the sync phase for HFBR#5
-
-  taskDelay(1);
-
-  if(tiSlaveFiberIn==1)
-    fiberLatency = vmeRead32(&TIp->fiberLatencyMeasurement);  //fiber 1 latency measurement result
-  else
-    fiberLatency = vmeRead32(&TIp->fiberAlignment);  //fiber 5 latency measurement result
-
-  tiFiberLatencyMeasurement = ((fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23)>>1;
   syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)>>1));
   syncDelay_write = (syncDelay&0xFF)<<8 | (syncDelay&0xFF)<<16 | (syncDelay&0xFF)<<24;
   taskDelay(1);
@@ -5818,8 +6158,41 @@ FiberMeas()
   syncDelay = vmeRead32(&TIp->fiberSyncDelay);
   TIUNLOCK;
 
+#ifdef DEBUGFIBERMEAS
   printf (" \n The fiber latency of 0xA0 is: 0x%08x\n", fiberLatency);
   printf (" \n The sync latency of 0x50 is: 0x%08x\n",syncDelay);
+#endif /* DEBUGFIBERMEAS */
+
+  if(failed == 1)
+    {
+      printf("\n");
+      printf("%s: ERROR: TI Fiber Measurement failed!"
+	     "\n\tFirst Measurement != Second Measurement (%d != %d)\n\n",
+	     __FUNCTION__,
+	     firstMeas, tiFiberLatencyMeasurement);
+      tiFiberLatencyMeasurement = 0;
+      rval = ERROR;
+    }  
+  else if(!((tiFiberLatencyMeasurement > 0) && (tiFiberLatencyMeasurement <= 0xFF)))
+    {
+      printf("\n");
+      printf("%s: ERROR: TI Fiber Measurement failed!"
+	     "\n\tMeasurement out of bounds (%d)\n\n",
+	     __FUNCTION__,
+	     tiFiberLatencyMeasurement);
+      tiFiberLatencyMeasurement = 0;
+      rval = ERROR;
+    }
+  else
+    {
+      printf("%s: TI Fiber Measurement success!"
+	     "  tiFiberLatencyMeasurement = 0x%x (%d)\n",
+	     __FUNCTION__,
+	     tiFiberLatencyMeasurement, tiFiberLatencyMeasurement);
+      rval = OK;
+    }
+      
+  return rval;
 }
 
 /**

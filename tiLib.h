@@ -72,7 +72,7 @@ struct TI_A24RegStruct
   /** 0x0004C */ volatile unsigned int output;
   /** 0x00050 */ volatile unsigned int fiberSyncDelay;
   /** 0x00054 */          unsigned int blank2[(0x64-0x54)/4];
-  /** 0x00064 */          unsigned int inputPrescale;
+  /** 0x00064 */ volatile unsigned int inputPrescale;
   /** 0x00068 */          unsigned int blank3[(0x74-0x68)/4];
   /** 0x00074 */ volatile unsigned int pulserEvType;
   /** 0x00078 */ volatile unsigned int syncCommand;
@@ -602,6 +602,7 @@ int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
 int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiCheckTriggerBlock(volatile unsigned int *data);
+int  tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
@@ -648,6 +649,7 @@ void  tiSetFiberDelay(unsigned int delay, unsigned int offset);
 int  tiAddSlave(unsigned int fiber);
 int  tiSetTriggerHoldoff(int rule, unsigned int value, int timestep);
 int  tiGetTriggerHoldoff(int rule);
+int  tiPrintTriggerHoldoff(int dflag);
 int  tiSetTriggerHoldoffMin(int rule, unsigned int value);
 int  tiGetTriggerHoldoffMin(int rule, int pflag);
 

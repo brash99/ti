@@ -169,7 +169,8 @@ rocTrigger(int arg)
 {
   int ii, islot;
   int stat, dCnt, len=0, idata;
-
+  int ev_type = 0;
+  
   tiSetOutputPort(1,0,0,0);
 
   BANKOPEN(5,BT_UI4,0);
@@ -183,13 +184,25 @@ rocTrigger(int arg)
   BANKOPEN(4,BT_UI4,0);
 
   vmeDmaConfig(2,5,1); 
-  dCnt = tiReadBlock(dma_dabufp,8+(3*BLOCKLEVEL),1);
+  dCnt = tiReadBlock(dma_dabufp,8+(5*BLOCKLEVEL),1);
   if(dCnt<=0)
     {
       printf("No data or error.  dCnt = %d\n",dCnt);
     }
   else
     {
+      ev_type = tiDecodeTriggerType(dma_dabufp, dCnt, 1);
+      if(ev_type <= 0)
+	{
+	  /* Could not find trigger type */
+	  ev_type = 1;
+	}
+      
+      /* CODA 2.x only allows for 4 bits of trigger type */
+      ev_type &= 0xF; 
+
+      the_event->type = ev_type;
+
       dma_dabufp += dCnt;
     }
 
