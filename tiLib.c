@@ -90,6 +90,7 @@ static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
+static int          tiFakeTriggerBank=1;
 
 static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
@@ -2794,6 +2795,64 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 }
 
 /**
+ * @ingroup Config
+ *
+ * @brief Option to generate a fake trigger bank when
+ *        @tiReadTriggerBlock finds an ERROR.
+ *        Enabled by library default.
+ *
+ * @param enable Enable fake trigger bank if enable != 0.
+ *
+ * @return OK
+ *
+ */
+int
+tiFakeTriggerBankOnError(int enable)
+{
+  TILOCK;
+  if(enable)
+    tiFakeTriggerBank = 1;
+  else
+    tiFakeTriggerBank = 0;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Readout
+ * @brief Generate a fake trigger bank.  Called by @tiReadTriggerBlock if ERROR.
+ *
+ * @param   data  - local memory address to place data
+ *
+ * @return Number of words generated to data if successful, ERROR otherwise
+ *
+ */
+int
+tiGenerateTriggerBank(volatile unsigned int *data)
+{
+  int bl = 0;
+  int iword, nwords = 2;
+  unsigned int error_tag = 0;
+  unsigned int word;
+  
+  bl = tiGetCurrentBlockLevel();
+  data[0] = nwords - 1;
+  data[1] = 0xFF102000 | (error_tag << 16)| bl;
+  
+  if(tiSwapTriggerBlock==1)
+    {
+      for(iword = 0; iword < nwords; iword++)
+	{
+	  word = data[iword];
+	  data[iword] = LSWAP(word);
+	}
+    }
+
+  return nwords;
+}
+
+/**
  * @ingroup Readout
  * @brief Read a block from the TI and form it into a CODA Trigger Bank
  *
@@ -2810,7 +2869,6 @@ tiReadTriggerBlock(volatile unsigned int *data)
   unsigned int word=0;
   int iblkhead=-1, iblktrl=-1;
 
-
   if(data==NULL) 
     {
       logMsg("\ntiReadTriggerBlock: ERROR: Invalid Destination address\n",0,0,0,0,0,0);
@@ -2818,7 +2876,7 @@ tiReadTriggerBlock(volatile unsigned int *data)
     }
 
   /* Determine the maximum number of words to expect, from the block level */
-  nwrds = (4*tiBlockLevel) + 8;
+  nwrds = (5*tiBlockLevel) + 8;
 
   /* Optimize the transfer type based on the blocklevel */
   if(tiBlockLevel>2)
@@ -2837,14 +2895,22 @@ tiReadTriggerBlock(volatile unsigned int *data)
       /* Error occurred */
       logMsg("tiReadTriggerBlock: ERROR: tiReadBlock returned ERROR\n",
 	     1,2,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
   else if (rval == 0)
     {
       /* No data returned */
       logMsg("tiReadTriggerBlock: WARN: No data available\n",
 	     1,2,3,4,5,6);
-      return 0; 
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return 0; 
     }
 
   /* Work down to find index of block header */
@@ -2872,7 +2938,11 @@ tiReadTriggerBlock(volatile unsigned int *data)
     {
       logMsg("tiReadTriggerBlock: ERROR: Failed to find TI Block Header\n",
 	     1,2,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
   if(iblkhead != 0)
     {
@@ -2909,7 +2979,11 @@ tiReadTriggerBlock(volatile unsigned int *data)
     {
       logMsg("tiReadTriggerBlock: ERROR: Failed to find TI Block Trailer\n",
 	     1,2,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
 
   /* Get the block trailer, and check the number of words contained in it */
@@ -2921,7 +2995,11 @@ tiReadTriggerBlock(volatile unsigned int *data)
     {
       logMsg("tiReadTriggerBlock: Number of words inconsistent (index count = %d, block trailer count = %d\n",
 	     (iblktrl - iblkhead + 1), word & 0x3fffff,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
 
   /* Modify the total words returned */

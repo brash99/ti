@@ -600,6 +600,8 @@ int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int 
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
+int  tiFakeTriggerBankOnError(int enable);
+int  tiGenerateTriggerBank(volatile unsigned int *data);
 int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiCheckTriggerBlock(volatile unsigned int *data);
 int  tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event);
