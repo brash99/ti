@@ -821,6 +821,7 @@ tiStatus(int pflag)
   ro->trigDelay    = vmeRead32(&TIp->trigDelay);
   ro->adr32        = vmeRead32(&TIp->adr32);
   ro->blocklevel   = vmeRead32(&TIp->blocklevel);
+  ro->dataFormat   = vmeRead32(&TIp->dataFormat);
   ro->vmeControl   = vmeRead32(&TIp->vmeControl);
   ro->trigsrc      = vmeRead32(&TIp->trigsrc);
   ro->sync         = vmeRead32(&TIp->sync);
@@ -906,6 +907,7 @@ tiStatus(int pflag)
       printf("  trigDelay      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->trigDelay) - TIBase, ro->trigDelay);
       printf("  adr32          (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->adr32) - TIBase, ro->adr32);
       printf("  blocklevel     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->blocklevel) - TIBase, ro->blocklevel);
+      printf("  dataFormat     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->dataFormat) - TIBase, ro->dataFormat);
       printf("  vmeControl     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->vmeControl) - TIBase, ro->vmeControl);
       printf("  trigger        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->trigsrc) - TIBase, ro->trigsrc);
       printf("  sync           (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->sync) - TIBase, ro->sync);
@@ -940,11 +942,23 @@ tiStatus(int pflag)
 	printf("\n");
     }
 
+  printf(" Block Buffer Level = ");
+  if(ro->vmeControl & TI_VMECONTROL_USE_BCAST_BUFFERLEVEL)
+    {
+      printf("%d -Broadcast- ",
+	     (ro->dataFormat & TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 24);
+    }
+  else
+    {
+      printf("%d -Local- ",
+	     ro->blockBuffer & TI_BLOCKBUFFER_BUFFERLEVEL_MASK);
+    }
+
+  printf("(%s)\n",(ro->vmeControl & TI_VMECONTROL_BUSY_ON_BUFFERLEVEL)?
+	 "Busy Enabled":"Busy not enabled");
+      
   if(tiMaster)
     {
-      printf(" Block Buffer Level = %d\n",
-	     ro->blockBuffer & TI_BLOCKBUFFER_BUFFERLEVEL_MASK);
-      
       if((ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK) == 0)
 	printf(" Sync Events DISABLED\n");
       else
@@ -4530,7 +4544,7 @@ tiGetBroadcastBlockBufferLevel()
   TILOCK;
   rval =
     (int) ((vmeRead32(&TIp->dataFormat) &
-	    TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 16);
+	    TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 24);
   TIUNLOCK;
   
   return rval;
