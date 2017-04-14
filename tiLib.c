@@ -4470,6 +4470,8 @@ tiDisableVXSSignals()
 int
 tiSetBlockBufferLevel(unsigned int level)
 {
+  unsigned int trigsrc = 0;
+
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -4485,6 +4487,24 @@ tiSetBlockBufferLevel(unsigned int level)
 
   TILOCK;
   vmeWrite32(&TIp->blockBuffer, level);
+
+  if(tiMaster)
+    {
+      /* Broadcast buffer level to TI-slaves */
+      trigsrc = vmeRead32(&TIp->trigsrc);
+      
+      /* Turn on the VME trigger, if not enabled */
+      if(!(trigsrc & TI_TRIGSRC_VME))
+	vmeWrite32(&TIp->trigsrc, TI_TRIGSRC_VME | trigsrc);
+      
+      /* Broadcast using trigger command */
+      vmeWrite32(&TIp->triggerCommand, TI_TRIGGERCOMMAND_SET_BUFFERLEVEL | level);
+      
+      /* Turn off the VME trigger, if it was initially disabled */
+      if(!(trigsrc & TI_TRIGSRC_VME))
+	vmeWrite32(&TIp->trigsrc, trigsrc);
+    }
+
   TIUNLOCK;
 
   return OK;
