@@ -4491,6 +4491,87 @@ tiSetBlockBufferLevel(unsigned int level)
 }
 
 /**
+ *  @ingroup Status
+ *  @brief Get the block buffer level, as broadcasted from the TS
+ *
+ * @return Broadcasted block buffer level if successful, otherwise ERROR
+ */
+int
+tiGetBroadcastBlockBufferLevel()
+{
+  int rval = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval =
+    (int) ((vmeRead32(&TIp->dataFormat) &
+	    TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 16);
+  TIUNLOCK;
+  
+  return rval;
+}
+
+/**
+ *  @ingroup Config
+ *  @brief Set the TI to be BUSY if number of stored blocks is equal to
+ *         the set block buffer level
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiBusyOnBufferLevel(int enable)
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->vmeControl,
+	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_BUSY_ON_BUFFERLEVEL);
+  TIUNLOCK;
+  
+  return OK;
+}
+
+/**
+ *  @ingroup Config
+ *  @brief Enable/Disable the use of the broadcasted buffer level, instead of the 
+ *         value set locally with @tiSetBlockBufferLevel.
+ *
+ *  @param enable - 1: Enable, 0: Disable
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiUseBroadcastBufferLevel(int enable)
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_USE_BCAST_BUFFERLEVEL);
+  else
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_USE_BCAST_BUFFERLEVEL);
+  TIUNLOCK;
+  
+  return OK;
+}
+
+/**
  * @ingroup MasterConfig
  * @brief Enable/Disable trigger inputs labelled TS#1-6 on the Front Panel
  *

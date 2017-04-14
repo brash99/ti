@@ -219,25 +219,30 @@ struct TI_A24RegStruct
 
 
 /* 0x18 dataFormat bits and masks */
-#define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
-#define TI_DATAFORMAT_TIMING_WORD          (1<<1)
-#define TI_DATAFORMAT_HIGHERBITS_WORD      (1<<2)
-#define TI_DATAFORMAT_FPINPUT_READOUT      (1<<3)
+#define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER    (1<<0)
+#define TI_DATAFORMAT_TIMING_WORD             (1<<1)
+#define TI_DATAFORMAT_HIGHERBITS_WORD         (1<<2)
+#define TI_DATAFORMAT_FPINPUT_READOUT         (1<<3)
+#define TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK  0xFFFF0000
+
+
 
 /* 0x1C vmeControl bits and masks */
-#define TI_VMECONTROL_BERR           (1<<0)
-#define TI_VMECONTROL_TOKEN_TESTMODE (1<<1)
-#define TI_VMECONTROL_MBLK           (1<<2)
-#define TI_VMECONTROL_A32M           (1<<3)
-#define TI_VMECONTROL_A32            (1<<4)
-#define TI_VMECONTROL_ERROR_INT      (1<<7)
-#define TI_VMECONTROL_I2CDEV_HACK    (1<<8)
-#define TI_VMECONTROL_TOKENOUT_HI    (1<<9)
-#define TI_VMECONTROL_FIRST_BOARD    (1<<10)
-#define TI_VMECONTROL_LAST_BOARD     (1<<11)
-#define TI_VMECONTROL_BUFFER_DISABLE (1<<15)
-#define TI_VMECONTROL_BLOCKLEVEL_UPDATE (1<<21)
-#define TI_VMECONTROL_SLOWER_TRIGGER_RULES (1<<31)
+#define TI_VMECONTROL_BERR                  (1<<0)
+#define TI_VMECONTROL_TOKEN_TESTMODE        (1<<1)
+#define TI_VMECONTROL_MBLK                  (1<<2)
+#define TI_VMECONTROL_A32M                  (1<<3)
+#define TI_VMECONTROL_A32                   (1<<4)
+#define TI_VMECONTROL_ERROR_INT             (1<<7)
+#define TI_VMECONTROL_I2CDEV_HACK           (1<<8)
+#define TI_VMECONTROL_TOKENOUT_HI           (1<<9)
+#define TI_VMECONTROL_FIRST_BOARD           (1<<10)
+#define TI_VMECONTROL_LAST_BOARD            (1<<11)
+#define TI_VMECONTROL_BUFFER_DISABLE        (1<<15)
+#define TI_VMECONTROL_BLOCKLEVEL_UPDATE     (1<<21)
+#define TI_VMECONTROL_USE_BCAST_BUFFERLEVEL (1<<22)
+#define TI_VMECONTROL_BUSY_ON_BUFFERLEVEL   (1<<23)
+#define TI_VMECONTROL_SLOWER_TRIGGER_RULES  (1<<31)
 
 /* 0x20 trigsrc bits and masks */
 #define TI_TRIGSRC_SOURCEMASK       0x0000F3FF
@@ -642,6 +647,8 @@ int  tiGetReadoutEvents();
 int  tiEnableVXSSignals();
 int  tiDisableVXSSignals();
 int  tiSetBlockBufferLevel(unsigned int level);
+int  tiGetBroadcastBlockBufferLevel();
+int  tiBusyOnBufferLevel(int enable);
 int  tiEnableTSInput(unsigned int inpMask);
 int  tiDisableTSInput(unsigned int inpMask);
 int  tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigned int set4);
