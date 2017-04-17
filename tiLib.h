@@ -729,6 +729,9 @@ int  tiGetSWBBusy(int pflag);
 unsigned int tiGetBusyCounter(int busysrc);
 int  tiPrintBusyCounters();
 
+int  tiReadFiberFifo(int fiber, volatile unsigned int *data, int maxwords);
+int  tiPrintFiberFifo(int fiber);
+
 /* Some token testing routines */
 int  tiSetTokenTestMode(int mode);
 int  tiSetTokenOutTest(int level);

@@ -7964,6 +7964,116 @@ tiPrintBusyCounters()
   return OK;
 }
 
+
+/**
+ * @ingroup Status
+ * @brief Read the fiber fifo from the TI 
+ *
+ * @param   fiber - Fiber fifo to read. 1 and 5 only supported.
+ * @param   data  - local memory address to place data
+ * @param  maxwords - Maximum number of 32bit words to put into data array.
+ *
+ * @return Number of words transferred to data if successful, ERROR otherwise
+ *
+ */
+int
+tiReadFiberFifo(int fiber, volatile unsigned int *data, int maxwords)
+{
+  int nwords = 0;
+  unsigned int word = 0;
+  
+  if(data==NULL) 
+    {
+      printf("%s: ERROR: Invalid Destination address\n",
+	     __func__);
+      return(ERROR);
+    }
+
+  if((fiber != 1) && (fiber !=5))
+    {
+      printf("%s: Invalid fiber (%d)\n",
+	     __func__, fiber);
+      return ERROR;
+    }
+
+  TILOCK;
+  while(nwords < maxwords)
+    {
+      if(fiber == 1)
+	word = vmeRead32(&TIp->trigTable[12]);
+      else
+      	word = vmeRead32(&TIp->trigTable[13]);
+
+      if(word & (1<<31))
+	break;
+      
+      data[nwords++] = word;
+    }
+  TIUNLOCK;
+  
+  return nwords;
+}
+
+
+/**
+ * @ingroup Status
+ * @brief Read the fiber fifo from the TI and print to standard out.
+ *
+ * @param   fiber - Fiber fifo to read. 1 and 5 only supported.
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiPrintFiberFifo(int fiber)
+{
+  volatile unsigned int *data;
+  int maxwords = 256, iword, rwords = 0;
+
+  if((fiber != 1) && (fiber !=5))
+    {
+      printf("%s: Invalid fiber (%d)\n",
+	     __func__, fiber);
+      return ERROR;
+    }
+  
+  data = (volatile unsigned int *)malloc(maxwords * sizeof(unsigned int));
+  if(!data)
+    {
+      printf("%s: Unable to acquire memory\n",
+	     __func__);
+      return ERROR;
+    }
+
+  rwords = tiReadFiberFifo(fiber, data, maxwords);
+
+  if(rwords == 0)
+    {
+      printf("%s: No data in fifo\n\n",
+	     __func__);
+      return OK;
+    }
+  
+  printf(" Fiber %d fifo (%d words)\n",
+	 fiber, rwords);
+  printf("      Timestamp     Data\n");
+  printf("----------------------------\n");
+  for(iword = 0; iword < rwords; iword++)
+    {
+      printf("%3d:    0x%04x     0x%04x\n",
+	     iword,
+	     (data[iword] & 0xFFFF0000)>>16,
+	     (data[iword] & 0xFFFF));
+    }
+  printf("----------------------------\n");
+  printf("\n");
+  
+  if(data)
+    free((void *)data);
+  
+  return OK;
+}
+
 /**
  * @ingroup Config
  * @brief Turn on Token out test mode
