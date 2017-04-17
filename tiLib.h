@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x061
+#define TI_SUPPORTED_FIRMWARE 0x072
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -219,25 +219,30 @@ struct TI_A24RegStruct
 
 
 /* 0x18 dataFormat bits and masks */
-#define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER (1<<0)
-#define TI_DATAFORMAT_TIMING_WORD          (1<<1)
-#define TI_DATAFORMAT_HIGHERBITS_WORD      (1<<2)
-#define TI_DATAFORMAT_FPINPUT_READOUT      (1<<3)
+#define TI_DATAFORMAT_TWOBLOCK_PLACEHOLDER    (1<<0)
+#define TI_DATAFORMAT_TIMING_WORD             (1<<1)
+#define TI_DATAFORMAT_HIGHERBITS_WORD         (1<<2)
+#define TI_DATAFORMAT_FPINPUT_READOUT         (1<<3)
+#define TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK  0xFF000000
+
+
 
 /* 0x1C vmeControl bits and masks */
-#define TI_VMECONTROL_BERR           (1<<0)
-#define TI_VMECONTROL_TOKEN_TESTMODE (1<<1)
-#define TI_VMECONTROL_MBLK           (1<<2)
-#define TI_VMECONTROL_A32M           (1<<3)
-#define TI_VMECONTROL_A32            (1<<4)
-#define TI_VMECONTROL_ERROR_INT      (1<<7)
-#define TI_VMECONTROL_I2CDEV_HACK    (1<<8)
-#define TI_VMECONTROL_TOKENOUT_HI    (1<<9)
-#define TI_VMECONTROL_FIRST_BOARD    (1<<10)
-#define TI_VMECONTROL_LAST_BOARD     (1<<11)
-#define TI_VMECONTROL_BUFFER_DISABLE (1<<15)
-#define TI_VMECONTROL_BLOCKLEVEL_UPDATE (1<<21)
-#define TI_VMECONTROL_SLOWER_TRIGGER_RULES (1<<31)
+#define TI_VMECONTROL_BERR                  (1<<0)
+#define TI_VMECONTROL_TOKEN_TESTMODE        (1<<1)
+#define TI_VMECONTROL_MBLK                  (1<<2)
+#define TI_VMECONTROL_A32M                  (1<<3)
+#define TI_VMECONTROL_A32                   (1<<4)
+#define TI_VMECONTROL_ERROR_INT             (1<<7)
+#define TI_VMECONTROL_I2CDEV_HACK           (1<<8)
+#define TI_VMECONTROL_TOKENOUT_HI           (1<<9)
+#define TI_VMECONTROL_FIRST_BOARD           (1<<10)
+#define TI_VMECONTROL_LAST_BOARD            (1<<11)
+#define TI_VMECONTROL_BUFFER_DISABLE        (1<<15)
+#define TI_VMECONTROL_BLOCKLEVEL_UPDATE     (1<<21)
+#define TI_VMECONTROL_USE_BCAST_BUFFERLEVEL (1<<22)
+#define TI_VMECONTROL_BUSY_ON_BUFFERLEVEL   (1<<23)
+#define TI_VMECONTROL_SLOWER_TRIGGER_RULES  (1<<31)
 
 /* 0x20 trigsrc bits and masks */
 #define TI_TRIGSRC_SOURCEMASK       0x0000F3FF
@@ -398,12 +403,13 @@ struct TI_A24RegStruct
 #define TI_SYNCWIDTH_LONGWIDTH_ENABLE  (1<<7)
 
 /* 0x84 triggerCommand bits and masks */
-#define TI_TRIGGERCOMMAND_VALUE_MASK     0x000000FF
-#define TI_TRIGGERCOMMAND_CODE_MASK      0x00000F00
-#define TI_TRIGGERCOMMAND_TRIG1          0x00000100
-#define TI_TRIGGERCOMMAND_TRIG2          0x00000200
-#define TI_TRIGGERCOMMAND_SYNC_EVENT     0x00000300
-#define TI_TRIGGERCOMMAND_SET_BLOCKLEVEL 0x00000800
+#define TI_TRIGGERCOMMAND_VALUE_MASK      0x000000FF
+#define TI_TRIGGERCOMMAND_CODE_MASK       0x00000F00
+#define TI_TRIGGERCOMMAND_TRIG1           0x00000100
+#define TI_TRIGGERCOMMAND_TRIG2           0x00000200
+#define TI_TRIGGERCOMMAND_SYNC_EVENT      0x00000300
+#define TI_TRIGGERCOMMAND_SET_BLOCKLEVEL  0x00000800
+#define TI_TRIGGERCOMMAND_SET_BUFFERLEVEL 0x00000C00
 
 /* 0x88 randomPulser bits and masks */
 #define TI_RANDOMPULSER_TRIG1_RATE_MASK 0x0000000F
@@ -600,6 +606,8 @@ int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int 
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
 int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
+int  tiFakeTriggerBankOnError(int enable);
+int  tiGenerateTriggerBank(volatile unsigned int *data);
 int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiCheckTriggerBlock(volatile unsigned int *data);
 int  tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event);
@@ -640,6 +648,9 @@ int  tiGetReadoutEvents();
 int  tiEnableVXSSignals();
 int  tiDisableVXSSignals();
 int  tiSetBlockBufferLevel(unsigned int level);
+int  tiGetBroadcastBlockBufferLevel();
+int  tiBusyOnBufferLevel(int enable);
+int  tiUseBroadcastBufferLevel(int enable);
 int  tiEnableTSInput(unsigned int inpMask);
 int  tiDisableTSInput(unsigned int inpMask);
 int  tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigned int set4);
@@ -717,6 +728,9 @@ unsigned int  tiGetAckCount();
 int  tiGetSWBBusy(int pflag);
 unsigned int tiGetBusyCounter(int busysrc);
 int  tiPrintBusyCounters();
+
+int  tiReadFiberFifo(int fiber, volatile unsigned int *data, int maxwords);
+int  tiPrintFiberFifo(int fiber);
 
 /* Some token testing routines */
 int  tiSetTokenTestMode(int mode);

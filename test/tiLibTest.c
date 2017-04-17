@@ -23,7 +23,7 @@ extern unsigned int *dma_dabufp;
 
 extern int tiA32Base;
 
-#define BLOCKLEVEL 8
+#define BLOCKLEVEL 40
 
 #define DO_READOUT
 
@@ -35,7 +35,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
-  int printout = 1;
+  int printout = 100;
   int dataCheck=0;
 
   unsigned int tiIntCount = tiGetIntCount();
@@ -65,8 +65,8 @@ mytiISR(int arg)
 #endif
   /* *dma_dabufp++; */
 
-  dCnt = tiReadBlock(dma_dabufp,5*BLOCKLEVEL+3+4,1);
-  /* dCnt = tiReadTriggerBlock(dma_dabufp); */
+  /* dCnt = tiReadBlock(dma_dabufp,5*BLOCKLEVEL+3+4,1); */
+  dCnt = tiReadTriggerBlock(dma_dabufp);
 
   if(dCnt<=0)
     {
@@ -75,41 +75,68 @@ mytiISR(int arg)
     }
   else
     {
-      printf("ev_type = %d\n",tiDecodeTriggerType(dma_dabufp, dCnt, 1));
       /* dataCheck = tiCheckTriggerBlock(dma_dabufp); */
       dma_dabufp += dCnt;
     
     }
+
+  for(idata = 0; idata < ((2400)>>2); idata++)
+    {
+      *dma_dabufp++ = idata | 0xabab0000;
+    }
+
   PUTEVENT(vmeOUT);
 
-  outEvent = dmaPGetItem(vmeOUT);
-/* #define READOUT */
-#ifdef READOUT
-  if(tiIntCount%printout==0)
+#ifdef CHECKEVENT
+  int length = (((int)(dma_dabufp) - (int)(&the_event->length))) - 4;
+  int size = the_event->part->size - sizeof(DMANODE);
+  
+  if(length>size) 
     {
-      printf("Received %d triggers...\n",
-	     tiIntCount);
-      
-      len = outEvent->length;
-      
-      for(idata=0;idata<len;idata++)
-	{
-	  if((idata%5)==0) printf("\n\t");
-	  printf("  0x%08x ",(unsigned int)LSWAP(outEvent->data[idata]));
-	}
-      printf("\n\n");
+      printf("rocLib: ERROR: Event length > Buffer size (%d > %d).  Event %d\n",
+	     length,size,the_event->nevent);
+      dataCheck=ERROR;
     }
 #endif
-  dmaPFreeItem(outEvent);
+
+  if(dmaPEmpty(vmeIN))
+    {
+      while(dmaPNodeCount(vmeOUT) > 0)
+	{
+	  outEvent = dmaPGetItem(vmeOUT);
+	  /* #define READOUT */
+#ifdef READOUT
+	  if(tiIntCount%printout==0)
+	    {
+	      printf("Received %d triggers...\n",
+		     tiIntCount);
+      
+	      len = outEvent->length;
+      
+	      for(idata=0;idata<len;idata++)
+		{
+		  if((idata%5)==0) printf("\n\t");
+		  printf("  0x%08x ",(unsigned int)LSWAP(outEvent->data[idata]));
+		}
+	      printf("\n\n");
+	    }
+#endif
+	  dmaPFreeItem(outEvent);
 #else /* DO_READOUT */
-  /*   tiResetBlockReadout(); */
+	  /*   tiResetBlockReadout(); */
 
 #endif /* DO_READOUT */
-  if(tiIntCount%printout==0)
-    printf("intCount = %d\n",tiIntCount );
-/*     sleep(1); */
+	}
+    }
 
-/*   static int bl = BLOCKLEVEL; */
+  if(tiIntCount%printout==0)
+    {
+      printf("intCount = %d\r",tiIntCount );
+      fflush(stdout);
+    }
+  /*     sleep(1); */
+
+  /*   static int bl = BLOCKLEVEL; */
   if(tiGetSyncEventFlag())
     {
       printf("SYNC EVENT\n");
@@ -132,7 +159,7 @@ mytiISR(int arg)
 	  
 	}
     }
-
+  
   if(dataCheck!=OK)
     {
       tiSetBlockLimit(1);
@@ -170,7 +197,7 @@ main(int argc, char *argv[]) {
   /* INIT dmaPList */
 
   dmaPFreeAll();
-  vmeIN  = dmaPCreate("vmeIN",10240,50,0);
+  vmeIN  = dmaPCreate("vmeIN",1024,4,0);
   vmeOUT = dmaPCreate("vmeOUT",0,0,0);
     
   dmaPStatsAll();
@@ -187,7 +214,7 @@ main(int argc, char *argv[]) {
 
   tiDefinePulserEventType(0xAA,0xCD);
 
-  tiSetSyncEventInterval(10);
+  tiSetSyncEventInterval(0);
 
   tiSetEventFormat(3);
 
@@ -227,9 +254,11 @@ main(int argc, char *argv[]) {
   /*     tiSetGenInput(0xffff); */
   /*     tiSetGTPInput(0x0); */
 
+  /* tiSetFPInputReadout(1); */
+  
   tiSetBusySource(TI_BUSY_LOOPBACK,1);
 
-  tiSetBlockBufferLevel(1);
+  tiSetBlockBufferLevel(3);
 
 /*   tiSetFiberDelay(1,2); */
 /*   tiSetSyncDelayWidth(1,0x3f,1); */

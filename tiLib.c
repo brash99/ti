@@ -90,6 +90,7 @@ static int          tiBusError=0;            /* Bus Error block termination */
 static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in Slave mode */
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
+static int          tiFakeTriggerBank=1;
 
 static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
@@ -820,6 +821,7 @@ tiStatus(int pflag)
   ro->trigDelay    = vmeRead32(&TIp->trigDelay);
   ro->adr32        = vmeRead32(&TIp->adr32);
   ro->blocklevel   = vmeRead32(&TIp->blocklevel);
+  ro->dataFormat   = vmeRead32(&TIp->dataFormat);
   ro->vmeControl   = vmeRead32(&TIp->vmeControl);
   ro->trigsrc      = vmeRead32(&TIp->trigsrc);
   ro->sync         = vmeRead32(&TIp->sync);
@@ -905,6 +907,7 @@ tiStatus(int pflag)
       printf("  trigDelay      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->trigDelay) - TIBase, ro->trigDelay);
       printf("  adr32          (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->adr32) - TIBase, ro->adr32);
       printf("  blocklevel     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->blocklevel) - TIBase, ro->blocklevel);
+      printf("  dataFormat     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->dataFormat) - TIBase, ro->dataFormat);
       printf("  vmeControl     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->vmeControl) - TIBase, ro->vmeControl);
       printf("  trigger        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->trigsrc) - TIBase, ro->trigsrc);
       printf("  sync           (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->sync) - TIBase, ro->sync);
@@ -939,11 +942,23 @@ tiStatus(int pflag)
 	printf("\n");
     }
 
+  printf(" Block Buffer Level = ");
+  if(ro->vmeControl & TI_VMECONTROL_USE_BCAST_BUFFERLEVEL)
+    {
+      printf("%d -Broadcast- ",
+	     (ro->dataFormat & TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 24);
+    }
+  else
+    {
+      printf("%d -Local- ",
+	     ro->blockBuffer & TI_BLOCKBUFFER_BUFFERLEVEL_MASK);
+    }
+
+  printf("(%s)\n",(ro->vmeControl & TI_VMECONTROL_BUSY_ON_BUFFERLEVEL)?
+	 "Busy Enabled":"Busy not enabled");
+      
   if(tiMaster)
     {
-      printf(" Block Buffer Level = %d\n",
-	     ro->blockBuffer & TI_BLOCKBUFFER_BUFFERLEVEL_MASK);
-      
       if((ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK) == 0)
 	printf(" Sync Events DISABLED\n");
       else
@@ -2794,6 +2809,64 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 }
 
 /**
+ * @ingroup Config
+ *
+ * @brief Option to generate a fake trigger bank when
+ *        @tiReadTriggerBlock finds an ERROR.
+ *        Enabled by library default.
+ *
+ * @param enable Enable fake trigger bank if enable != 0.
+ *
+ * @return OK
+ *
+ */
+int
+tiFakeTriggerBankOnError(int enable)
+{
+  TILOCK;
+  if(enable)
+    tiFakeTriggerBank = 1;
+  else
+    tiFakeTriggerBank = 0;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
+ * @ingroup Readout
+ * @brief Generate a fake trigger bank.  Called by @tiReadTriggerBlock if ERROR.
+ *
+ * @param   data  - local memory address to place data
+ *
+ * @return Number of words generated to data if successful, ERROR otherwise
+ *
+ */
+int
+tiGenerateTriggerBank(volatile unsigned int *data)
+{
+  int bl = 0;
+  int iword, nwords = 2;
+  unsigned int error_tag = 0;
+  unsigned int word;
+  
+  bl = tiGetCurrentBlockLevel();
+  data[0] = nwords - 1;
+  data[1] = 0xFF102000 | (error_tag << 16)| bl;
+  
+  if(tiSwapTriggerBlock==1)
+    {
+      for(iword = 0; iword < nwords; iword++)
+	{
+	  word = data[iword];
+	  data[iword] = LSWAP(word);
+	}
+    }
+
+  return nwords;
+}
+
+/**
  * @ingroup Readout
  * @brief Read a block from the TI and form it into a CODA Trigger Bank
  *
@@ -2810,7 +2883,6 @@ tiReadTriggerBlock(volatile unsigned int *data)
   unsigned int word=0;
   int iblkhead=-1, iblktrl=-1;
 
-
   if(data==NULL) 
     {
       logMsg("\ntiReadTriggerBlock: ERROR: Invalid Destination address\n",0,0,0,0,0,0);
@@ -2818,7 +2890,7 @@ tiReadTriggerBlock(volatile unsigned int *data)
     }
 
   /* Determine the maximum number of words to expect, from the block level */
-  nwrds = (4*tiBlockLevel) + 8;
+  nwrds = (5*tiBlockLevel) + 8;
 
   /* Optimize the transfer type based on the blocklevel */
   if(tiBlockLevel>2)
@@ -2837,14 +2909,22 @@ tiReadTriggerBlock(volatile unsigned int *data)
       /* Error occurred */
       logMsg("tiReadTriggerBlock: ERROR: tiReadBlock returned ERROR\n",
 	     1,2,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
   else if (rval == 0)
     {
       /* No data returned */
       logMsg("tiReadTriggerBlock: WARN: No data available\n",
 	     1,2,3,4,5,6);
-      return 0; 
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return 0; 
     }
 
   /* Work down to find index of block header */
@@ -2872,7 +2952,11 @@ tiReadTriggerBlock(volatile unsigned int *data)
     {
       logMsg("tiReadTriggerBlock: ERROR: Failed to find TI Block Header\n",
 	     1,2,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
   if(iblkhead != 0)
     {
@@ -2909,7 +2993,11 @@ tiReadTriggerBlock(volatile unsigned int *data)
     {
       logMsg("tiReadTriggerBlock: ERROR: Failed to find TI Block Trailer\n",
 	     1,2,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
 
   /* Get the block trailer, and check the number of words contained in it */
@@ -2921,7 +3009,11 @@ tiReadTriggerBlock(volatile unsigned int *data)
     {
       logMsg("tiReadTriggerBlock: Number of words inconsistent (index count = %d, block trailer count = %d\n",
 	     (iblktrl - iblkhead + 1), word & 0x3fffff,3,4,5,6);
-      return ERROR;
+
+      if(tiFakeTriggerBank)
+	return tiGenerateTriggerBank(data);
+      else
+	return ERROR;
     }
 
   /* Modify the total words returned */
@@ -4392,6 +4484,8 @@ tiDisableVXSSignals()
 int
 tiSetBlockBufferLevel(unsigned int level)
 {
+  unsigned int trigsrc = 0;
+
   if(TIp == NULL) 
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -4407,8 +4501,107 @@ tiSetBlockBufferLevel(unsigned int level)
 
   TILOCK;
   vmeWrite32(&TIp->blockBuffer, level);
+
+  if(tiMaster)
+    {
+      /* Broadcast buffer level to TI-slaves */
+      trigsrc = vmeRead32(&TIp->trigsrc);
+      
+      /* Turn on the VME trigger, if not enabled */
+      if(!(trigsrc & TI_TRIGSRC_VME))
+	vmeWrite32(&TIp->trigsrc, TI_TRIGSRC_VME | trigsrc);
+      
+      /* Broadcast using trigger command */
+      vmeWrite32(&TIp->triggerCommand, TI_TRIGGERCOMMAND_SET_BUFFERLEVEL | level);
+      
+      /* Turn off the VME trigger, if it was initially disabled */
+      if(!(trigsrc & TI_TRIGSRC_VME))
+	vmeWrite32(&TIp->trigsrc, trigsrc);
+    }
+
   TIUNLOCK;
 
+  return OK;
+}
+
+/**
+ *  @ingroup Status
+ *  @brief Get the block buffer level, as broadcasted from the TS
+ *
+ * @return Broadcasted block buffer level if successful, otherwise ERROR
+ */
+int
+tiGetBroadcastBlockBufferLevel()
+{
+  int rval = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval =
+    (int) ((vmeRead32(&TIp->dataFormat) &
+	    TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 24);
+  TIUNLOCK;
+  
+  return rval;
+}
+
+/**
+ *  @ingroup Config
+ *  @brief Set the TI to be BUSY if number of stored blocks is equal to
+ *         the set block buffer level
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiBusyOnBufferLevel(int enable)
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->vmeControl,
+	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_BUSY_ON_BUFFERLEVEL);
+  TIUNLOCK;
+  
+  return OK;
+}
+
+/**
+ *  @ingroup Config
+ *  @brief Enable/Disable the use of the broadcasted buffer level, instead of the 
+ *         value set locally with @tiSetBlockBufferLevel.
+ *
+ *  @param enable - 1: Enable, 0: Disable
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int
+tiUseBroadcastBufferLevel(int enable)
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  
+  TILOCK;
+  if(enable)
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_USE_BCAST_BUFFERLEVEL);
+  else
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_USE_BCAST_BUFFERLEVEL);
+  TIUNLOCK;
+  
   return OK;
 }
 
@@ -7768,6 +7961,122 @@ tiPrintBusyCounters()
   printf("--------------------------------------------------------------------------------\n");
   printf("\n\n");
 
+  return OK;
+}
+
+
+/**
+ * @ingroup Status
+ * @brief Read the fiber fifo from the TI 
+ *
+ * @param   fiber - Fiber fifo to read. 1 and 5 only supported.
+ * @param   data  - local memory address to place data
+ * @param  maxwords - Maximum number of 32bit words to put into data array.
+ *
+ * @return Number of words transferred to data if successful, ERROR otherwise
+ *
+ */
+int
+tiReadFiberFifo(int fiber, volatile unsigned int *data, int maxwords)
+{
+  int nwords = 0;
+  unsigned int word = 0;
+  
+  if(data==NULL) 
+    {
+      printf("%s: ERROR: Invalid Destination address\n",
+	     __func__);
+      return(ERROR);
+    }
+
+  if((fiber != 1) && (fiber !=5))
+    {
+      printf("%s: Invalid fiber (%d)\n",
+	     __func__, fiber);
+      return ERROR;
+    }
+
+  TILOCK;
+  while(nwords < maxwords)
+    {
+      if(fiber == 1)
+	word = vmeRead32(&TIp->trigTable[12]);
+      else
+      	word = vmeRead32(&TIp->trigTable[13]);
+
+      if(word & (1<<31))
+	break;
+      
+      data[nwords++] = word;
+    }
+  TIUNLOCK;
+  
+  return nwords;
+}
+
+
+/**
+ * @ingroup Status
+ * @brief Read the fiber fifo from the TI and print to standard out.
+ *
+ * @param   fiber - Fiber fifo to read. 1 and 5 only supported.
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiPrintFiberFifo(int fiber)
+{
+  volatile unsigned int *data;
+  int maxwords = 256, iword, rwords = 0;
+
+  if((fiber != 1) && (fiber !=5))
+    {
+      printf("%s: Invalid fiber (%d)\n",
+	     __func__, fiber);
+      return ERROR;
+    }
+  
+  data = (volatile unsigned int *)malloc(maxwords * sizeof(unsigned int));
+  if(!data)
+    {
+      printf("%s: Unable to acquire memory\n",
+	     __func__);
+      return ERROR;
+    }
+
+  rwords = tiReadFiberFifo(fiber, data, maxwords);
+
+  if(rwords == 0)
+    {
+      printf("%s: No data in fifo\n\n",
+	     __func__);
+      return OK;
+    }
+  else if(rwords == ERROR)
+    {
+      printf("%s: tiReadFiberFifo(..) returned ERROR\n",
+	     __func__);
+      return ERROR;
+    }
+  
+  printf(" Fiber %d fifo (%d words)\n",
+	 fiber, rwords);
+  printf("      Timestamp     Data\n");
+  printf("----------------------------\n");
+  for(iword = 0; iword < rwords; iword++)
+    {
+      printf("%3d:    0x%04x     0x%04x\n",
+	     iword,
+	     (data[iword] & 0xFFFF0000)>>16,
+	     (data[iword] & 0xFFFF));
+    }
+  printf("----------------------------\n");
+  printf("\n");
+  
+  if(data)
+    free((void *)data);
+  
   return OK;
 }
 
