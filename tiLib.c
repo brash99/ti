@@ -8053,6 +8053,12 @@ tiPrintFiberFifo(int fiber)
 	     __func__);
       return OK;
     }
+  else if(rwords == ERROR)
+    {
+      printf("%s: tiReadFiberFifo(..) returned ERROR\n",
+	     __func__);
+      return ERROR;
+    }
   
   printf(" Fiber %d fifo (%d words)\n",
 	 fiber, rwords);
