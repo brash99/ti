@@ -943,15 +943,15 @@ tiStatus(int pflag)
     }
 
   printf(" Block Buffer Level = ");
-  if(ro->vmeControl & TI_VMECONTROL_USE_BCAST_BUFFERLEVEL)
-    {
-      printf("%d -Broadcast- ",
-	     (ro->dataFormat & TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 24);
-    }
-  else
+  if(ro->vmeControl & TI_VMECONTROL_USE_LOCAL_BUFFERLEVEL)
     {
       printf("%d -Local- ",
 	     ro->blockBuffer & TI_BLOCKBUFFER_BUFFERLEVEL_MASK);
+    }
+  else
+    {
+      printf("%d -Broadcast- ",
+	     (ro->dataFormat & TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 24);
     }
 
   printf("(%s)\n",(ro->vmeControl & TI_VMECONTROL_BUSY_ON_BUFFERLEVEL)?
@@ -4596,10 +4596,10 @@ tiUseBroadcastBufferLevel(int enable)
   TILOCK;
   if(enable)
     vmeWrite32(&TIp->vmeControl,
-	       vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_USE_BCAST_BUFFERLEVEL);
+	       vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_USE_LOCAL_BUFFERLEVEL);
   else
     vmeWrite32(&TIp->vmeControl,
-	       vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_USE_BCAST_BUFFERLEVEL);
+	       vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_USE_LOCAL_BUFFERLEVEL);
   TIUNLOCK;
   
   return OK;
