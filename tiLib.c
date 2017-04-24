@@ -61,6 +61,7 @@ int tiMaster=1;                               /* Whether or not this TI is the M
 int tiCrateID=0x59;                           /* Crate ID */
 int tiBlockLevel=0;                           /* Current Block level for TI */
 int tiNextBlockLevel=0;                       /* Next Block level for TI */
+int tiBlockBufferLevel=0;                     /**< Current Block Buffer level for TI */
 unsigned int        tiIntCount    = 0;
 unsigned int        tiAckCount    = 0;
 unsigned int        tiDaqCount    = 0;       /* Block count from previous update (in daqStatus) */
@@ -3998,9 +3999,11 @@ tiSyncReset(int blflag)
   
   if(blflag) /* Set the block level from "Next" to Current */
     {
-      printf("%s: INFO: Setting Block Level to %d\n",
-	     __FUNCTION__,tiNextBlockLevel);
+      printf("%s: INFO: Broadcasting Block Level %d, Buffer Level %d\n",
+	     __FUNCTION__,
+	     tiNextBlockLevel, tiBlockBufferLevel);
       tiBroadcastNextBlockLevel(tiNextBlockLevel);
+      tiSetBlockBufferLevel(tiBlockBufferLevel);
     }
 
 }
@@ -4502,6 +4505,8 @@ tiSetBlockBufferLevel(unsigned int level)
   TILOCK;
   vmeWrite32(&TIp->blockBuffer, level);
 
+  tiBlockBufferLevel = level;
+  
   if(tiMaster)
     {
       /* Broadcast buffer level to TI-slaves */
