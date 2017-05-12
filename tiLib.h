@@ -739,4 +739,5 @@ int  tiSetTokenOutTest(int level);
 int  tiRocEnable(int roc);
 int  tiRocEnableMask(int rocmask);
 int  tiGetRocEnableMask();
+unsigned int tiReadScalers(volatile unsigned int *data, int latch);
 #endif /* TILIB_H */
