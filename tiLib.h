@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x072
+#define TI_SUPPORTED_FIRMWARE 0x073
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -739,4 +739,5 @@ int  tiSetTokenOutTest(int level);
 int  tiRocEnable(int roc);
 int  tiRocEnableMask(int rocmask);
 int  tiGetRocEnableMask();
+int  tiReadScalers(volatile unsigned int *data, int latch);
 #endif /* TILIB_H */

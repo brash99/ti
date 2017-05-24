@@ -8211,3 +8211,91 @@ tiGetRocEnableMask()
   return rval;
 }
 
+/**
+ * @ingroup Status
+ * @brief Read all the scalers into an array
+ *
+ * @param data  - local memory address to place scaler values
+ *       element   value
+ *         0     Live time
+ *	   1     Busy time
+ *	   2     TS input #1
+ *	   3     TS input #2
+ *	   4     TS input #3
+ *	   5     TS input #4
+ *	   6     TS input #5
+ *	   7     TS input #6
+ *	   8     All trigger sources, before busy
+ *	   9     Top 16 bits of 48bit event number
+ *	  10     Lower 32 bits of 48bit event number
+ *	  11     Only TS inputs, before busy
+ *
+ * @param latch:
+ *   -  0: Do not latch before readout
+ *   -  1: Latch before readout
+ *   -  2: Latch and reset before readout
+ *      
+ *
+ * @return Number of scaler cahnnels
+ *
+ *  If data is NULL, routine will return number of words that would have
+ *   been transferred
+ *
+ */
+
+int
+tiReadScalers(volatile unsigned int *data, int latch)
+{
+  unsigned int rval = 12;
+  int i;
+
+  if(TIp == NULL) 
+    {
+      logMsg("tiReadScalers: ERROR: TI not initialized\n",
+	     1, 2, 3, 4, 5, 6);
+      return ERROR;
+    }
+
+  if(data==NULL)
+    {
+      return rval;		/* Return # of scalers */
+    }
+
+  if((latch<0) || (latch>2))
+    {
+      logMsg("tiReadScalers: ERROR: Invalid latch (%d).\n",
+	     latch,2,3,4,5,6);
+      return ERROR;
+    }
+
+  TILOCK;
+
+  switch(latch)
+    {
+    case 1: 
+      vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
+      break;
+
+    case 2:
+      vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH | TI_RESET_SCALERS_RESET);
+      break;
+    }
+
+  data[0] = vmeRead32(&TIp->livetime);
+  data[1] = vmeRead32(&TIp->busytime);
+
+  for(i=0;i<6;i++)
+    {
+      data[2+i] = vmeRead32(&TIp->ts_scaler[i]);
+    }
+
+  data[8] = vmeRead32(&TIp->inputCounter); /* All trigger sources */
+  data[9] = (vmeRead32(&TIp->eventNumber_hi) >> 16) & 0xffff;
+                                       /* Top 16 bits of event number */
+  data[10] = vmeRead32(&TIp->eventNumber_lo); /* Bottom 32 bits of event num */
+  data[11] = vmeRead32(&TIp->blank5[0]); /* Only TS inputs */
+
+  TIUNLOCK;
+
+  return rval;
+}
