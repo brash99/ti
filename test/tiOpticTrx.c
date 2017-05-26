@@ -73,21 +73,25 @@ I2CopticTrx()
 {
   int ibyte, itr, Tempt = 0, Volt = 0;
   int rxPower[4] = {0,0,0,0}, txBias[4] = {0,0,0,0};
-  int nreadbytes = 19;
-  unsigned short readbytes[19] =
+  int txDisable = 0;
+  int nreadbytes = 21;
+  unsigned short readbytes[21] =
     {
-      22, /* Temp */
+      22, 23, /* Temp */
       26, 27, /* Voltage */
       34, 35, 36, 37, 38, 39, 40, 41, /* rxPower */
-      42, 43, 44, 45, 46, 47, 48, 49  /* txBias */
+      42, 43, 44, 45, 46, 47, 48, 49, /* txBias */
+      86 /* Tx? Disable */
     };
   unsigned int ReadVal;
   int i, maxtr = 8;
   unsigned int *i2cOptp = (unsigned int *)((unsigned int)TIp + 0x50000);
-
+  unsigned int vmeControl_old = 0;
+  
   vmeBusLock();
   
   /* set the device address to 0xA0# */
+  vmeControl_old = vmeRead32(&TIp->vmeControl);
   vmeWrite32(&TIp->vmeControl, 0x00000111);
   
   for (itr = 0; itr < maxtr; itr++) // loop over the eight transceivers
@@ -96,38 +100,41 @@ I2CopticTrx()
 
       for (ibyte = 0; ibyte < nreadbytes; ibyte++) // loop over bytes
 	{
-	  cpuDelay(99100);
 
 	  ReadVal = vmeRead32(&i2cOptp[(0xC00 + readbytes[ibyte]*4)>>2]);
+	  cpuDelay(99100);
 
-	  if (readbytes[ibyte] == 22) Tempt = (ReadVal&0xff);
-	  if (readbytes[ibyte] == 26) Volt = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 22) Tempt = (ReadVal&0xff) << 8;
+	  if (readbytes[ibyte] == 23) Tempt |= (ReadVal&0xff);
+
+	  if (readbytes[ibyte] == 26) Volt = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 27) Volt |= ReadVal&0xff; 
 
-	  if (readbytes[ibyte] == 34) rxPower[0] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 34) rxPower[0] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 35) rxPower[0] |= (ReadVal & 0xff);
 
-	  if (readbytes[ibyte] == 36) rxPower[1] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 36) rxPower[1] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 37) rxPower[1] |= (ReadVal & 0xff);
 
-	  if (readbytes[ibyte] == 38) rxPower[2] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 38) rxPower[2] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 39) rxPower[2] |= (ReadVal & 0xff);
 
-	  if (readbytes[ibyte] == 40) rxPower[3] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 40) rxPower[3] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 41) rxPower[3] |= (ReadVal & 0xff);
 
-	  if (readbytes[ibyte] == 42) txBias[0] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 42) txBias[0] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 43) txBias[0] |= (ReadVal & 0xff);
 
-	  if (readbytes[ibyte] == 44) txBias[1] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 44) txBias[1] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 45) txBias[1] |= (ReadVal & 0xff);
 
-	  if (readbytes[ibyte] == 46) txBias[2] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 46) txBias[2] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 47) txBias[2] |= (ReadVal & 0xff);
 
-	  if (readbytes[ibyte] == 48) txBias[3] = (ReadVal & 0xff) << 4;
+	  if (readbytes[ibyte] == 48) txBias[3] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 49) txBias[3] |= (ReadVal & 0xff);
 
+	  if (readbytes[ibyte] == 86) txDisable = (ReadVal & 0xff);
 	}
 
       printf("\n Optic Transceiver #%d ", itr+1);
@@ -140,6 +147,7 @@ I2CopticTrx()
       
       /* Convert register values to physical units */
       Volt /= 10; /* mV */
+      Tempt /= 256;
       for(i = 0; i < 4; i++)
 	{
 	  rxPower[i] /= 10;
@@ -147,6 +155,13 @@ I2CopticTrx()
 	}
       
       printf("\n   Module Temp : %7d C    Supply Volt : %6d mV \n", Tempt, Volt);
+      printf("   tx0 Disable : %7d      tx1 Disable : %6d\n",
+	     txDisable & (1<<0),
+	     txDisable & (1<<1));
+      printf("   tx2 Disable : %7d      tx3 Disable : %6d\n",
+	     txDisable & (1<<2),
+	     txDisable & (1<<3));
+
       for(i = 0; i < 4; i++)
 	printf("   rxPower[%d]  : %7d uW   txBias[%d]   : %6d uA\n",
 	       i, rxPower[i], i, txBias[i]);
@@ -154,6 +169,7 @@ I2CopticTrx()
       fflush(stdout);
       sleep(1);
     }
+  vmeWrite32(&TIp->vmeControl, vmeControl_old);
 
   vmeBusUnlock();
 }
