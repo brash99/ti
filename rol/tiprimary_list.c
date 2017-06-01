@@ -41,7 +41,7 @@
 #define POLLING_MODE
 /* INIT_NAME should be defined by roc_### (maybe at compilation time - check Makefile-rol) */
 #ifndef INIT_NAME
-#warn "INIT_NAME undefined. Setting to tiprimary_list__init"
+#warning "INIT_NAME undefined. Setting to tiprimary_list__init"
 #define INIT_NAME tiprimary_list__init
 #endif
 #include <stdio.h>
@@ -54,12 +54,19 @@ extern int bigendian_out;
 extern int tiFiberLatencyOffset; /* offset for fiber latency */
 extern int tiDoAck;
 extern int tiNeedAck;
-extern int tsCrate;
 /*! Buffer node pointer */
 extern DMANODE *the_event;
 /*! Data pointer */
 extern unsigned int *dma_dabufp;
 
+/* Redefine tsCrate according to TI_MASTER or TI_SLAVE */
+#ifdef TI_SLAVE
+int tsCrate=0;
+#else
+#ifdef TI_MASTER
+int tsCrate=1;
+#endif
+#endif
 
 int chuck=0;
 

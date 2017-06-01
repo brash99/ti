@@ -29,15 +29,6 @@
 unsigned int BLOCKLEVEL=1;
 #define BUFFERLEVEL 3
 
-/* Redefine tsCrate according to TI_MASTER or TI_SLAVE */
-#ifdef TI_SLAVE
-int tsCrate=0;
-#else
-#ifdef TI_MASTER
-int tsCrate=1;
-#endif
-#endif
-
 /* function prototype */
 void rocTrigger(int arg);
 
