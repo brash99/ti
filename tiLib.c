@@ -2238,6 +2238,34 @@ tiEnableTriggerSource()
 
 /**
  * @ingroup Config
+ * @brief Force TI to send trigger source enabled bits to TI-master or TD
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiForceSendTriggerSourceEnable()
+{
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->trigsrc,
+	     (vmeRead32(&TIp->trigsrc) & TI_TRIGSRC_SOURCEMASK) |
+	     TI_TRIGSRC_FORCE_SEND);
+  TIUNLOCK;
+
+  return OK;
+
+}
+
+
+
+/**
+ * @ingroup Config
  * @brief Disable trigger sources
  *    
  * @param fflag 
