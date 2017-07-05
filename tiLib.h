@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x073
+#define TI_SUPPORTED_FIRMWARE 0x074
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -261,6 +261,7 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_PART_3           (1<<14)
 #define TI_TRIGSRC_PART_4           (1<<15)
 #define TI_TRIGSRC_MONITOR_MASK     0xFFFF0000
+#define TI_TRIGSRC_FORCE_SEND       0x00FC0000
 
 /* 0x24 sync bits and masks */
 #define TI_SYNC_SOURCEMASK              0x000000FF
@@ -598,6 +599,7 @@ int  tiGetInstantBlockLevelChange();
 int  tiSetTriggerSource(int trig);
 int  tiSetTriggerSourceMask(int trigmask);
 int  tiEnableTriggerSource();
+int  tiForceSendTriggerSourceEnable();
 int  tiDisableTriggerSource(int fflag);
 int  tiSetSyncSource(unsigned int sync);
 int  tiSetEventFormat(int format);
@@ -618,10 +620,6 @@ int  tiSetTriggerLock(int enable);
 int  tiGetTriggerLock();
 void tiEnableBusError();
 void tiDisableBusError();
-int  tiPayloadPort2VMESlot(int payloadport);
-unsigned int  tiPayloadPortMask2VMESlotMask(unsigned int ppmask);
-int  tiVMESlot2PayloadPort(int vmeslot);
-unsigned int  tiVMESlotMask2PayloadPortMask(unsigned int vmemask);
 int  tiSetPrescale(int prescale);
 int  tiGetPrescale();
 int  tiSetInputPrescale(int input, int prescale);
