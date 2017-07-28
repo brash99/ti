@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x074
+#define TI_SUPPORTED_FIRMWARE 0x075
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -262,6 +262,7 @@ struct TI_A24RegStruct
 #define TI_TRIGSRC_PART_4           (1<<15)
 #define TI_TRIGSRC_MONITOR_MASK     0xFFFF0000
 #define TI_TRIGSRC_FORCE_SEND       0x00FC0000
+#define TI_TRIGSRC_GO               0x90000000
 
 /* 0x24 sync bits and masks */
 #define TI_SYNC_SOURCEMASK              0x000000FF
@@ -598,6 +599,7 @@ int  tiSetInstantBlockLevelChange(int enable);
 int  tiGetInstantBlockLevelChange();
 int  tiSetTriggerSource(int trig);
 int  tiSetTriggerSourceMask(int trigmask);
+int  tiSetGoOutput(int enable);
 int  tiEnableTriggerSource();
 int  tiForceSendTriggerSourceEnable();
 int  tiDisableTriggerSource(int fflag);

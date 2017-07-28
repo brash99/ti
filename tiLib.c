@@ -104,6 +104,7 @@ static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in 
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 static int          tiFakeTriggerBank=1;
+static int          tiUseGoOutput=1;
 
 static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
@@ -426,8 +427,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       int tiFirmwareType   = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
 
       tiVersion = firmwareInfo&0xFFF;
-      printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X\n",
-	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType, tiVersion);
+      printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X (prodID = %d)\n",
+	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType,
+	     tiVersion,
+	     prodID);
 
       if(tiFirmwareType != supportedType)
 	{
@@ -2214,6 +2217,32 @@ tiSetTriggerSourceMask(int trigmask)
 
 /**
  * @ingroup Config
+ * @brief Enable/Disable use of O#4 as the 'GO' output level, enabled when
+ *         trigger sources are enabled.
+ *
+ * @param enable Enable flag
+ *<pre>
+ *     0: Disable
+ *    !0: Enable
+ *</pre>
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiSetGoOutput(int enable)
+{
+  TILOCK;
+  if(enable == 0)
+    tiUseGoOutput = 0;
+  else
+    tiUseGoOutput = 1;
+  TIUNLOCK;
+
+  return OK;
+}
+/**
+ * @ingroup Config
  * @brief Enable trigger sources
  * Enable trigger sources set by
  *                          tiSetTriggerSource(...) or
@@ -2239,7 +2268,10 @@ tiEnableTriggerSource()
     }
 
   TILOCK;
-  vmeWrite32(&TIp->trigsrc, tiTriggerSource);
+  if(tiUseGoOutput)
+    vmeWrite32(&TIp->trigsrc, tiTriggerSource | TI_TRIGSRC_GO);
+  else
+    vmeWrite32(&TIp->trigsrc, tiTriggerSource);
   TIUNLOCK;
 
   return OK;
@@ -2264,7 +2296,7 @@ tiForceSendTriggerSourceEnable()
 
   TILOCK;
   vmeWrite32(&TIp->trigsrc,
-	     (vmeRead32(&TIp->trigsrc) & TI_TRIGSRC_SOURCEMASK) |
+	     (vmeRead32(&TIp->trigsrc) & (TI_TRIGSRC_SOURCEMASK | TI_TRIGSRC_GO)) |
 	     TI_TRIGSRC_FORCE_SEND);
   TIUNLOCK;
 
@@ -2498,12 +2530,12 @@ tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range
     }
 
   if(range==0)
-    time = 120+120*period_inc;
+    time = 120 + (30 * period_inc);
   if(range==1)
-    time = 120+120*period_inc*2048;
+    time = 120 + (30 * period_inc * 2048);
 
-/*   logMsg("\ntiSoftTrig: INFO: Setting software trigger for %d nevents with period of %d\n", */
-/* 	 nevents,time,3,4,5,6); */
+  logMsg("\ntiSoftTrig: INFO: Setting software trigger for %d nevents with period of %d\n",
+	 nevents,time,3,4,5,6);
 
   reg = (range<<31)| (period_inc<<16) | (nevents);
   TILOCK;
@@ -2620,7 +2652,7 @@ int
 tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 {
   int ii, dummy=0, iword = 0;
-  int dCnt, retVal, xferCount, trailerFound = 0;
+  int dCnt, retVal, xferCount;
   volatile unsigned int *laddr;
   unsigned int vmeAdr, val;
   int ntrig=0, itrig = 0, trigwords = 0;
@@ -2799,8 +2831,6 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 	      if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE
 			 | (tiSlotNumber<<22) | ii) )
 		{
-		  trailerFound = 1;
-
 		  if((ii%2)!=0)
 		    {
 		      /* Read out an extra word (filler) in the fifo */
@@ -3793,7 +3823,7 @@ tiGetPromptTriggerWidth()
   rval = vmeRead32(&TIp->eventNumber_hi) & TI_PROMPT_TRIG_WIDTH_MASK;
   TIUNLOCK;
 
-  return OK;
+  return rval;
 }
 
 /**
@@ -4759,14 +4789,13 @@ tiGetClockSource()
 void
 tiSetFiberDelay(unsigned int delay, unsigned int offset)
 {
-  unsigned int fiberLatency=0, syncDelay=0, syncDelay_write=0;
+  unsigned int syncDelay=0, syncDelay_write=0;
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return;
     }
 
-  fiberLatency=0;
   TILOCK;
 
   if(delay>offset)
@@ -4783,17 +4812,6 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
   syncDelay_write = (syncDelay&0xff<<8) | (syncDelay&0xff<<16) | (syncDelay&0xff<<24);  /* set the sync delay according to the fiber latency */
 
   vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
-
-#ifdef STOPTHIS
-  if(tiMaster != 1)  /* Slave only */
-    {
-      taskDelay(10);
-      vmeWrite32(&TIp->reset,0x4000);  /* reset the IODELAY */
-      taskDelay(10);
-      vmeWrite32(&TIp->reset,0x800);   /* auto adjust the sync phase for HFBR#1 */
-      taskDelay(10);
-    }
-#endif
 
   TIUNLOCK;
 
@@ -5243,7 +5261,7 @@ int
 tiGetTriggerHoldoffMin(int rule, int pflag)
 {
   int rval=0;
-  unsigned int mask=0, enable=0, shift=0;
+  unsigned int mask=0, shift=0;
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -5261,17 +5279,14 @@ tiGetTriggerHoldoffMin(int rule, int pflag)
     {
     case 2:
       mask = TI_TRIGGERRULEMIN_MIN2_MASK;
-      enable = TI_TRIGGERRULEMIN_MIN2_EN;
       shift = 8;
       break;
     case 3:
       mask = TI_TRIGGERRULEMIN_MIN3_MASK;
-      enable = TI_TRIGGERRULEMIN_MIN3_EN;
       shift = 16;
       break;
     case 4:
       mask = TI_TRIGGERRULEMIN_MIN4_MASK;
-      enable = TI_TRIGGERRULEMIN_MIN4_EN;
       shift = 24;
       break;
     }
