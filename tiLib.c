@@ -104,6 +104,7 @@ static int          tiSlaveFiberIn=1;        /* Which Fiber port to use when in 
 static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 static int          tiFakeTriggerBank=1;
+static int          tiUseGoOutput=1;
 
 static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
@@ -2216,6 +2217,32 @@ tiSetTriggerSourceMask(int trigmask)
 
 /**
  * @ingroup Config
+ * @brief Enable/Disable use of O#4 as the 'GO' output level, enabled when
+ *         trigger sources are enabled.
+ *
+ * @param enable Enable flag
+ *<pre>
+ *     0: Disable
+ *    !0: Enable
+ *</pre>
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiSetGoOutput(int enable)
+{
+  TILOCK;
+  if(enable == 0)
+    tiUseGoOutput = 0;
+  else
+    tiUseGoOutput = 1;
+  TIUNLOCK;
+
+  return OK;
+}
+/**
+ * @ingroup Config
  * @brief Enable trigger sources
  * Enable trigger sources set by
  *                          tiSetTriggerSource(...) or
@@ -2241,7 +2268,10 @@ tiEnableTriggerSource()
     }
 
   TILOCK;
-  vmeWrite32(&TIp->trigsrc, tiTriggerSource);
+  if(tiUseGoOutput)
+    vmeWrite32(&TIp->trigsrc, tiTriggerSource | TI_TRIGSRC_GO);
+  else
+    vmeWrite32(&TIp->trigsrc, tiTriggerSource);
   TIUNLOCK;
 
   return OK;
@@ -2266,7 +2296,7 @@ tiForceSendTriggerSourceEnable()
 
   TILOCK;
   vmeWrite32(&TIp->trigsrc,
-	     (vmeRead32(&TIp->trigsrc) & TI_TRIGSRC_SOURCEMASK) |
+	     (vmeRead32(&TIp->trigsrc) & (TI_TRIGSRC_SOURCEMASK | TI_TRIGSRC_GO)) |
 	     TI_TRIGSRC_FORCE_SEND);
   TIUNLOCK;
 
@@ -2506,7 +2536,7 @@ tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range
 
   logMsg("\ntiSoftTrig: INFO: Setting software trigger for %d nevents with period of %d\n",
 	 nevents,time,3,4,5,6);
-  
+
   reg = (range<<31)| (period_inc<<16) | (nevents);
   TILOCK;
   if(trigger==1)
