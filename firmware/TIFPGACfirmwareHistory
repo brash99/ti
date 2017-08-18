@@ -84,3 +84,18 @@ V4.2, Mar. 21, 2016: Adjust the Front_panel trigger input timing (quadrant).  Do
       Mar. 22, 2016: Remove one clock delay in TimreResetGen, added three clocks for TsxBit(11:10) in TSgen
 		This works for the prod_TI, but not the Rev2_TI.  Racing between Clk250 and Clk625 in TimerResetGen block
 V4.3, Mar. 23, 2016: Add an AND gate in TimerResetGen block to delay the signal from FD_clk625 to FD_clk250.
+V4.4, Apr. 7, 2016: update the ROCEn RegisterSet from 8-bit to 32-bit.
+     JUNE 9, 2016: Fix the FPBusy input (was connected to the DataBusy, or DataAvailable).
+V5.1, May 13, 2016: Add the SpeedTest logic, to be removed. (module SPEEDTEST)
+      May 17, 2016: Add the MGT RXcdrReset. (VME reg 0x100, bit#22)
+V5.2, May 26, 2016: Fix the MGT core, so it is almost the same as X0YnGTP cores.
+V5.3, June 9, 2016: Fix the FPBusy input (was connected to the DataBusy, or DataAvailable).
+V5.4, June 13, 2016: Use reg 0xEC, bit(18:10) to enable TIResetReq, and Bit(28:20) to readout the TIResetReq.
+          Move GtpROCid to reg 0x9c bit(24:16).
+V6.1, Aug. 4, 2016: Use reg 0x3C bit#31 to enable the TriggerInput Level readout (when set to '1').
+V7.1, Nov. 11, 2016: Add a TIforward mode, that is use HFBR#5 as TIslaveIN, and HFBR#1-4 as TImaster. (planned, not never implemented)
+      Apr. 7, 2017: Recomplie after the TD changes (with backpressure buffer threshold). 0x4C change too
+V7.2, Apr. 11, 2017: Added the 0x170, 0x174 for fiber#1 and Fiber#5 non-idle inputs readout, (1K deep fifo).
+          Added the BufferLevel setting.
+V7.3, May 9, 2017: Added the bufferLevel to GTP (VTP), which is two data bytes after the BlockLevel. (in GTPTxEnCode).
+V7.4, June 15, 2017: Added the ForceTrgSrcSet, which has higher priority than BUSY in StatusGen block.
