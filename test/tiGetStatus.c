@@ -16,40 +16,50 @@
 #include "jvme.h"
 #include "tiLib.h"
 
-int 
-main(int argc, char *argv[]) 
+int
+main(int argc, char *argv[])
 {
 
   int stat;
   int slot;
 
-  if(argc>1)
+  if (argc > 1)
     {
       slot = atoi(argv[1]);
-      if(slot<1 || slot>22)
+      if (slot < 0 || slot > 22)
 	{
-	  printf("invalid slot... using 21");
-	  slot=21;
+	  printf("invalid slot... will scan");
+	  slot = 0;
 	}
     }
-  else 
-    slot=21;
+  else
+    slot = 0;
 
-  printf("\nJLAB TI Status... slot = %d\n",slot);
+  printf("\nJLAB TI Status... slot = %d\n", slot);
   printf("----------------------------\n");
 
-  vmeOpenDefaultWindows();
+  vmeSetQuietFlag(1);
+  stat = vmeOpenDefaultWindows();
+
+  if(stat != OK)
+    goto CLOSE;
 
   /* Set the TI structure pointer */
-  tiInit(slot,TI_READOUT_EXT_POLL,TI_INIT_NO_INIT);
-  tiCheckAddresses();
-  printf("Firmware version = 0x%x\n",tiGetFirmwareVersion());
+  stat = tiInit(slot << 19, 0, TI_INIT_SKIP_FIRMWARE_CHECK | TI_INIT_NO_INIT);
+  if(stat != OK)
+    goto CLOSE;
+
+  stat = tiCheckAddresses();
+  if(stat != OK)
+    goto CLOSE;
+
+  printf("Firmware version = 0x%x\n", tiGetFirmwareVersion());
+
   tiStatus(1);
 
- CLOSE:
+CLOSE:
 
   vmeCloseDefaultWindows();
 
   exit(0);
 }
-
