@@ -8243,3 +8243,55 @@ tiReadScalers(volatile unsigned int *data, int latch)
 
   return rval;
 }
+
+/**
+ * @ingroup Config
+ * @brief
+ *
+ * @param mode:
+ *   -  0: Always count, regardless of trigger source enable
+ *   -  1: Only count when TS inputs is enabled.
+ *
+ * @param control:
+ *   -  0: TS inputs scalers count according to 'mode' parameter.
+ *   -  1: TS inputs scalers can be enabled/disabled with @tiEnableTSInput/@tiDisableTSInput
+ *
+ * @return OK if successful, otherwise ERROR
+ *
+ */
+
+int
+tiSetScalerMode(int mode, int control)
+{
+  unsigned int reg = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  if((mode < 0) || (mode > 1))
+    {
+      printf("%s: Invalid mode (%d)\n", __FUNCTION__, mode);
+      return ERROR;
+    }
+
+  if((control < 0) || (control > 1))
+    {
+      printf("%s: Invalid control (%d).\n",
+	     __FUNCTION__,
+	     control);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg = vmeRead32(&TIp->vmeControl);
+  vmeWrite32(&TIp->vmeControl,
+	     (reg & ~(TI_VMECONTROL_COUNT_IN_GO_ENABLE |
+		      TI_VMECONTROL_TS_COUNTER_CONTROL)) |
+	     (mode << 27) | (control << 28) );
+  TIUNLOCK;
+
+  return OK;
+}
