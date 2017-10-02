@@ -8250,7 +8250,7 @@ tiReadScalers(volatile unsigned int *data, int latch)
  *
  * @param mode:
  *   -  0: Always count, regardless of trigger source enable
- *   -  1: Only count when TS inputs is enabled.
+ *   -  1: Only count when trigger source is enabled.
  *
  * @param control:
  *   -  0: TS inputs scalers count according to 'mode' parameter.
