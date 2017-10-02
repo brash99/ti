@@ -99,3 +99,7 @@ V7.2, Apr. 11, 2017: Added the 0x170, 0x174 for fiber#1 and Fiber#5 non-idle inp
           Added the BufferLevel setting.
 V7.3, May 9, 2017: Added the bufferLevel to GTP (VTP), which is two data bytes after the BlockLevel. (in GTPTxEnCode).
 V7.4, June 15, 2017: Added the ForceTrgSrcSet, which has higher priority than BUSY in StatusGen block.
+V7.5, July 28, 2017: Added the RunGo, When the TriggerSrc is set to 0x90xxxxxx, the front panel O#4 wil be high.
+V7.6, Aug. 16-17, 2017: Sync the Busy and SendID to Clk625 for StatusGen block, so all the controls are synced with Clk625, or MGT clock.
+         Also, changed the FD to FDR for the last register in synchronizing to Clk625
+V7.7, Sept. 28, 2017: Use vme reg 0x14 bit(28:27) to enable trigger_input_counters control, bit27 to enable the RunGo, bit28 to enable TrigInEn.
