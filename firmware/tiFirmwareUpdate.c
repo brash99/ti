@@ -66,7 +66,8 @@ main(int argc, char *argv[])
   int BoardNumber;
   char *filename;
   int inputchar=10;
-  unsigned int vme_addr=0,laddr=0;
+  unsigned int vme_addr=0;
+  unsigned long laddr=0;
   int geo = 0;
 
   printf("\nTI firmware update via VME\n");
@@ -133,16 +134,16 @@ main(int argc, char *argv[])
     {
       /* Read out the board serial number first */
       BoardSerialNumber = tiGetSerialNumber(NULL);
-      
+
       /* Check if this board should be relabled as a TIMaster */
       if( ((BoardSerialNumber&0xF800)==0) && (tiMasterID(BoardSerialNumber)!=0) )
 	{
 	  BoardSerialNumber |= tiMasterID(BoardSerialNumber);
 	}
-      
+
       if(BoardSerialNumber & 0xF800) /* TIMaster */
 	{
-	  printf("\n Board Serial Number from PROM usercode is: 0x%08x (TIM-%d  TI-%d) \n", 
+	  printf("\n Board Serial Number from PROM usercode is: 0x%08x (TIM-%d  TI-%d) \n",
 		 BoardSerialNumber,
 		 (BoardSerialNumber&0xF000)>>12,
 		 BoardSerialNumber&0x7FF);
@@ -152,7 +153,7 @@ main(int argc, char *argv[])
 	  printf("\n Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
 		 BoardSerialNumber&0xffff);
 	}
-      
+
       firmwareInfo = tiGetFirmwareVersion();
       if(firmwareInfo>0)
 	{
@@ -174,7 +175,7 @@ main(int argc, char *argv[])
   /* Check the serial number and ask for input if necessary */
   /* Force this program to only work for TI (not TD or TS) */
   if (!((BoardSerialNumber&0xffff0000) == 0x71000000))
-    { 
+    {
       printf(" This TI has an invalid serial number (0x%08x)\n",BoardSerialNumber);
       printf("\n");
       printf (" Enter a new board number (0-4095), or -1 to quit: ");
@@ -212,7 +213,7 @@ main(int argc, char *argv[])
  REPEAT2:
   printf("(y/n): ");
   inputchar = getchar();
-  
+
   if((inputchar == 'n') ||
      (inputchar == 'N'))
     {
@@ -237,25 +238,25 @@ main(int argc, char *argv[])
       if(geo == 0)
 	{
 	  printf("  ...Detected non VME-64X crate...\n");
-	  
+
 	  /* Need to reset the Address to 0 to communicate with the emergency loading AM */
 	  vme_addr = 0;
 	}
 
 #ifdef VXWORKS
       stat = sysBusToLocalAdrs(0x39,(char *)vme_addr,(char **)&laddr);
-      if (stat != 0) 
+      if (stat != 0)
 	{
 	  printf("%s: ERROR: Error in sysBusToLocalAdrs res=%d \n",__FUNCTION__,stat);
 	  goto CLOSE;
-	} 
+	}
 #else
-      stat = vmeBusToLocalAdrs(0x39,(char *)vme_addr,(char **)&laddr);
-      if (stat != 0) 
+      stat = vmeBusToLocalAdrs(0x39,(char *)(unsigned long)vme_addr,(char **)&laddr);
+      if (stat != 0)
 	{
 	  printf("%s: ERROR: Error in vmeBusToLocalAdrs res=%d \n",__FUNCTION__,stat);
 	  goto CLOSE;
-	} 
+	}
 #endif
       TIp = (struct TI_A24RegStruct *)laddr;
     }
@@ -273,14 +274,14 @@ main(int argc, char *argv[])
   return OK;
 }
 
-/* Routine to provide the serial number addition for TIs configured with 
+/* Routine to provide the serial number addition for TIs configured with
    more than 2 optical transceivers... so-called TIMasters */
 int
 tiMasterID(int sn)
 {
   int i=0;
   int rval=0;
-  unsigned int themap[18][2] = 
+  unsigned int themap[18][2] =
     {
       { 251, 0x5800},
       { 252, 0x6800},
@@ -315,10 +316,10 @@ tiMasterID(int sn)
 }
 
 #ifdef VXWORKS
-static void 
-cpuDelay(unsigned long delays)
+static void
+cpuDelay(unsigned int delays)
 {
-  unsigned long time_0, time_1, time, diff;
+  unsigned int time_0, time_1, time, diff;
   time_0 = sysTimeBaseLGet();
   do
     {
@@ -332,23 +333,26 @@ cpuDelay(unsigned long delays)
 }
 #endif
 
-static int 
-Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
+static int
+Emergency(unsigned int jtagType, unsigned int numBits, unsigned int *jtagData)
 {
 /*   unsigned long *laddr; */
   unsigned int iloop, iword, ibit;
-  unsigned long shData;
+  unsigned int shData;
   int rval=OK;
 
+/* #define DEBUG */
 #ifdef DEBUG
   int numWord, i;
   printf("type: %x, num of Bits: %x, data: \n",jtagType, numBits);
-  numWord = (numBits-1)/32+1;
+  numWord = numBits ? ((numBits-1)/32 + 1 ) : 0;
   for (i=0; i<numWord; i++)
     {
-      printf("%08x",jtagData[numWord-i-1]);
+      printf("%lx",jtagData[numWord-i-1]);
     }
   printf("\n");
+
+  return OK;
 #endif
 
   if (jtagType == 0) //JTAG reset, TMS high for 5 clcoks, and low for 1 clock;
@@ -370,7 +374,7 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
       vmeWrite32(&TIp->eJTAGLoad,0);
 
       for (iloop =0; iloop <numBits; iloop++)
-	{ 
+	{
 	  iword = iloop/32;
 	  ibit = iloop%32;
 	  shData = ((jtagData[iword] >> ibit )<<1) &0x2;
@@ -391,7 +395,7 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
       vmeWrite32(&TIp->eJTAGLoad,0);
 
       for (iloop =0; iloop <numBits; iloop++)
-	{ 
+	{
 	  iword = iloop/32;
 	  ibit = iloop%32;
 	  shData = ((jtagData[iword] >> ibit )<<1) &0x2;
@@ -400,8 +404,8 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
 	}
 
       // shift _DR tail
-      vmeWrite32(&TIp->eJTAGLoad,1);  // update Data_Register 
-      vmeWrite32(&TIp->eJTAGLoad,0);  // back to the Run_test/Idle 
+      vmeWrite32(&TIp->eJTAGLoad,1);  // update Data_Register
+      vmeWrite32(&TIp->eJTAGLoad,0);  // back to the Run_test/Idle
     }
   else if (jtagType == 3) // JTAG instruction shift, stop at IR-PAUSE state, though, it started from IDLE
     {
@@ -413,7 +417,7 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
       vmeWrite32(&TIp->eJTAGLoad,0);
 
       for (iloop =0; iloop <numBits; iloop++)
-	{ 
+	{
 	  iword = iloop/32;
 	  ibit = iloop%32;
 	  shData = ((jtagData[iword] >> ibit )<<1) &0x2;
@@ -422,20 +426,20 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
 	}
 
       // shift _IR tail
-      vmeWrite32(&TIp->eJTAGLoad,0);  // update instruction register 
-      vmeWrite32(&TIp->eJTAGLoad,0);  // back to the Run_test/Idle 
+      vmeWrite32(&TIp->eJTAGLoad,0);  // update instruction register
+      vmeWrite32(&TIp->eJTAGLoad,0);  // back to the Run_test/Idle
     }
   else if (jtagType == 4)  // JTAG data shift, start from IR-PAUSE, end at IDLE
     {
       //shift_DR header
-      vmeWrite32(&TIp->eJTAGLoad,1);  //to EXIT2_IR 
-      vmeWrite32(&TIp->eJTAGLoad,1);  //to UPDATE_IR 
-      vmeWrite32(&TIp->eJTAGLoad,1);  //to SELECT-DR_SCAN 
+      vmeWrite32(&TIp->eJTAGLoad,1);  //to EXIT2_IR
+      vmeWrite32(&TIp->eJTAGLoad,1);  //to UPDATE_IR
+      vmeWrite32(&TIp->eJTAGLoad,1);  //to SELECT-DR_SCAN
       vmeWrite32(&TIp->eJTAGLoad,0);
       vmeWrite32(&TIp->eJTAGLoad,0);
 
       for (iloop =0; iloop <numBits; iloop++)
-	{ 
+	{
 	  iword = iloop/32;
 	  ibit = iloop%32;
 	  shData = ((jtagData[iword] >> ibit )<<1) &0x2;
@@ -444,8 +448,8 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
 	}
 
       // shift _DR tail
-      vmeWrite32(&TIp->eJTAGLoad,1);  // update Data_Register 
-      vmeWrite32(&TIp->eJTAGLoad,0);  // back to the Run_test/Idle 
+      vmeWrite32(&TIp->eJTAGLoad,1);  // update Data_Register
+      vmeWrite32(&TIp->eJTAGLoad,0);  // back to the Run_test/Idle
     }
   else
     {
@@ -455,19 +459,19 @@ Emergency(unsigned int jtagType, unsigned int numBits, unsigned long *jtagData)
   return rval;
 }
 
-static void 
+static void
 Parse(char *buf,unsigned int *Count,char **Word)
 {
   *Word = buf;
   *Count = 0;
-  while(*buf != '\0')  
+  while(*buf != '\0')
     {
       while ((*buf==' ') || (*buf=='\t') || (*buf=='\n') || (*buf=='"')) *(buf++)='\0';
-      if ((*buf != '\n') && (*buf != '\0'))  
+      if ((*buf != '\n') && (*buf != '\0'))
 	{
 	  Word[(*Count)++] = buf;
 	}
-      while ((*buf!=' ')&&(*buf!='\0')&&(*buf!='\n')&&(*buf!='\t')&&(*buf!='"')) 
+      while ((*buf!=' ')&&(*buf!='\0')&&(*buf!='\n')&&(*buf!='\t')&&(*buf!='"'))
 	{
 	  buf++;
 	}
@@ -475,10 +479,10 @@ Parse(char *buf,unsigned int *Count,char **Word)
   *buf = '\0';
 }
 
-void 
+void
 tiFirmwareEMload(char *filename)
 {
-  unsigned long ShiftData[64], lineRead;
+  unsigned int ShiftData[64], lineRead;
 /*   unsigned int jtagType, jtagBit, iloop; */
   FILE *svfFile;
 /*   int byteRead; */
@@ -490,7 +494,7 @@ tiFirmwareEMload(char *filename)
   unsigned int rval=0;
   int stat=0;
 #endif
-  
+
   //A24 Address modifier redefined
 #ifdef VXWORKS
 #ifdef TEMPE
@@ -517,7 +521,7 @@ tiFirmwareEMload(char *filename)
 #else
   stat = vmeMemProbe((char *)(&TIp->boardID),4,(char *)&rval);
 #endif
-  if (stat != 0) 
+  if (stat != 0)
     {
       printf("%s: ERROR: TI card not addressable\n",__FUNCTION__);
       TIp=NULL;
@@ -585,14 +589,14 @@ tiFirmwareEMload(char *filename)
 
   /* Count the total number of lines */
   while (fgets(bufRead,256,svfFile) != NULL)
-    { 
+    {
       nlines++;
     }
 
   rewind(svfFile);
 
   while (fgets(bufRead,256,svfFile) != NULL)
-    { 
+    {
       lineRead +=1;
       if((lineRead%((int)(nlines/40))) ==0)
 	{
@@ -611,9 +615,9 @@ tiFirmwareEMload(char *filename)
 	}
       else
 	{
-	  if (strrchr(bufRead,';') ==0) 
+	  if (strrchr(bufRead,';') ==0)
 	    {
-	      do 
+	      do
 		{
 		  lastn =strrchr(bufRead,'\n');
 		  if (lastn !=0) lastn[0]='\0';
@@ -638,10 +642,10 @@ tiFirmwareEMload(char *filename)
 #endif
 		      return;
 		    }
-		} 
+		}
 	      while (strrchr(bufRead,';') == 0);  //do while loop
 	    }  //end of if
-	
+
 	  // begin to parse the data bufRead
 	  Parse(bufRead,&Count,&(Word[0]));
 	  if (strcmp(Word[0],"SDR") == 0)
