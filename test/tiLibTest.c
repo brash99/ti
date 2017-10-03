@@ -35,7 +35,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
-  int printout = 100;
+  int printout = 1000;
   int dataCheck=0;
 
   unsigned int tiIntCount = tiGetIntCount();
@@ -80,11 +80,6 @@ mytiISR(int arg)
     
     }
 
-  for(idata = 0; idata < ((2400)>>2); idata++)
-    {
-      *dma_dabufp++ = idata | 0xabab0000;
-    }
-
   PUTEVENT(vmeOUT);
 
 #ifdef CHECKEVENT
@@ -99,12 +94,12 @@ mytiISR(int arg)
     }
 #endif
 
-  if(dmaPEmpty(vmeIN))
+  /* if(dmaPEmpty(vmeIN)) */
     {
-      while(dmaPNodeCount(vmeOUT) > 0)
+      /* while(dmaPNodeCount(vmeOUT) > 0) */
 	{
 	  outEvent = dmaPGetItem(vmeOUT);
-	  /* #define READOUT */
+/* #define READOUT */
 #ifdef READOUT
 	  if(tiIntCount%printout==0)
 	    {
@@ -116,7 +111,7 @@ mytiISR(int arg)
 	      for(idata=0;idata<len;idata++)
 		{
 		  if((idata%5)==0) printf("\n\t");
-		  printf("  0x%08x ",(unsigned int)LSWAP(outEvent->data[idata]));
+		  printf("  0x%08x ",(unsigned int)(outEvent->data[idata]));
 		}
 	      printf("\n\n");
 	    }
@@ -176,8 +171,8 @@ main(int argc, char *argv[]) {
   printf("\nJLAB TI Tests\n");
   printf("----------------------------\n");
 
-/*   remexSetCmsgServer("dafarm28"); */
-/*   remexInit(NULL,1); */
+  /* remexSetCmsgServer("dafarm28"); */
+  /* remexInit(NULL,1); */
 
   printf("Size of DMANODE    = %d (0x%x)\n",sizeof(DMANODE),sizeof(DMANODE));
   printf("Size of DMA_MEM_ID = %d (0x%x)\n",sizeof(DMA_MEM_ID),sizeof(DMA_MEM_ID));
@@ -212,7 +207,11 @@ main(int argc, char *argv[]) {
   tiInit(0,TI_READOUT_EXT_POLL,TI_INIT_SKIP_FIRMWARE_CHECK);
   tiCheckAddresses();
 
-  tiDefinePulserEventType(0xAA,0xCD);
+  tiSetEvTypeScalers(1);
+
+
+  
+  /* tiDefinePulserEventType(0xAA,0xCD); */
 
   tiSetSyncEventInterval(0);
 
@@ -246,9 +245,9 @@ main(int argc, char *argv[]) {
       printf("INFO: Attached TI Interrupt\n");
     }
 
-  /*     tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
-  tiSetTriggerSource(TI_TRIGGER_PULSER);
-  tiEnableTSInput(0x1);
+  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
+  /* tiSetTriggerSource(TI_TRIGGER_PULSER); */
+  tiEnableTSInput(0x2f);
 
   /*     tiSetFPInput(0x0); */
   /*     tiSetGenInput(0xffff); */
@@ -264,6 +263,8 @@ main(int argc, char *argv[]) {
 /*   tiSetSyncDelayWidth(1,0x3f,1); */
     
   tiSetBlockLimit(0);
+  tiSetScalerMode(1, 1);
+  
 
   printf("Hit enter to reset stuff\n");
   getchar();
@@ -297,8 +298,7 @@ main(int argc, char *argv[]) {
 
   printf("Hit any key to Disable TID and exit.\n");
   getchar();
-  tiStatus(1);
-
+  
 #ifdef SOFTTRIG
   /* No more soft triggers */
   /*     tidSoftTrig(0x0,0x8888,0); */
@@ -316,6 +316,8 @@ main(int argc, char *argv[]) {
       goto AGAIN;
     }
 
+  tiStatus(1);
+  tiPrintEvTypeScalers();
 
  CLOSE:
 
@@ -325,3 +327,8 @@ main(int argc, char *argv[]) {
   exit(0);
 }
 
+/*
+  Local Variables:
+  compile-command: "make -k -B tiLibTest"
+  End:
+ */

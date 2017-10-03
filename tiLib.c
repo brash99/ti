@@ -3116,6 +3116,15 @@ tiReadTriggerBlock(volatile unsigned int *data)
 
 }
 
+/**
+ * @ingroup Readout
+ * @brief Check the provided array for valid trigger block format
+ *
+ * @param   data  - local memory address to find trigger block
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
 int
 tiCheckTriggerBlock(volatile unsigned int *data)
 {
@@ -3236,6 +3245,19 @@ tiCheckTriggerBlock(volatile unsigned int *data)
   return rval;
 }
 
+/**
+ * @ingroup Readout
+ * @brief Provided TI data (trigger block, or raw TI blocked data), decode the
+ * event types.
+ *
+ * @param  data  - local memory address to find trigger block
+ * @param data_len - length of provided 'data' array
+ * @param nevents - how many events in the block to record
+ * @param evtypes - where to store the event types.
+ *
+ * @return Number of event types stored if successful, ERROR otherwise
+ *
+ */
 int
 tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
 		     int nevents, unsigned int *evtypes)
@@ -3316,6 +3338,18 @@ tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
 
 }
 
+/**
+ * @ingroup Readout
+ * @brief Provided TI data (trigger block, or raw TI blocked data), decode the
+ * event type for the specified event of block.
+ *
+ * @param  data  - local memory address to find trigger block
+ * @param data_len - length of provided 'data' array
+ * @param events - which event of the block to obtain event type
+ *
+ * @return Event type if successful, ERROR otherwise
+ *
+ */
 int
 tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
 {
@@ -4137,6 +4171,12 @@ tiSetAdr32(unsigned int a32base)
   return OK;
 }
 
+/**
+ * @ingroup Status
+ * @brief Routine to get the A32 Base
+ *
+ * @return A32 base address if successful, otherwise ERROR
+ */
 unsigned int
 tiGetAdr32()
 {
@@ -8338,7 +8378,7 @@ tiSetScalerMode(int mode, int control)
 
 /**
  * @ingroup Config
- * @brief Enable/disable scalers associated with the bits in the event type.
+ * @brief Enable/disable recording of scalers associated with the bits in the event type.
  *
  *   Provides the means for counting the event type bits, for each event
  *   obtained through @tiReadBlock().
@@ -8371,6 +8411,12 @@ static unsigned int evtype_scalers[6];
 static unsigned int evtype_overflow;
 static int nevtype_calls;
 
+/**
+ * @ingroup Config
+ * @brief Clear the event type scalers.
+ *
+ * @return OK if successful, otherwise ERROR
+ */
 void
 tiClearEvTypeScalers()
 {
@@ -8409,6 +8455,15 @@ tiFillEvTypeScalers(unsigned int evtype)
     evtype_overflow++;
 }
 
+/**
+ * @ingroup Status
+ * @brief Returns an array providing the current values of the event type scalers.
+ *
+ * @param data - local memory location where to store the scaler values
+ * @param maxwords - maximum amount of words to store at 'data'
+ *
+ * @return OK if successful, otherwise ERROR
+ */
 int
 tiGetEvTypeScalers(unsigned int *data, int maxwords)
 {
@@ -8425,6 +8480,15 @@ tiGetEvTypeScalers(unsigned int *data, int maxwords)
   return dCnt;
 }
 
+/**
+ * @ingroup Readout
+ * @brief Scan the provided TI data array and fill the event type scalers.
+ *
+ * @param data - local memory location where to find TI data
+ * @param nwords - number of words to scan from 'data'
+ *
+ * @return Number of event types found if successful, otherwise ERROR
+ */
 int
 tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords)
 {
@@ -8451,6 +8515,11 @@ tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords)
   return rval;
 }
 
+/**
+ * @ingroup Status
+ * @brief Print, to standard out, the current values of the event type scalers
+ *
+ */
 void
 tiPrintEvTypeScalers()
 {
