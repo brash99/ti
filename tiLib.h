@@ -138,7 +138,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL    3
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x076
+#define TI_SUPPORTED_FIRMWARE 0x077
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -242,6 +242,8 @@ struct TI_A24RegStruct
 #define TI_VMECONTROL_BLOCKLEVEL_UPDATE     (1<<21)
 #define TI_VMECONTROL_USE_LOCAL_BUFFERLEVEL (1<<22)
 #define TI_VMECONTROL_BUSY_ON_BUFFERLEVEL   (1<<23)
+#define TI_VMECONTROL_COUNT_IN_GO_ENABLE    (1<<27)
+#define TI_VMECONTROL_TS_COUNTER_CONTROL    (1<<28)
 #define TI_VMECONTROL_SLOWER_TRIGGER_RULES  (1<<31)
 
 /* 0x20 trigsrc bits and masks */
@@ -614,6 +616,8 @@ int  tiFakeTriggerBankOnError(int enable);
 int  tiGenerateTriggerBank(volatile unsigned int *data);
 int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiCheckTriggerBlock(volatile unsigned int *data);
+int  tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
+			  int nevents, unsigned int *evtypes);
 int  tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
@@ -740,4 +744,10 @@ int  tiRocEnable(int roc);
 int  tiRocEnableMask(int rocmask);
 int  tiGetRocEnableMask();
 int  tiReadScalers(volatile unsigned int *data, int latch);
+
+int  tiSetScalerMode(int mode, int control);
+int  tiSetEvTypeScalers(int enable);
+void tiClearEvTypeScalers();
+int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
+void tiPrintEvTypeScalers();
 #endif /* TILIB_H */
