@@ -105,6 +105,7 @@ static int          tiNoVXS=0;               /* 1 if not in VXS crate */
 static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set default SyncReset Type to Fixed 4 us */
 static int          tiFakeTriggerBank=1;
 static int          tiUseGoOutput=1;
+static int          tiUseEvTypeScalers=0;
 
 static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
@@ -884,6 +885,7 @@ tiStatus(int pflag)
 	 (unsigned long) TIp - tiA24Offset, (unsigned long) TIp);
 #endif
   printf("--------------------------------------------------------------------------------\n");
+
   printf(" A32 Data buffer ");
   if((ro->vmeControl&TI_VMECONTROL_A32) == TI_VMECONTROL_A32)
     {
@@ -2735,6 +2737,9 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 #else
 	  xferCount = ((retVal>>2) + dummy); /* Number of longwords transfered */
 #endif
+	  if(tiUseEvTypeScalers)
+	    tiScanAndFillEvTypeScalers(data, xferCount);
+
 	  TIUNLOCK;
 	  return(xferCount);
 	}
@@ -2868,6 +2873,9 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 		 val, 2, 3, 4, 5, 6);
 	  dCnt = ii;
 	}
+      if(tiUseEvTypeScalers)
+	tiScanAndFillEvTypeScalers(data, dCnt);
+
       TIUNLOCK;
       return dCnt;
     }
@@ -3229,19 +3237,20 @@ tiCheckTriggerBlock(volatile unsigned int *data)
 }
 
 int
-tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
+tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
+		     int nevents, unsigned int *evtypes)
 {
   int rval = -1;
   int iword = 0;
   int blocklevel = -1;
   int event_len = -1;
   int ievent = 1;
-  int trigger_type = -1;
   unsigned int dataword = 0;
+  int nevtypes = 0;
 
   if(TIp==NULL)
     {
-      logMsg("tiDecodeTriggerType: ERROR: TI not initialized\n",0,1,2,3,4,5);
+      logMsg("tiDecodeTriggerTypes: ERROR: TI not initialized\n",0,1,2,3,4,5);
       return ERROR;
     }
 
@@ -3264,19 +3273,17 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
 
   if(blocklevel == -1)
     {
-      logMsg("tiDecodeTriggerType: ERROR: Failed to find Trigger Bank header\n",
+      logMsg("tiDecodeTriggerTypes: ERROR: Failed to find Trigger Bank header\n",
 	     0,1,2,3,4,5);
       return ERROR;
     }
 
-  if(event > blocklevel)
+  if(nevents < blocklevel)
     {
-      logMsg("tiDecodeTriggerType: ERROR: event (%d) greater than blocklevel (%d)\n",
-	     event, blocklevel, 2, 3, 4, 5);
-      return ERROR;
+      blocklevel = nevents;
     }
 
-  /* Loop until we get to the event requested */
+  /* Loop until we get all of the events */
   while((iword < data_len) && (ievent <= blocklevel))
     {
       dataword = data[iword];
@@ -3285,12 +3292,15 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
 #endif
       if((dataword & 0x00FF0000)>>16 == 0x01)
 	{
-	  trigger_type = (dataword & 0xFF000000) >> 24;
-	  if(ievent == event)
+	  evtypes[nevtypes++] = (dataword & 0xFF000000) >> 24;
+
+	  if(ievent == blocklevel)
 	    {
-	      rval = trigger_type;
+	      rval = nevtypes;;
 	      break;
 	    }
+
+	  /* Skip to next event */
 	  event_len = dataword & 0xFFFF;
 	  ievent++;
 	  iword += event_len + 1;
@@ -3302,10 +3312,34 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
 	}
     }
 
-  if(rval == -1)
+  return rval;
+
+}
+
+int
+tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
+{
+  int rval = 0;
+  unsigned int evtypes[256];
+  int nevtypes = 0;
+
+  nevtypes = tiDecodeTriggerTypes(data, data_len, event, (unsigned int *)&evtypes);
+
+  if(nevtypes == ERROR)
     {
-      logMsg("tiDecodeTriggerType: ERROR: Failed to find trigger type for event %d\n",
+      logMsg("tiDecodeTriggerTypes: ERROR: Failed to find trigger type for event %d\n",
 	     event, 1, 2, 3, 4, 5);
+      rval = ERROR;
+    }
+  if(nevtypes < event)
+    {
+      logMsg("tiDecodeTriggerType: ERROR: # EvTypes (%d) < Requested Event (%d)\n",
+	     nevtypes, event, 3, 4, 5, 6);
+      rval = ERROR;
+    }
+  else
+    {
+      rval = evtypes[event];
     }
 
   return rval;
@@ -7706,6 +7740,9 @@ tiIntEnable(int iflag)
 
     }
 
+  if(tiUseEvTypeScalers)
+    tiClearEvTypeScalers();
+
   vmeWrite32(&TIp->runningMode,0x71);
   TIUNLOCK; /* Locks performed in tiEnableTriggerSource() */
 
@@ -8246,7 +8283,10 @@ tiReadScalers(volatile unsigned int *data, int latch)
 
 /**
  * @ingroup Config
- * @brief
+ * @brief Set control over the TS inputs scalers.
+ *
+ *  Provides a means for having counters disabled when trigger sources
+ *  are disabled and disabled when the specific input is disabled.
  *
  * @param mode:
  *   -  0: Always count, regardless of trigger source enable
@@ -8294,4 +8334,143 @@ tiSetScalerMode(int mode, int control)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Config
+ * @brief Enable/disable scalers associated with the bits in the event type.
+ *
+ *   Provides the means for counting the event type bits, for each event
+ *   obtained through @tiReadBlock().
+ *
+ * @param enable:
+ *   -  0: Scalers Disabled
+ *   -  1: Scalers Enabled, event type decoded in @tiReadBLock()
+ *
+ * @return OK if successful, otherwise ERROR
+ *
+ */
+int
+tiSetEvTypeScalers(int enable)
+{
+  if((enable < 0) || (enable > 1))
+    {
+      printf("%s: ERROR: Invalid enable (%d)\n",
+	     __FUNCTION__, enable);
+      return ERROR;
+    }
+
+  TILOCK;
+  tiUseEvTypeScalers = enable;
+  TIUNLOCK;
+
+  return OK;
+}
+
+static unsigned int evtype_scalers[6];
+static unsigned int evtype_overflow;
+static int nevtype_calls;
+
+void
+tiClearEvTypeScalers()
+{
+  int ibit, nbit=6;
+
+  for(ibit = 0; ibit < nbit; ibit++)
+    {
+      evtype_scalers[ibit] = 0;
+    }
+  evtype_overflow = 0;
+  nevtype_calls = 0;
+
+}
+
+static void
+tiFillEvTypeScalers(unsigned int evtype)
+{
+  int ibit, nbit=6;
+
+  nevtype_calls++;
+
+  /* Count internal pulser event types (defaults, anyway) as overflow */
+  if((evtype == 0xFD) || (evtype == 0xFE))
+    {
+      evtype_overflow++;
+      return;
+    }
+
+  for(ibit = 0; ibit < nbit; ibit++)
+    {
+      if(evtype & (1 << ibit))
+	evtype_scalers[ibit]++;
+    }
+
+  if(evtype & 0xFFFFFFC0)
+    evtype_overflow++;
+}
+
+int
+tiGetEvTypeScalers(unsigned int *data, int maxwords)
+{
+  int dCnt = 0;
+  int iscaler;
+
+  for(iscaler = 0; iscaler < 6; iscaler++)
+    {
+      data[dCnt++] = evtype_scalers[iscaler];
+    }
+  data[dCnt++] = evtype_overflow;
+  data[dCnt++] = nevtype_calls;
+
+  return dCnt;
+}
+
+int
+tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords)
+{
+  int rval;
+  unsigned int evtypes[256];
+  int ievtype, nevtypes = 0;
+
+  nevtypes = tiDecodeTriggerTypes(data, nwords, 256, (unsigned int *)&evtypes);
+
+  if(nevtypes == ERROR)
+    {
+      logMsg("tiScanAndFillEvTypeScalers: ERROR: Failed to fill event type scalers\n",
+	     0, 1, 2, 3, 4, 5);
+      rval = ERROR;
+    }
+  else
+    {
+      for(ievtype = 0; ievtype < nevtypes; ievtype++)
+	tiFillEvTypeScalers(evtypes[ievtype]);
+
+      rval = nevtypes;
+    }
+
+  return rval;
+}
+
+void
+tiPrintEvTypeScalers()
+{
+  int isca, nsca = 6;
+
+ printf("Event Type Scalers\n");
+ printf("--------------------------------------------------------------------------------\n");
+
+ printf("TS Input:    Counts\n");
+
+ for(isca = 0; isca < nsca; isca++)
+   {
+     printf("      %2d:  %8d\n",
+	    isca + 1, evtype_scalers[isca]);
+   }
+
+ printf("\n");
+ printf("Overflow: %8d\n",
+	evtype_overflow);
+ printf("Events  : %8d\n",
+	nevtype_calls);
+
 }

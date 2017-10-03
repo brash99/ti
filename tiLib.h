@@ -616,6 +616,8 @@ int  tiFakeTriggerBankOnError(int enable);
 int  tiGenerateTriggerBank(volatile unsigned int *data);
 int  tiReadTriggerBlock(volatile unsigned int *data);
 int  tiCheckTriggerBlock(volatile unsigned int *data);
+int  tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
+			  int nevents, unsigned int *evtypes);
 int  tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event);
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
@@ -742,4 +744,10 @@ int  tiRocEnable(int roc);
 int  tiRocEnableMask(int rocmask);
 int  tiGetRocEnableMask();
 int  tiReadScalers(volatile unsigned int *data, int latch);
+
+int  tiSetScalerMode(int mode, int control);
+int  tiSetEvTypeScalers(int enable);
+void tiClearEvTypeScalers();
+int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
+void tiPrintEvTypeScalers();
 #endif /* TILIB_H */
