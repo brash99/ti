@@ -3252,7 +3252,7 @@ tiCheckTriggerBlock(volatile unsigned int *data)
  *
  * @param  data  - local memory address to find trigger block
  * @param data_len - length of provided 'data' array
- * @param nevents - how many events in the block to record
+ * @param nevents - how many events in the block to record [1, 255]
  * @param evtypes - where to store the event types.
  *
  * @return Number of event types stored if successful, ERROR otherwise
@@ -3318,7 +3318,7 @@ tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
 
 	  if(ievent == blocklevel)
 	    {
-	      rval = nevtypes;;
+	      rval = nevtypes;
 	      break;
 	    }
 
@@ -3345,7 +3345,7 @@ tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
  *
  * @param  data  - local memory address to find trigger block
  * @param data_len - length of provided 'data' array
- * @param events - which event of the block to obtain event type
+ * @param events - which event of the block to obtain event type [1, 255]
  *
  * @return Event type if successful, ERROR otherwise
  *
@@ -3357,11 +3357,18 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
   unsigned int evtypes[256];
   int nevtypes = 0;
 
+  if((event < 0) || (event > 255))
+    {
+      logMsg("tiDecodeTriggerType: ERROR: Invalid event number (%d)\n",
+	     event, 1, 2, 3, 4, 5);
+      return ERROR;
+    }
+
   nevtypes = tiDecodeTriggerTypes(data, data_len, event, (unsigned int *)&evtypes);
 
   if(nevtypes == ERROR)
     {
-      logMsg("tiDecodeTriggerTypes: ERROR: Failed to find trigger type for event %d\n",
+      logMsg("tiDecodeTriggerType: ERROR: Failed to find trigger type for event %d\n",
 	     event, 1, 2, 3, 4, 5);
       rval = ERROR;
     }
@@ -3373,7 +3380,7 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
     }
   else
     {
-      rval = evtypes[event];
+      rval = evtypes[event - 1];
     }
 
   return rval;

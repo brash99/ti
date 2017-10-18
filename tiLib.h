@@ -130,7 +130,7 @@ struct TI_A24RegStruct
 
 /* Define TI Modes of operation:     Ext trigger - Interrupt mode   0
                                      TS  trigger - Interrupt mode   1
-                                     Ext trigger - polling  mode    2 
+                                     Ext trigger - polling  mode    2
                                      TS  trigger - polling  mode    3  */
 #define TI_READOUT_EXT_INT    0
 #define TI_READOUT_TS_INT     1
