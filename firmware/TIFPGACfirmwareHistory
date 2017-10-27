@@ -103,3 +103,6 @@ V7.5, July 28, 2017: Added the RunGo, When the TriggerSrc is set to 0x90xxxxxx, 
 V7.6, Aug. 16-17, 2017: Sync the Busy and SendID to Clk625 for StatusGen block, so all the controls are synced with Clk625, or MGT clock.
          Also, changed the FD to FDR for the last register in synchronizing to Clk625
 V7.7, Sept. 28, 2017: Use vme reg 0x14 bit(28:27) to enable trigger_input_counters control, bit27 to enable the RunGo, bit28 to enable TrigInEn.
+V7.8, Oct. 24, 2017: Reset the Block_number_counter to '1' (CB24CE1), and remove the "+1" in DataGen block.
+      Oct. 25, 2017: Add the event type 0 generation debug, Updated ucf file (ignore VME registers), optimize some VHDL codes.
+		Oct. 26, 2017: disable the TsbitOut update if the current trigger has not been processed yet (in TsType block).
