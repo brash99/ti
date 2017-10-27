@@ -22,8 +22,9 @@ extern DMANODE *the_event;
 extern unsigned int *dma_dabufp;
 
 extern int tiA32Base;
+extern int tiNeedAck;
 
-#define BLOCKLEVEL 40
+#define BLOCKLEVEL 1
 
 #define DO_READOUT
 
@@ -35,7 +36,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
-  int printout = 1000;
+  int printout = 100000;
   int dataCheck=0;
 
   unsigned int tiIntCount = tiGetIntCount();
@@ -65,8 +66,8 @@ mytiISR(int arg)
 #endif
   /* *dma_dabufp++; */
 
-  /* dCnt = tiReadBlock(dma_dabufp,5*BLOCKLEVEL+3+4,1); */
-  dCnt = tiReadTriggerBlock(dma_dabufp);
+  dCnt = tiReadBlock(dma_dabufp,5*BLOCKLEVEL+3+4,1);
+  /* dCnt = tiReadTriggerBlock(dma_dabufp); */
 
   if(dCnt<=0)
     {
@@ -77,7 +78,6 @@ mytiISR(int arg)
     {
       /* dataCheck = tiCheckTriggerBlock(dma_dabufp); */
       dma_dabufp += dCnt;
-    
     }
 
   PUTEVENT(vmeOUT);
@@ -85,14 +85,14 @@ mytiISR(int arg)
 #ifdef CHECKEVENT
   int length = (((int)(dma_dabufp) - (int)(&the_event->length))) - 4;
   int size = the_event->part->size - sizeof(DMANODE);
-  
-  if(length>size) 
+
+  if(length>size)
     {
       printf("rocLib: ERROR: Event length > Buffer size (%d > %d).  Event %d\n",
 	     length,size,the_event->nevent);
       dataCheck=ERROR;
     }
-#endif
+#endif // CHECKEVENT
 
   /* if(dmaPEmpty(vmeIN)) */
     {
@@ -105,17 +105,32 @@ mytiISR(int arg)
 	    {
 	      printf("Received %d triggers...\n",
 		     tiIntCount);
-      
+
 	      len = outEvent->length;
-      
+
 	      for(idata=0;idata<len;idata++)
 		{
 		  if((idata%5)==0) printf("\n\t");
-		  printf("  0x%08x ",(unsigned int)(outEvent->data[idata]));
+		  printf("  0x%08x ",(unsigned int)LSWAP(outEvent->data[idata]));
 		}
 	      printf("\n\n");
 	    }
-#endif
+#endif // READOUT
+	  // Check if event type is 0
+	  int evType = ((LSWAP(outEvent->data[2]) & 0xFF000000) >> 24);
+	  if((evType == 0) || (evType == 0x40) || (evType == 0x80))
+	    {
+	      printf("Event Type = 0!!!!\n");
+	      len = outEvent->length;
+
+	      for(idata=0;idata<len;idata++)
+		{
+		  if((idata%5)==0) printf("\n\t");
+		  printf("  0x%08x ",(unsigned int)LSWAP(outEvent->data[idata]));
+		}
+	      printf("\n\n");
+	      /* dataCheck=ERROR; */
+	    }
 	  dmaPFreeItem(outEvent);
 #else /* DO_READOUT */
 	  /*   tiResetBlockReadout(); */
@@ -151,19 +166,22 @@ mytiISR(int arg)
 	  vmeDmaFlush(tiGetAdr32());
 	  printf("tiBReady() = %d\n",
 		 tiBReady());
-	  
+
 	}
     }
-  
+
   if(dataCheck!=OK)
     {
       tiSetBlockLimit(1);
+      tiNeedAck = 1;
     }
- 
+  else
+    tiNeedAck = 0;
+
 }
 
 
-int 
+int
 main(int argc, char *argv[]) {
 
   int stat;
@@ -180,7 +198,7 @@ main(int argc, char *argv[]) {
   vmeOpenDefaultWindows();
 
   /* Setup Address and data modes for DMA transfers
-   *   
+   *
    *  vmeDmaConfig(addrType, dataType, sstMode);
    *
    *  addrType = 0 (A16)    1 (A24)    2 (A32)
@@ -194,7 +212,7 @@ main(int argc, char *argv[]) {
   dmaPFreeAll();
   vmeIN  = dmaPCreate("vmeIN",1024,4,0);
   vmeOUT = dmaPCreate("vmeOUT",0,0,0);
-    
+
   dmaPStatsAll();
 
   dmaPReInitAll();
@@ -210,7 +228,7 @@ main(int argc, char *argv[]) {
   tiSetEvTypeScalers(1);
 
 
-  
+
   /* tiDefinePulserEventType(0xAA,0xCD); */
 
   tiSetSyncEventInterval(0);
@@ -227,44 +245,46 @@ main(int argc, char *argv[]) {
 #endif
 
   tiLoadTriggerTable(0);
-    
+
   tiSetTriggerHoldoff(1,4,0);
   tiSetTriggerHoldoff(2,4,0);
 
   tiSetPrescale(0);
   tiSetBlockLevel(BLOCKLEVEL);
+  /* tiSetTriggerWindow(8); */
+  /* tiSetTriggerLatchOnLevel(1); */
 
   stat = tiIntConnect(TI_INT_VEC, mytiISR, 0);
-  if (stat != OK) 
+  if (stat != OK)
     {
       printf("ERROR: tiIntConnect failed \n");
       goto CLOSE;
-    } 
-  else 
+    }
+  else
     {
       printf("INFO: Attached TI Interrupt\n");
     }
 
-  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
-  /* tiSetTriggerSource(TI_TRIGGER_PULSER); */
+  /* tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
+  tiSetTriggerSource(TI_TRIGGER_PULSER);
   tiEnableTSInput(0x2f);
 
   /*     tiSetFPInput(0x0); */
   /*     tiSetGenInput(0xffff); */
   /*     tiSetGTPInput(0x0); */
 
-  /* tiSetFPInputReadout(1); */
-  
+  tiSetFPInputReadout(1);
+
   tiSetBusySource(TI_BUSY_LOOPBACK,1);
 
-  tiSetBlockBufferLevel(3);
+  tiSetBlockBufferLevel(1);
 
 /*   tiSetFiberDelay(1,2); */
 /*   tiSetSyncDelayWidth(1,0x3f,1); */
-    
+
   tiSetBlockLimit(0);
   tiSetScalerMode(1, 1);
-  
+
 
   printf("Hit enter to reset stuff\n");
   getchar();
@@ -281,7 +301,7 @@ main(int argc, char *argv[]) {
   tiSyncReset(1);
 
   taskDelay(1);
-    
+
   tiStatus(1);
 
   printf("Hit enter to start triggers\n");
@@ -298,7 +318,7 @@ main(int argc, char *argv[]) {
 
   printf("Hit any key to Disable TID and exit.\n");
   getchar();
-  
+
 #ifdef SOFTTRIG
   /* No more soft triggers */
   /*     tidSoftTrig(0x0,0x8888,0); */
