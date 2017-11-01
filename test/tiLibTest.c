@@ -36,7 +36,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
-  int printout = 100000;
+  int printout = 1000;
   int dataCheck=0;
 
   unsigned int tiIntCount = tiGetIntCount();
@@ -265,8 +265,9 @@ main(int argc, char *argv[]) {
       printf("INFO: Attached TI Interrupt\n");
     }
 
-  /* tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
-  tiSetTriggerSource(TI_TRIGGER_PULSER);
+  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
+/* #define SOFTTRIG */
+  /* tiSetTriggerSource(TI_TRIGGER_PULSER); */
   tiEnableTSInput(0x2f);
 
   /*     tiSetFPInput(0x0); */
@@ -286,8 +287,8 @@ main(int argc, char *argv[]) {
   tiSetScalerMode(1, 1);
 
 
-  printf("Hit enter to reset stuff\n");
-  getchar();
+  /* printf("Hit enter to reset stuff\n"); */
+  /* getchar(); */
 
   tiClockReset();
   taskDelay(1);
@@ -295,9 +296,6 @@ main(int argc, char *argv[]) {
   taskDelay(1);
   tiEnableVXSSignals();
 
-  int again=0;
- AGAIN:
-  taskDelay(1);
   tiSyncReset(1);
 
   taskDelay(1);
@@ -309,7 +307,6 @@ main(int argc, char *argv[]) {
 
   tiIntEnable(0);
   tiStatus(1);
-#define SOFTTRIG
 #ifdef SOFTTRIG
   tiSetRandomTrigger(1,0x7);
 /*   taskDelay(10); */
@@ -329,12 +326,6 @@ main(int argc, char *argv[]) {
   tiIntDisable();
 
   tiIntDisconnect();
-
-  if(again==1)
-    {
-      again=0;
-      goto AGAIN;
-    }
 
   tiStatus(1);
   tiPrintEvTypeScalers();
