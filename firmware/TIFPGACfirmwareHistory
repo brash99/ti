@@ -106,3 +106,4 @@ V7.7, Sept. 28, 2017: Use vme reg 0x14 bit(28:27) to enable trigger_input_counte
 V7.8, Oct. 24, 2017: Reset the Block_number_counter to '1' (CB24CE1), and remove the "+1" in DataGen block.
       Oct. 25, 2017: Add the event type 0 generation debug, Updated ucf file (ignore VME registers), optimize some VHDL codes.
 		Oct. 26, 2017: disable the TsbitOut update if the current trigger has not been processed yet (in TsType block).
+      Oct. 31, 2017: Generate Clk250A from Clk3125 (x4), then another DCM (Clk2X), used for triggers.
