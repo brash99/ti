@@ -247,7 +247,7 @@ struct TI_A24RegStruct
 #define TI_VMECONTROL_SLOWER_TRIGGER_RULES  (1<<31)
 
 /* 0x20 trigsrc bits and masks */
-#define TI_TRIGSRC_SOURCEMASK       0x0000F3FF
+#define TI_TRIGSRC_SOURCEMASK       0x0000FCFF
 #define TI_TRIGSRC_P0               (1<<0)
 #define TI_TRIGSRC_HFBR1            (1<<1)
 #define TI_TRIGSRC_LOOPBACK         (1<<2)

@@ -2053,9 +2053,9 @@ tiSetTriggerSource(int trig)
       return ERROR;
     }
 
-  if( (trig>10) || (trig<0) )
+  if( (trig > 11) || (trig < 0) )
     {
-      printf("%s: ERROR: Invalid Trigger Source (%d).  Must be between 0 and 10.\n",
+      printf("%s: ERROR: Invalid Trigger Source (%d).  Must be between 0 and 11.\n",
 	     __FUNCTION__,trig);
       return ERROR;
     }
@@ -2187,8 +2187,6 @@ tiSetTriggerSource(int trig)
  *        -         5:  Front Panel TS Inputs
  *        -         6:  TS (rev 2) Input
  *        -         7:  Random Trigger
- *        -         8:  FP/Ext/GTP
- *        -         9:  P2 Busy
  *        -        10:  HFBR #5
  *        -        11:  Pulser Trig2 with delayed Trig1 (only compatible with 2 and 7)
  *
