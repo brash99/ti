@@ -265,9 +265,9 @@ main(int argc, char *argv[]) {
       printf("INFO: Attached TI Interrupt\n");
     }
 
-  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
-/* #define SOFTTRIG */
-  /* tiSetTriggerSource(TI_TRIGGER_PULSER); */
+  /* tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
+#define SOFTTRIG
+  tiSetTriggerSource(TI_TRIGGER_PULSER);
   tiEnableTSInput(0x2f);
 
   /*     tiSetFPInput(0x0); */
