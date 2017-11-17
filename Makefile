@@ -46,7 +46,10 @@ endif
 # Defs and build for VxWorks
 ifeq (${OS}, VXWORKS)
 VXWORKS_ROOT		?= /site/vxworks/5.5/ppc/target
-VME_INCLUDE             ?= -I$(LINUXVME_INC)
+
+ifdef LINUXVME_LIB
+VME_INCLUDE		?= -I$(LINUXVME_INC)
+endfi
 
 CC			= ccppc
 LD			= ldppc

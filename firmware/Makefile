@@ -46,8 +46,8 @@ LINUXVME_FW	?= ../../firmware
 CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
 RANLIB                  = ranlib
-CFLAGS			= -I${LINUXVME_INC} -I. -I/usr/include \
-			  -L${LINUXVME_LIB} -L.
+CFLAGS			= -I. -I${LINUXVME_INC} \
+			  -L. -L${LINUXVME_LIB}
 ifdef DEBUG
 CFLAGS			+= -Wall -g
 else
