@@ -49,7 +49,7 @@ VXWORKS_ROOT		?= /site/vxworks/5.5/ppc/target
 
 ifdef LINUXVME_LIB
 VME_INCLUDE		?= -I$(LINUXVME_INC)
-endfi
+endif
 
 CC			= ccppc
 LD			= ldppc
