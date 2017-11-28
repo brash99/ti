@@ -216,7 +216,7 @@ tiSetCrateID_preInit(int cid)
 int
 tiSetFiberIn_preInit(int port)
 {
-  if((port!=1) || (port!=5))
+  if((port!=1) && (port!=5))
     {
       printf("%s: ERROR: Invalid Slave Fiber In Port (%d)\n",
 	     __FUNCTION__,port);
@@ -394,7 +394,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  tiNoVXS=1;
 	}
     }
+  else
+    tiNoVXS=1;
 
+  
   if(!noBoardInit)
     {
       /* Reset global library variables */
@@ -7065,8 +7068,8 @@ tiSetTSInputDelay(int chan, int delay)
 
   TILOCK;
   chan--;
-  vmeWrite32(&TIp->fpDelay[chan%3],
-	     (vmeRead32(&TIp->fpDelay[chan%3]) & ~TI_FPDELAY_MASK(chan))
+  vmeWrite32(&TIp->fpDelay[chan/3],
+	     (vmeRead32(&TIp->fpDelay[chan/3]) & ~TI_FPDELAY_MASK(chan))
 	     | delay<<(10*(chan%3)));
   TIUNLOCK;
 
@@ -7098,7 +7101,7 @@ tiGetTSInputDelay(int chan)
 
   TILOCK;
   chan--;
-  rval = (vmeRead32(&TIp->fpDelay[chan%3]) & TI_FPDELAY_MASK(chan))>>(10*(chan%3));
+  rval = (vmeRead32(&TIp->fpDelay[chan/3]) & TI_FPDELAY_MASK(chan))>>(10*(chan%3));
   TIUNLOCK;
 
   return rval;
@@ -7128,7 +7131,7 @@ tiPrintTSInputDelay()
   printf("%s: Front panel delays:", __FUNCTION__);
   for(ichan=0;ichan<5;ichan++)
     {
-      delay = reg[ichan%3] & TI_FPDELAY_MASK(ichan)>>(10*(ichan%3));
+      delay = reg[ichan/3] & TI_FPDELAY_MASK(ichan)>>(10*(ichan%3));
       if((ichan%4)==0)
 	{
 	  printf("\n");
