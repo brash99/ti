@@ -574,7 +574,8 @@ struct TI_A24RegStruct
 
 /* Some pre-initialization routine prototypes */
 int  tiSetFiberLatencyOffset_preInit(int flo);
-int  tiSetCrateID_prIinit(int cid);
+int  tiSetCrateID_preInit(int cid);
+int  tiSetFiberIn_preInit(int port);
 
 /* Function prototypes */
 int  tiInit(unsigned int tAddr, unsigned int mode, int force);

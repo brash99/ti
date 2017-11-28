@@ -216,7 +216,7 @@ tiSetCrateID_preInit(int cid)
 int
 tiSetFiberIn_preInit(int port)
 {
-  if((port!=1) || (port!=5))
+  if((port!=1) && (port!=5))
     {
       printf("%s: ERROR: Invalid Slave Fiber In Port (%d)\n",
 	     __FUNCTION__,port);
