@@ -4891,13 +4891,16 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
       syncDelay = (offset-(delay));
     }
 
-  syncDelay_write = (syncDelay&0xff<<8) | (syncDelay&0xff<<16) | (syncDelay&0xff<<24);  /* set the sync delay according to the fiber latency */
+  /* set the sync delay according to the fiber latency */
+  syncDelay_write = ((syncDelay & 0xff) << 8) |
+    ((syncDelay & 0xff) << 16) | ((syncDelay & 0xff) << 24);
 
-  vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
+  vmeWrite32(&TIp->fiberSyncDelay, syncDelay_write);
 
   TIUNLOCK;
 
-  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",__FUNCTION__,syncDelay_write);
+  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",
+	 __FUNCTION__, syncDelay_write);
 
 }
 
@@ -6373,8 +6376,11 @@ FiberMeas()
 	}
     }
 
-  syncDelay = (tiFiberLatencyOffset-(((fiberLatency>>23)&0x1ff)>>1));
-  syncDelay_write = (syncDelay&0xFF)<<8 | (syncDelay&0xFF)<<16 | (syncDelay&0xFF)<<24;
+  syncDelay = (tiFiberLatencyOffset - (((fiberLatency >> 23) & 0x1ff) >> 1));
+
+  syncDelay_write = (syncDelay & 0xFF) << 8 |
+    (syncDelay & 0xFF) << 16 | (syncDelay & 0xFF) << 24;
+
   taskDelay(1);
 
   vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
