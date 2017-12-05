@@ -6371,8 +6371,25 @@ FiberMeas()
 	firstMeas = tiFiberLatencyMeasurement;
       else
 	{
-	  if(firstMeas != tiFiberLatencyMeasurement)
+	  if(abs(firstMeas - tiFiberLatencyMeasurement) > 1)
 	    failed = 1;
+	  else if (abs(firstMeas - tiFiberLatencyMeasurement) == 1)
+	    {
+	      /* Allow for a clock tick of slop */
+	      printf("\n");
+	      printf("%s: WARN: From TI Fiber Measurement "
+		     "\n\tFirst Measurement != Second Measurement (%d != %d)\n",
+		     __FUNCTION__,
+		     firstMeas, tiFiberLatencyMeasurement);
+
+	      /* Use the smaller of the two */
+	      tiFiberLatencyMeasurement =
+		((firstMeas - tiFiberLatencyMeasurement) > 1) ?
+		tiFiberLatencyMeasurement :
+		firstMeas;
+
+	      printf("\tUsing %d\n\n", tiFiberLatencyMeasurement);
+	    }
 	}
     }
 
