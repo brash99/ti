@@ -4572,6 +4572,38 @@ tiSetBlockBufferLevel(unsigned int level)
 
 /**
  *  @ingroup Status
+ *  @brief Get the block buffer level, as programmed or broadcasted from the TS
+ *
+ * @return Block buffer level if successful, otherwise ERROR
+ */
+
+int
+tiGetBlockBufferLevel()
+{
+  int rval = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if(vmeRead32(&TIp->vmeControl) & TI_VMECONTROL_USE_LOCAL_BUFFERLEVEL)
+    {
+      rval = vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_BUFFERLEVEL_MASK;
+    }
+  else
+    {
+      rval = (vmeRead32(&TIp->dataFormat) & TI_DATAFORMAT_BCAST_BUFFERLEVEL_MASK) >> 24;
+    }
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ *  @ingroup Status
  *  @brief Get the block buffer level, as broadcasted from the TS
  *
  * @return Broadcasted block buffer level if successful, otherwise ERROR
@@ -4866,7 +4898,6 @@ tiGetClockSource()
 /**
  * @ingroup Config
  * @brief Set the fiber delay required to align the sync and triggers for all crates.
- * @return Current fiber delay setting
  */
 void
 tiSetFiberDelay(unsigned int delay, unsigned int offset)
@@ -4902,6 +4933,57 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
   printf("%s: Wrote 0x%08x to fiberSyncDelay\n",
 	 __FUNCTION__, syncDelay_write);
 
+}
+
+/**
+ * @ingroup Status
+ * @brief Get the fiber delay required to align the sync and triggers for all crates.
+ * @return Current fiber delay setting
+ */
+int
+tiGetFiberDelay()
+{
+  int rval = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+
+  rval = vmeRead32(&TIp->fiberSyncDelay);
+
+  if (tiMaster)
+    {
+      rval = (rval & TI_FIBERSYNCDELAY_LOOPBACK_SYNCDELAY_MASK) >> 16;
+    }
+  else
+    {
+      if (tiSlaveFiberIn == 1)
+	{
+	  rval = (rval & TI_FIBERSYNCDELAY_HFBR1_SYNCDELAY_MASK) >> 8;
+	}
+      else if (tiSlaveFiberIn == 5)
+	{
+	  rval = (rval & TI_FIBERSYNCDELAY_HFBR5_SYNCDELAY_MASK) >> 24;
+	}
+      else
+	{
+	  rval = ERROR;
+	}
+    }
+
+  TIUNLOCK;
+
+  if (rval == ERROR)
+    {
+      printf("%s: ERROR: Invalid value for tiSlaveFiberIn (%d)\n",
+	     __func__, tiSlaveFiberIn);
+    }
+
+  return rval;
 }
 
 /**
