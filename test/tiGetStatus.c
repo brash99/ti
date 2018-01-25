@@ -44,6 +44,7 @@ main(int argc, char *argv[])
   if(stat != OK)
     goto CLOSE;
 
+  vmeBusLock();
   /* Set the TI structure pointer */
   stat = tiInit(slot << 19, 0, TI_INIT_SKIP_FIRMWARE_CHECK | TI_INIT_NO_INIT);
   if(stat != OK)
@@ -58,6 +59,7 @@ main(int argc, char *argv[])
   tiStatus(1);
 
 CLOSE:
+  vmeBusUnlock();
 
   vmeCloseDefaultWindows();
 

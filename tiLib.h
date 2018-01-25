@@ -653,6 +653,7 @@ int  tiGetReadoutEvents();
 int  tiEnableVXSSignals();
 int  tiDisableVXSSignals();
 int  tiSetBlockBufferLevel(unsigned int level);
+int  tiGetBlockBufferLevel();
 int  tiGetBroadcastBlockBufferLevel();
 int  tiBusyOnBufferLevel(int enable);
 int  tiUseBroadcastBufferLevel(int enable);
@@ -662,6 +663,7 @@ int  tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, un
 int  tiSetClockSource(unsigned int source);
 int  tiGetClockSource();
 void  tiSetFiberDelay(unsigned int delay, unsigned int offset);
+int  tiGetFiberDelay();
 int  tiAddSlave(unsigned int fiber);
 int  tiSetTriggerHoldoff(int rule, unsigned int value, int timestep);
 int  tiGetTriggerHoldoff(int rule);
