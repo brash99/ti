@@ -6406,11 +6406,11 @@ FiberMeas()
     {
       /* Reset the IODELAY */
       vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-      taskDelay(1);
+      taskDelay(10);
 
       /* Auto adjust the return signal phase */
       vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);
-      taskDelay(1);
+      taskDelay(10);
 
       /* Measure the fiber latency */
       vmeWrite32(&TIp->reset,TI_RESET_MEASURE_LATENCY);
