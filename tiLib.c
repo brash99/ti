@@ -382,8 +382,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
   /* Check to see if we're in a VXS Crate */
   if((boardID==20) || (boardID==21))
-    { /* It's possible... now check for valid i2c to SWB (SD) */
-      i2cread = vmeRead32(&TIp->SWB[(0x3C7C/4)]) & 0xFFFF; /* Device 1, Address 0x1F */
+    {
+      /* Try reading the 'version' register in the SD */
+      i2cread = vmeRead32(&TIp->SWB[(0x3C7C)/4]) & 0xFFFF; /* Device 1, Address 0x1F */
+
       if((i2cread!=0) && (i2cread!=0xffff))
 	{ /* Valid response */
 	  vmeSetMaximumVMESlots(boardID);
@@ -4848,17 +4850,18 @@ tiSetClockSource(unsigned int source)
 
   TILOCK;
   vmeWrite32(&TIp->clock, clkset);
+  taskDelay(10);
   /* Reset DCM (Digital Clock Manager) - 250/200MHz */
   vmeWrite32(&TIp->reset,TI_RESET_CLK250);
-  taskDelay(1);
+  taskDelay(10);
   /* Reset DCM (Digital Clock Manager) - 125MHz */
   vmeWrite32(&TIp->reset,TI_RESET_CLK125);
-  taskDelay(1);
+  taskDelay(10);
 
   if(source==1) /* Turn on running mode for External Clock verification */
     {
       vmeWrite32(&TIp->runningMode,TI_RUNNINGMODE_ENABLE);
-      taskDelay(1);
+      taskDelay(5);
       clkread = vmeRead32(&TIp->clock) & TI_CLOCK_MASK;
       if(clkread != clkset)
 	{
@@ -4921,6 +4924,42 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
     {
       syncDelay = (offset-(delay));
     }
+
+  /* set the sync delay according to the fiber latency */
+  syncDelay_write = ((syncDelay & 0xff) << 8) |
+    ((syncDelay & 0xff) << 16) | ((syncDelay & 0xff) << 24);
+
+  vmeWrite32(&TIp->fiberSyncDelay, syncDelay_write);
+
+  TIUNLOCK;
+
+  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",
+	 __FUNCTION__, syncDelay_write);
+
+}
+
+/**
+ * @ingroup Config
+ * @brief Set the fiber delay required to align the sync and triggers for all crates.
+ */
+void
+tiSetFiberSyncDelay(unsigned int syncDelay)
+{
+  unsigned int syncDelay_write=0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  if(syncDelay > 0xFF)
+    {
+      printf("%s: ERROR: Invalid syncDelay (0x%x)\n",
+	     __func__, syncDelay);
+      return;
+    }
+
+  TILOCK;
 
   /* set the sync delay according to the fiber latency */
   syncDelay_write = ((syncDelay & 0xff) << 8) |
@@ -6488,8 +6527,8 @@ FiberMeas()
   TIUNLOCK;
 
 #ifdef DEBUGFIBERMEAS
-  printf (" \n The fiber latency of 0xA0 is: 0x%08x\n", fiberLatency);
-  printf (" \n The sync latency of 0x50 is: 0x%08x\n",syncDelay);
+  printf (" \n The fiber latency of 0xA0 is: 0x%08x, ", fiberLatency);
+  printf (" The sync latency of 0x50 is: 0x%08x\n",syncDelay);
 #endif /* DEBUGFIBERMEAS */
 
   if(failed == 1)
