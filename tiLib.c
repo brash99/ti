@@ -4939,6 +4939,42 @@ tiSetFiberDelay(unsigned int delay, unsigned int offset)
 }
 
 /**
+ * @ingroup Config
+ * @brief Set the fiber delay required to align the sync and triggers for all crates.
+ */
+void
+tiSetFiberSyncDelay(unsigned int syncDelay)
+{
+  unsigned int syncDelay_write=0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  if(syncDelay > 0xFF)
+    {
+      printf("%s: ERROR: Invalid syncDelay (0x%x)\n",
+	     __func__, syncDelay);
+      return;
+    }
+
+  TILOCK;
+
+  /* set the sync delay according to the fiber latency */
+  syncDelay_write = ((syncDelay & 0xff) << 8) |
+    ((syncDelay & 0xff) << 16) | ((syncDelay & 0xff) << 24);
+
+  vmeWrite32(&TIp->fiberSyncDelay, syncDelay_write);
+
+  TIUNLOCK;
+
+  printf("%s: Wrote 0x%08x to fiberSyncDelay\n",
+	 __FUNCTION__, syncDelay_write);
+
+}
+
+/**
  * @ingroup Status
  * @brief Get the fiber delay required to align the sync and triggers for all crates.
  * @return Current fiber delay setting
