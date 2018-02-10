@@ -382,8 +382,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
   /* Check to see if we're in a VXS Crate */
   if((boardID==20) || (boardID==21))
-    { /* It's possible... now check for valid i2c to SWB (SD) */
-      i2cread = vmeRead32(&TIp->SWB[(0x3C7C/4)]) & 0xFFFF; /* Device 1, Address 0x1F */
+    {
+      /* Try reading the 'version' register in the SD */
+      i2cread = vmeRead32(&TIp->SWB[(0x3C7C)/4]) & 0xFFFF; /* Device 1, Address 0x1F */
+
       if((i2cread!=0) && (i2cread!=0xffff))
 	{ /* Valid response */
 	  vmeSetMaximumVMESlots(boardID);
@@ -4848,17 +4850,18 @@ tiSetClockSource(unsigned int source)
 
   TILOCK;
   vmeWrite32(&TIp->clock, clkset);
+  taskDelay(10);
   /* Reset DCM (Digital Clock Manager) - 250/200MHz */
   vmeWrite32(&TIp->reset,TI_RESET_CLK250);
-  taskDelay(1);
+  taskDelay(10);
   /* Reset DCM (Digital Clock Manager) - 125MHz */
   vmeWrite32(&TIp->reset,TI_RESET_CLK125);
-  taskDelay(1);
+  taskDelay(10);
 
   if(source==1) /* Turn on running mode for External Clock verification */
     {
       vmeWrite32(&TIp->runningMode,TI_RUNNINGMODE_ENABLE);
-      taskDelay(1);
+      taskDelay(5);
       clkread = vmeRead32(&TIp->clock) & TI_CLOCK_MASK;
       if(clkread != clkset)
 	{
@@ -6488,8 +6491,8 @@ FiberMeas()
   TIUNLOCK;
 
 #ifdef DEBUGFIBERMEAS
-  printf (" \n The fiber latency of 0xA0 is: 0x%08x\n", fiberLatency);
-  printf (" \n The sync latency of 0x50 is: 0x%08x\n",syncDelay);
+  printf (" \n The fiber latency of 0xA0 is: 0x%08x, ", fiberLatency);
+  printf (" The sync latency of 0x50 is: 0x%08x\n",syncDelay);
 #endif /* DEBUGFIBERMEAS */
 
   if(failed == 1)
