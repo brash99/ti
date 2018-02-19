@@ -399,7 +399,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   else
     tiNoVXS=1;
 
-  
+
   if(!noBoardInit)
     {
       /* Reset global library variables */
@@ -418,7 +418,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       if(tiMaster==0) /* Reload only on the TI Slaves */
 	{
 	  tiReload();
-	  taskDelay(60);
 	}
       tiDisableTriggerSource(0);
       tiDisableVXSSignals();
@@ -561,26 +560,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 		 __FUNCTION__);
 	  return ERROR;
 	}
-
-      vmeWrite32(&TIp->syncWidth, 0x24);
-      // TI IODELAY reset
-      vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-      taskDelay(1);
-
-      // TI Sync auto alignment
-      if(tiSlaveFiberIn==1)
-	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
-      else
-	vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR5_SYNC);
-      taskDelay(1);
-
-      // TI auto fiber delay measurement
-      vmeWrite32(&TIp->reset,TI_RESET_MEASURE_LATENCY);
-      taskDelay(1);
-
-      // TI auto alignement fiber delay
-      vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);
-      taskDelay(1);
     }
   else
     {
@@ -1570,20 +1549,52 @@ tiGetFirmwareVersion()
 int
 tiReload()
 {
+  int rval = OK, iwait = 0, reg = 0, Locked = 0;
+
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
       return ERROR;
     }
 
+  printf ("%s: \n FPGA Re-Load ! \n",__FUNCTION__);
   TILOCK;
   vmeWrite32(&TIp->reset,TI_RESET_JTAG);
   vmeWrite32(&TIp->JTAGPROMBase[(0x3c)>>2],0);
   vmeWrite32(&TIp->JTAGPROMBase[(0xf2c)>>2],0xEE);
+
+  taskDelay(2 * 60);
+
+  /* Wait for FPGA Ready / Clock DCM locked */
+  while(iwait < 100)
+    {
+      reg = vmeRead32(&TIp->GTPtriggerBufferLength);
+      Locked = (reg >> 29) & 0x7;
+
+      if(Locked == 0x7)
+	break;
+
+      taskDelay(50);
+      iwait ++;
+    }
+
   TIUNLOCK;
 
-  printf ("%s: \n FPGA Re-Load ! \n",__FUNCTION__);
-  return OK;
+  if(Locked < 0x7)
+    {
+      printf("%s: ERROR: FPGA is not yet ready.\n",
+	     __func__);
+      printf("   CLK250 DCM: %s\n", (Locked & (1 << 0)) ? "Locked" :
+	     "*** Not Locked ***");
+      printf("   CLK125 DCM: %s\n", (Locked & (1 << 1)) ? "Locked" :
+	     "*** Not Locked ***");
+      printf("   VMECLK DCM: %s\n", (Locked & (1 << 2)) ? "Locked" :
+	     "*** Not Locked ***");
+
+      rval = ERROR;
+    }
+
+  return rval;
 
 }
 
@@ -4815,7 +4826,7 @@ tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigne
 int
 tiSetClockSource(unsigned int source)
 {
-  int rval=OK;
+  int rval=OK, iwait = 0, reg = 0, Locked = 0;
   unsigned int clkset=0;
   unsigned int clkread=0;
   char sClock[20] = "";
@@ -4858,6 +4869,33 @@ tiSetClockSource(unsigned int source)
   vmeWrite32(&TIp->reset,TI_RESET_CLK125);
   taskDelay(10);
 
+  /* Wait for FPGA Ready / Clock DCM locked */
+  while(iwait < 100)
+    {
+      reg = vmeRead32(&TIp->GTPtriggerBufferLength);
+      Locked = (reg >> 29) & 0x7;
+
+      if(Locked == 0x7)
+	break;
+
+      taskDelay(50);
+      iwait ++;
+    }
+
+  if(Locked < 0x7)
+    {
+      printf("%s: ERROR: FPGA is not yet ready.\n",
+	     __func__);
+      printf("   CLK250 DCM: %s\n", (Locked & (1 << 0)) ? "Locked" :
+	     "*** Not Locked ***");
+      printf("   CLK125 DCM: %s\n", (Locked & (1 << 1)) ? "Locked" :
+	     "*** Not Locked ***");
+      printf("   VMECLK DCM: %s\n", (Locked & (1 << 2)) ? "Locked" :
+	     "*** Not Locked ***");
+
+      rval = ERROR;
+    }
+
   if(source==1) /* Turn on running mode for External Clock verification */
     {
       vmeWrite32(&TIp->runningMode,TI_RUNNINGMODE_ENABLE);
@@ -4871,6 +4909,7 @@ tiSetClockSource(unsigned int source)
 	}
       vmeWrite32(&TIp->runningMode,TI_RUNNINGMODE_DISABLE);
     }
+
   TIUNLOCK;
 
   return rval;
