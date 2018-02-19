@@ -108,3 +108,15 @@ V7.8, Oct. 24, 2017: Reset the Block_number_counter to '1' (CB24CE1), and remove
 		Oct. 26, 2017: disable the TsbitOut update if the current trigger has not been processed yet (in TsType block).
       Oct. 31, 2017: Generate Clk250A from Clk3125 (x4), then another DCM (Clk2X), used for triggers.
 V7.9, Nov. 2, 2017: Use Clk270 as feed back for the Clk250_DCM, this will delay the Clk250 by 1ns, to match with Clk625. Remove Clk250A.
+V7.A, Nov. 15, 2017: Fix the 'stored' trigger came in during BUSY (in TSGEN/TsType.vhd) by disable trigger coming in during BUSY.
+V7.B, Dec. 6, 2017: Move the ClkReset to ClkFB250, which will conserve the original timing (before 1ns delay for Clk250 in FPGA)
+      Dec. 7, 2017: Set the SigAlign idelay init from 31 to 25.  fix the 0x94 register readout.
+          Next version(revision) to fix the 0x94 register, which is introduced since V7.8
+V7.C, Dec. 8, 2017: Clock Check, SW(010): TestPt(1:4): ClkSync, Clk3125, Clk62.5, Clk250, 
+      Dec. 12, 2017: back to Clk_N 3.6ns. constraint
+V8.1, Feb. 5-9, 2018: AD9510 test, Slow down the ClockCont from ClkVme --> ClkSlow.
+          Replaced "the Data/command as clock in for FDs" with "Enable logic for FDs" in ClockGen and ClockCont blocks.
+			 Added one Clk250 in RstComb block, and set the SyncSrcCode (reg 0x24) default to 0.
+	   Feb. 13, 2018: Delay the VmeReset(21) by 32 ClkVme (was 8); move the VmeReset(14) from SYNC to ClockGen, and extend to 80ns.
+		    Added the VmeReset(30) to reset the opticTransceivers.
+		Feb. 15, 2018: use VmeRst(5), instead of VmeRst(30); add the filler if no signal on fiber chan#4
