@@ -6519,6 +6519,7 @@ FiberMeas()
       vmeWrite32(&TIp->fiberSyncDelay,defaultDelay);
       TIUNLOCK;
 
+      free(measurement);
       return ERROR;
     }
 
@@ -6636,6 +6637,7 @@ FiberMeas()
       rval = OK;
     }
 
+  free(measurement);
   return rval;
 }
 
