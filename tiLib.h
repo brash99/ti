@@ -754,4 +754,6 @@ int  tiSetEvTypeScalers(int enable);
 void tiClearEvTypeScalers();
 int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
 void tiPrintEvTypeScalers();
+void tiUnload(int pflag);
+
 #endif /* TILIB_H */
