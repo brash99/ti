@@ -125,7 +125,7 @@ install: $(LIBS)
 
 %.d: %.c
 	@echo " DEP    $@"
-	@set -e; rm -f $@; \
+	${Q}set -e; rm -f $@; \
 	$(CC) -MM -shared $(INCS) $< > $@.$$$$; \
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$

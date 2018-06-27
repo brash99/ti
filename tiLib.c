@@ -399,30 +399,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   else
     tiNoVXS=1;
 
-
-  if(!noBoardInit)
-    {
-      /* Reset global library variables */
-      tiBlockLevel=1;
-      tiNextBlockLevel=1;
-      tiBlockBufferLevel=1;
-
-      tiIntCount = 0; tiAckCount = 0; tiDaqCount = 0;
-      tiDoAck = 0; tiNeedAck = 0;
-
-      tiReadoutEnabled = 1;
-
-      tiSyncEventFlag = 0; tiSyncEventReceived = 0;
-      tiNReadoutEvents = 0; tiDoSyncResetRequest = 0;
-
-      if(tiMaster==0) /* Reload only on the TI Slaves */
-	{
-	  tiReload();
-	}
-      tiDisableTriggerSource(0);
-      tiDisableVXSSignals();
-    }
-
   /* Get the Firmware Information and print out some details */
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
@@ -483,11 +459,39 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       return OK;
     }
 
+
+  /* Reset global library variables */
+  tiBlockLevel=1;
+  tiNextBlockLevel=1;
+  tiBlockBufferLevel=1;
+
+  tiIntCount = 0; tiAckCount = 0; tiDaqCount = 0;
+  tiDoAck = 0; tiNeedAck = 0;
+
+  tiReadoutEnabled = 1;
+
+  tiSyncEventFlag = 0; tiSyncEventReceived = 0;
+  tiNReadoutEvents = 0; tiDoSyncResetRequest = 0;
+
+  if(tiMaster==0) /* Reload only on the TI Slaves */
+    {
+      if(tiReload() == ERROR)
+	{
+	  printf("%s: ERROR returned from tiReload\n",
+		 __func__);
+	  return -1;
+	}
+    }
+
+  tiDisableTriggerSource(0);
+  tiDisableVXSSignals();
+
   /* Perform Soft Reset */
   tiReset();
 
   /* Set some defaults, dependent on Master/Slave status */
   tiReadoutMode = mode;
+
   switch(mode)
     {
     case TI_READOUT_EXT_INT:
@@ -549,32 +553,8 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	     __FUNCTION__,mode);
       return ERROR;
     }
-  tiReadoutMode = mode;
 
   /* Setup some Other Library Defaults */
-  if(tiMaster!=1)
-    {
-      if(FiberMeas() == ERROR)
-	{
-	  printf("%s: Fiber Measurement failure.  Check fiber and/or fiber port,\n",
-		 __FUNCTION__);
-	  return ERROR;
-	}
-    }
-  else
-    {
-      // TI IODELAY reset
-      vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-      taskDelay(1);
-
-      // TI Sync auto alignment
-      vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
-      taskDelay(1);
-
-      // Perform a trigger link reset
-      tiTrigLinkReset();
-      taskDelay(1);
-    }
 
   /* Reset I2C engine */
   vmeWrite32(&TIp->reset,TI_RESET_I2C);
@@ -621,6 +601,30 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
   /* Disable all TS Inputs */
   tiDisableTSInput(TI_TSINPUT_ALL);
+
+  if(tiMaster!=1)
+    {
+      if(FiberMeas() == ERROR)
+	{
+	  printf("%s: Fiber Measurement failure.  Check fiber and/or fiber port,\n",
+		 __FUNCTION__);
+	  return -2;
+	}
+    }
+  else
+    {
+      // TI IODELAY reset
+      vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
+      taskDelay(20);
+
+      // TI Sync auto alignment
+      vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
+      taskDelay(1);
+
+      // Perform a trigger link reset
+      tiTrigLinkReset();
+      taskDelay(1);
+    }
 
   return OK;
 }
@@ -1318,7 +1322,7 @@ tiSetSlavePort(int port)
   /* TI IODELAY reset */
   TILOCK;
   vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-  taskDelay(1);
+  taskDelay(20);
 
   /* TI Sync auto alignment */
   if(tiSlaveFiberIn==1)
@@ -2981,7 +2985,7 @@ tiReadTriggerBlock(volatile unsigned int *data)
     }
 
   /* Determine the maximum number of words to expect, from the block level */
-  nwrds = (5*tiBlockLevel) + 8;
+  nwrds = (8*tiBlockLevel) + 8;
 
   /* Optimize the transfer type based on the blocklevel */
   if(tiBlockLevel>2)
@@ -3043,6 +3047,19 @@ tiReadTriggerBlock(volatile unsigned int *data)
     {
       logMsg("tiReadTriggerBlock: ERROR: Failed to find TI Block Header\n",
 	     1,2,3,4,5,6);
+
+/* #define DEBUGDATA */
+#ifdef DEBUGDATA
+      int idbg;
+      static int out = 0;
+      if(out == 0)
+	{
+	  for(idbg = 0; idbg < rval; idbg++)
+	    printf("%3d: 0x%08x\n",
+		   idbg, LSWAP(data[iword]));
+	}
+      out = 1;
+#endif
 
       if(tiFakeTriggerBank)
 	return tiGenerateTriggerBank(data);
@@ -6454,14 +6471,40 @@ tiBlockStatus(int fiber, int pflag)
   return rval;
 }
 
+unsigned char *measurement;
+int maxCount = 0, maxIndex = 0;
+int FiberMeasMaxCount()
+{
+  return maxCount;
+}
+
+int FiberMeasMaxIndex()
+{
+  return maxIndex;
+}
+
+void FiberMeasHisto()
+{
+  int imeas;
+  for(imeas = 0; imeas < 256; imeas++)
+    {
+      printf("%s: %2d: measurement = %d  %s\n",
+	     __func__, imeas, measurement[imeas],
+	     (imeas==maxIndex)?"***":"");
+    }
+}
+
 static int
 FiberMeas()
 {
-  int clksrc=0, itry = 0, ntries = 2;
+  int clksrc=0, imeas = 0, ntries = 5;
   unsigned int defaultDelay=0x1f1f1f00, fiberLatency=0, syncDelay=0, syncDelay_write=0;
-  unsigned int firstMeas = 0;
+  int index = 0;
   int failed = 0;
   int rval = OK;
+
+  measurement = (unsigned char *)malloc(256*sizeof(unsigned char));
+  memset((void *)measurement, 0, 256*sizeof(unsigned char));
 
   clksrc = tiGetClockSource();
   /* Check to be sure the TI has external HFBR1/5 clock enabled */
@@ -6480,19 +6523,20 @@ FiberMeas()
     }
 
   TILOCK;
-  for(itry = 0; itry < ntries; itry++)
+  for(imeas = 0; imeas < ntries; imeas++)
     {
+#ifdef SKIPIODELAY
       /* Reset the IODELAY */
       vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-      taskDelay(10);
-
+      taskDelay(20);
+#endif
       /* Auto adjust the return signal phase */
       vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);
-      taskDelay(10);
+      taskDelay(20);
 
       /* Measure the fiber latency */
       vmeWrite32(&TIp->reset,TI_RESET_MEASURE_LATENCY);
-      taskDelay(1);
+      taskDelay(2);
 
       /* Get the fiber latency measurement result */
       if(tiSlaveFiberIn==1)
@@ -6524,41 +6568,34 @@ FiberMeas()
 	fiberLatency = vmeRead32(&TIp->fiberAlignment);
 
       /* Divide by two to get the one way trip */
-      tiFiberLatencyMeasurement =
-	((fiberLatency & TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23)>>1;
+      index = ((fiberLatency& TI_FIBERLATENCYMEASUREMENT_DATA_MASK)>>23)>>1;
+      measurement[index]++;
 
-      if(itry == 0)
-	firstMeas = tiFiberLatencyMeasurement;
-      else
-	{
-	  if(abs(firstMeas - tiFiberLatencyMeasurement) > 1)
-	    failed = 1;
-	  else if (abs(firstMeas - tiFiberLatencyMeasurement) == 1)
-	    {
-	      /* Allow for a clock tick of slop */
-	      printf("\n");
-	      printf("%s: WARN: From TI Fiber Measurement "
-		     "\n\tFirst Measurement != Second Measurement (%d != %d)\n",
-		     __FUNCTION__,
-		     firstMeas, tiFiberLatencyMeasurement);
+      taskDelay(1);
 
-	      /* Use the smaller of the two */
-	      tiFiberLatencyMeasurement =
-		((firstMeas - tiFiberLatencyMeasurement) > 1) ?
-		tiFiberLatencyMeasurement :
-		firstMeas;
-
-	      printf("\tUsing %d\n\n", tiFiberLatencyMeasurement);
-	    }
-	}
     }
 
-  syncDelay = (tiFiberLatencyOffset - (((fiberLatency >> 23) & 0x1ff) >> 1));
+  /* Loop through measurements to find the most common */
+  for(imeas = 0; imeas < 256; imeas++)
+    {
+      if(measurement[imeas] >= maxCount)
+	{
+	  maxCount = measurement[imeas];
+	  maxIndex = imeas;
+	}
+/* #define DEBUGMEAS */
+#ifdef DEBUGMEAS
+      printf("%s: %2d: measurement = %d  %s\n",
+	     __func__, imeas, measurement[imeas],
+	     (imeas==maxIndex)?"***":"");
+#endif
+    }
+  tiFiberLatencyMeasurement = maxIndex;
+
+  syncDelay = (tiFiberLatencyOffset - tiFiberLatencyMeasurement);
 
   syncDelay_write = (syncDelay & 0xFF) << 8 |
     (syncDelay & 0xFF) << 16 | (syncDelay & 0xFF) << 24;
-
-  taskDelay(1);
 
   vmeWrite32(&TIp->fiberSyncDelay,syncDelay_write);
   taskDelay(1);
@@ -6573,10 +6610,10 @@ FiberMeas()
   if(failed == 1)
     {
       printf("\n");
-      printf("%s: ERROR: TI Fiber Measurement failed!"
-	     "\n\tFirst Measurement != Second Measurement (%d != %d)\n\n",
-	     __FUNCTION__,
-	     firstMeas, tiFiberLatencyMeasurement);
+      /* printf("%s: ERROR: TI Fiber Measurement failed!" */
+      /* 	     "\n\tFirst Measurement != Second Measurement (%d != %d)\n\n", */
+      /* 	     __FUNCTION__, */
+      /* 	     firstMeas, tiFiberLatencyMeasurement); */
       tiFiberLatencyMeasurement = 0;
       rval = ERROR;
     }
@@ -8733,4 +8770,15 @@ tiPrintEvTypeScalers()
  printf("Events  : %8d\n",
 	nevtype_calls);
 
+}
+
+void
+tiUnload(int pflag)
+{
+  TILOCK;
+  TIp = NULL;
+  TIUNLOCK;
+
+  if(pflag)
+    printf("%s: INFO: TI pointer set to NULL\n",__func__);
 }
