@@ -2288,6 +2288,9 @@ tiEnableTriggerSource()
     }
 
   TILOCK;
+  vmeWrite32(&TIp->boardID,
+	   (vmeRead32(&TIp->boardID) & ~TI_BOARDID_CRATEID_MASK)  | tiCrateID);
+
   if(tiUseGoOutput)
     vmeWrite32(&TIp->trigsrc, tiTriggerSource | TI_TRIGSRC_GO);
   else
