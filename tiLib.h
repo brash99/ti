@@ -492,6 +492,7 @@ struct TI_A24RegStruct
 #define TI_RESET_JTAG                 (1<<2)
 #define TI_RESET_SFM                  (1<<3)
 #define TI_RESET_SOFT                 (1<<4)
+#define TI_RESET_FIBER                (1<<5)
 #define TI_RESET_SYNC_HISTORY         (1<<6)
 #define TI_RESET_BUSYACK              (1<<7)
 #define TI_RESET_CLK250               (1<<8)

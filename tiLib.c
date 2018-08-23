@@ -473,6 +473,11 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   tiSyncEventFlag = 0; tiSyncEventReceived = 0;
   tiNReadoutEvents = 0; tiDoSyncResetRequest = 0;
 
+#if 0
+  if((mode == TI_READOUT_TS_INT) || (mode == TI_READOUT_TS_POLL))
+    tiMaster = 0;
+#endif
+
   if(tiMaster==0) /* Reload only on the TI Slaves */
     {
       if(tiReload() == ERROR)
@@ -555,7 +560,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     }
 
   /* Setup some Other Library Defaults */
-
   /* Reset I2C engine */
   vmeWrite32(&TIp->reset,TI_RESET_I2C);
 
@@ -6843,13 +6847,16 @@ tiPrintSyncHistory()
       return;
     }
 
+  printf("     syncHistory  OF   TStmp  Code  valid\n");
+
   while(code!=0)
     {
       TILOCK;
       syncHistory = vmeRead32(&TIp->syncHistory);
       TIUNLOCK;
 
-      printf("     TimeStamp: Code (valid)\n");
+      if(syncHistory == 0)
+	break;
 
       if(tiMaster)
 	{
@@ -6858,8 +6865,22 @@ tiPrintSyncHistory()
 	}
       else
 	{
-	  code  = syncHistory & TI_SYNCHISTORY_HFBR1_CODE_MASK;
-	  valid = (syncHistory & TI_SYNCHISTORY_HFBR1_CODE_VALID)>>4;
+	  if(tiSlaveFiberIn == 1)
+	    {
+	      code  = syncHistory & TI_SYNCHISTORY_HFBR1_CODE_MASK;
+	      valid = (syncHistory & TI_SYNCHISTORY_HFBR1_CODE_VALID)>>4;
+	    }
+	  else if(tiSlaveFiberIn == 5)
+	    {
+	      code  = (syncHistory & TI_SYNCHISTORY_HFBR5_CODE_MASK) >> 5;
+	      valid = (syncHistory & TI_SYNCHISTORY_HFBR5_CODE_VALID)>>9;
+	    }
+	  else
+	    {
+	      printf("%s: Invalid slave fiber port %d\n",
+		     __func__, tiSlaveFiberIn);
+	      return;
+	    }
 	}
 
       overflow  = (syncHistory & TI_SYNCHISTORY_TIMESTAMP_OVERFLOW)>>15;
@@ -6867,7 +6888,7 @@ tiPrintSyncHistory()
 
 /*       if(valid) */
 	{
-	  printf("%4d: 0x%08x   %d %5d :  0x%x (%d)\n",
+	  printf("%4d: 0x%08x   %d   %5d   0x%x    %d\n",
 		 count, syncHistory,
 		 overflow, timestamp, code, valid);
 	}
@@ -7255,6 +7276,27 @@ tiResetMGTRx()
 
   TILOCK;
   vmeWrite32(&TIp->reset, TI_RESET_MGT_RX_RESET);
+  TIUNLOCK;
+  taskDelay(1);
+
+  return OK;
+}
+
+/**
+ * @ingroup Config
+ * @brief Reset the Fiber Tranceivers
+ */
+int
+tiResetFiber()
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_FIBER);
   TIUNLOCK;
   taskDelay(1);
 
