@@ -639,6 +639,7 @@ void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
 void tiTrigLinkReset();
 int  tiSetSyncResetType(int type);
 void tiSyncReset(int bflag);
+void tiResetEB();
 void tiSyncResetResync();
 void tiClockReset();
 int  tiSetAdr32(unsigned int a32base);

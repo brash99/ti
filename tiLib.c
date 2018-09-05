@@ -4082,6 +4082,28 @@ tiSyncReset(int blflag)
 
 /**
  * @ingroup MasterConfig
+ * @brief Generate a Sync signal to reset only event buffers. This
+ *    signal is sent to the loopback and all configured TI Slaves.
+ *
+ */
+void
+tiResetEB()
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->syncCommand,TI_SYNCCOMMAND_RESET_EVNUM);
+  taskDelay(1);
+  TIUNLOCK;
+
+}
+
+/**
+ * @ingroup MasterConfig
  * @brief Generate a Sync Reset Resync signal.  This signal is sent to the loopback and
  *    all configured TI Slaves.  This type of Sync Reset will NOT reset
  *    event numbers
