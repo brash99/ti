@@ -5111,6 +5111,38 @@ tiGetFiberDelay()
 }
 
 /**
+ *  @ingroup MasterConfig
+ *  @brief Reset the configuration of TI Slaves on the TI-Master.
+ *
+ *      This routine removes all slaves and resets the fiber port busys.
+ *
+ *  @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiResetSlaveConfig()
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  tiSlaveMask = 0;
+  vmeWrite32(&TIp->busy, (vmeRead32(&TIp->busy) & ~TI_BUSY_HFBR_MASK));
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  * @ingroup MasterConfig
  * @brief Add and configurate a TI Slave for the TI Master.
  *
@@ -5158,6 +5190,55 @@ tiAddSlave(unsigned int fiber)
 
   return OK;
 
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Remove a TI Slave
+ *
+ *  @param fiber  The fiber port of the TI master to remove.
+ *
+ *  @return OK if successful, ERROR otherwise
+ */
+int
+tiRemoveSlave(unsigned int fiber)
+{
+  unsigned int busybits;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((fiber<1) || (fiber>8) )
+    {
+      printf("%s: ERROR: Invalid value for fiber (%d)\n",
+	     __FUNCTION__,fiber);
+      return ERROR;
+    }
+
+  /* Remove this slave to the global slave mask */
+  tiSlaveMask &= ~(1<<(fiber-1));
+
+  /* Remove this fiber as a busy source (use first fiber macro as the base) */
+  TILOCK;
+  /* Read in previous values, keeping current busy's */
+  busybits = vmeRead32(&TIp->busy);
+
+  /* Turn off busy to the fiber in question */
+  busybits &= ~(1<<(TI_BUSY_HFBR1-1+fiber));
+
+  /* Write the new mask */
+  vmeWrite32(&TIp->busy, busybits);
+  TIUNLOCK;
+
+  return OK;
 }
 
 /**

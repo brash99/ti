@@ -301,6 +301,7 @@ struct TI_A24RegStruct
 #define TI_BUSY_HFBR6            (1<<13)
 #define TI_BUSY_HFBR7            (1<<14)
 #define TI_BUSY_HFBR8            (1<<15)
+#define TI_BUSY_HFBR_MASK        0x0000FF00
 #define TI_BUSY_MONITOR_MASK     0xFFFF0000
 #define TI_BUSY_MONITOR_SWA      (1<<16)
 #define TI_BUSY_MONITOR_SWB      (1<<17)
@@ -667,7 +668,10 @@ int  tiGetClockSource();
 void tiSetFiberDelay(unsigned int delay, unsigned int offset);
 void tiSetFiberSyncDelay(unsigned int syncDelay);
 int  tiGetFiberDelay();
+int  tiResetSlaveConfig();
 int  tiAddSlave(unsigned int fiber);
+int  tiRemoveSlave(unsigned int fiber);
+int  tiAddSlaveMask(unsigned int fibermask);
 int  tiSetTriggerHoldoff(int rule, unsigned int value, int timestep);
 int  tiGetTriggerHoldoff(int rule);
 int  tiPrintTriggerHoldoff(int dflag);
