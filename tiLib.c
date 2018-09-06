@@ -796,9 +796,7 @@ void
 tiStatus(int pflag)
 {
   struct TI_A24RegStruct *ro;
-  int iinp, iblock, ifiber;
-  unsigned int blockStatus[5], nblocksReady, nblocksNeedAck;
-  unsigned int fibermask;
+  int iinp, ifiber;
   unsigned long TIBase;
   unsigned long long int l1a_count=0;
 
@@ -853,11 +851,6 @@ tiStatus(int pflag)
   ro->busytime     = vmeRead32(&TIp->busytime);
 
   ro->inputCounter = vmeRead32(&TIp->inputCounter);
-
-  for(iblock=0;iblock<4;iblock++)
-    blockStatus[iblock] = vmeRead32(&TIp->blockStatus[iblock]);
-
-  blockStatus[4] = vmeRead32(&TIp->adr24);
 
   ro->nblocks      = vmeRead32(&TIp->nblocks);
 
@@ -994,24 +987,6 @@ tiStatus(int pflag)
 	}
     }
   printf("\n\n");
-
-  if(tiMaster)
-    {
-      if(tiSlaveMask)
-	{
-	  printf(" TI Slaves Configured on HFBR (0x%x) = ",tiSlaveMask);
-	  fibermask = tiSlaveMask;
-	  for(ifiber=0; ifiber<8; ifiber++)
-	    {
-	      if( fibermask & (1<<ifiber))
-		printf(" %d",ifiber+1);
-	    }
-	  printf("\n");
-	}
-      else
-	printf(" No TI Slaves Configured on HFBR\n");
-
-    }
 
   printf(" Clock Source (%d) = \n",ro->clock & TI_CLOCK_MASK);
   switch(ro->clock & TI_CLOCK_MASK)
@@ -1207,47 +1182,19 @@ tiStatus(int pflag)
 
   printf("\n");
   printf(" Blocks ready for readout: %d\n",(ro->blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8);
-  if(tiMaster)
-    {
-      printf(" Slave Block Status:   %s\n",
-	     (ro->busy&TI_BUSY_MONITOR_TRIG_LOST)?"** Waiting for Trigger Ack **":"");
-      /* TI slave block status */
-      fibermask = tiSlaveMask;
-      for(ifiber=0; ifiber<8; ifiber++)
-	{
-	  if( fibermask & (1<<ifiber) )
-	    {
-	      if( (ifiber % 2) == 0)
-		{
-		  nblocksReady   = blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_READY0;
-		  nblocksNeedAck = (blockStatus[ifiber/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK0)>>8;
-		}
-	      else
-		{
-		  nblocksReady   = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
-		  nblocksNeedAck = (blockStatus[(ifiber-1)/2] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
-		}
-	      printf("  Fiber %d  :  Blocks ready / need acknowledge: %d / %d\n",
-		     ifiber+1,nblocksReady, nblocksNeedAck);
-	    }
-	}
-
-      /* TI master block status */
-      nblocksReady   = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_READY1)>>16;
-      nblocksNeedAck = (blockStatus[4] & TI_BLOCKSTATUS_NBLOCKS_NEEDACK1)>>24;
-      printf("  Loopback :  Blocks ready / need acknowledge: %d / %d\n",
-	     nblocksReady, nblocksNeedAck);
-
-    }
 
   printf("\n");
   printf(" Input counter %d\n",ro->inputCounter);
+
+  if(tiMaster)
+    tiSlaveStatus(pflag);
 
   printf("--------------------------------------------------------------------------------\n");
   printf("\n\n");
 
   if(ro)
     free(ro);
+
 }
 
 /**
@@ -1414,6 +1361,10 @@ tiSlaveStatus(int pflag)
 
   TIBase = (unsigned long)TIp;
 
+  printf("\n");
+  printf("TI-Master Port STATUS Summary\n");
+  printf("--------------------------------------------------------------------------------\n");
+
   if(pflag>0)
     {
       printf(" Registers (offset):\n");
@@ -1433,7 +1384,6 @@ tiSlaveStatus(int pflag)
       printf("\n");
     }
 
-  printf("TI-Master Port STATUS Summary\n");
   printf("                                                     Block Status\n");
   printf("Port  ROCID   Connected   TrigSrcEn   Busy Status   Ready / NeedAck  Blocklevel\n");
   printf("--------------------------------------------------------------------------------\n");
@@ -1503,7 +1453,7 @@ tiSlaveStatus(int pflag)
       slaveCount++;
     }
   printf("\n");
-  printf("Total Slaves Added = %d\n",slaveCount);
+  printf(" Total Slaves Added = %d\n",slaveCount);
 
 }
 
@@ -5111,6 +5061,38 @@ tiGetFiberDelay()
 }
 
 /**
+ *  @ingroup MasterConfig
+ *  @brief Reset the configuration of TI Slaves on the TI-Master.
+ *
+ *      This routine removes all slaves and resets the fiber port busys.
+ *
+ *  @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiResetSlaveConfig()
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  tiSlaveMask = 0;
+  vmeWrite32(&TIp->busy, (vmeRead32(&TIp->busy) & ~TI_BUSY_HFBR_MASK));
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  * @ingroup MasterConfig
  * @brief Add and configurate a TI Slave for the TI Master.
  *
@@ -5158,6 +5140,55 @@ tiAddSlave(unsigned int fiber)
 
   return OK;
 
+}
+
+/**
+ *  @ingroup MasterConfig
+ *  @brief Remove a TI Slave
+ *
+ *  @param fiber  The fiber port of the TI master to remove.
+ *
+ *  @return OK if successful, ERROR otherwise
+ */
+int
+tiRemoveSlave(unsigned int fiber)
+{
+  unsigned int busybits;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if((fiber<1) || (fiber>8) )
+    {
+      printf("%s: ERROR: Invalid value for fiber (%d)\n",
+	     __FUNCTION__,fiber);
+      return ERROR;
+    }
+
+  /* Remove this slave to the global slave mask */
+  tiSlaveMask &= ~(1<<(fiber-1));
+
+  /* Remove this fiber as a busy source (use first fiber macro as the base) */
+  TILOCK;
+  /* Read in previous values, keeping current busy's */
+  busybits = vmeRead32(&TIp->busy);
+
+  /* Turn off busy to the fiber in question */
+  busybits &= ~(1<<(TI_BUSY_HFBR1-1+fiber));
+
+  /* Write the new mask */
+  vmeWrite32(&TIp->busy, busybits);
+  TIUNLOCK;
+
+  return OK;
 }
 
 /**
