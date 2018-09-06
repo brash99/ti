@@ -46,7 +46,13 @@ main(int argc, char *argv[])
 
   vmeBusLock();
   /* Set the TI structure pointer */
-  stat = tiInit(slot << 19, 0, TI_INIT_SKIP_FIRMWARE_CHECK | TI_INIT_NO_INIT);
+  int roMode =
+    TI_READOUT_EXT_POLL;
+
+  int iflag =
+    TI_INIT_SKIP_FIRMWARE_CHECK | TI_INIT_NO_INIT;
+
+  stat = tiInit(slot << 19, roMode, iflag);
   if(stat != OK)
     goto CLOSE;
 
@@ -65,3 +71,10 @@ CLOSE:
 
   exit(0);
 }
+
+
+/*
+  Local Variables:
+  compile-command: "make -k -B tiGetStatus"
+  End:
+ */
