@@ -1,32 +1,32 @@
 /*************************************************************************
  *
- *  vme_list.c - Library of routines for readout and buffering of 
- *                events using a JLAB Trigger Interface V3 (TI) with 
+ *  vme_list.c - Library of routines for readout and buffering of
+ *                events using a JLAB Trigger Interface V3 (TI) with
  *                a Linux VME controller.
  *
  */
 
 /* Event Buffer definitions */
 #define MAX_EVENT_POOL     10
-#define MAX_EVENT_LENGTH   1024*60      /* Size in Bytes */
+#define MAX_EVENT_LENGTH   1024*60	/* Size in Bytes */
 
 /* Define Interrupt source and address */
 #define TI_MASTER
-#define TI_READOUT TI_READOUT_EXT_POLL  /* Poll for available data, external triggers */
-#define TI_ADDR    (21<<19)          /* GEO slot 21 */
+#define TI_READOUT TI_READOUT_EXT_POLL	/* Poll for available data, external triggers */
+#define TI_ADDR    (21<<19)	/* GEO slot 21 */
 
-/* Decision on whether or not to readout the TI for each block 
-   - Comment out to disable readout 
+/* Decision on whether or not to readout the TI for each block
+   - Comment out to disable readout
 */
 #define TI_DATA_READOUT
 
-#define FIBER_LATENCY_OFFSET 0x4A  /* measured longest fiber length */
+#define FIBER_LATENCY_OFFSET 0x4A	/* measured longest fiber length */
 
 #include "dmaBankTools.h"
-#include "tiprimary_list.c" /* source required for CODA */
+#include "tiprimary_list.c"	/* source required for CODA */
 
 /* Default block level */
-unsigned int BLOCKLEVEL=1;
+unsigned int BLOCKLEVEL = 1;
 #define BUFFERLEVEL 3
 
 /* function prototype */
@@ -40,19 +40,18 @@ rocDownload()
 {
 
   /* Setup Address and data modes for DMA transfers
-   *   
+   *
    *  vmeDmaConfig(addrType, dataType, sstMode);
    *
    *  addrType = 0 (A16)    1 (A24)    2 (A32)
    *  dataType = 0 (D16)    1 (D32)    2 (BLK32) 3 (MBLK) 4 (2eVME) 5 (2eSST)
    *  sstMode  = 0 (SST160) 1 (SST267) 2 (SST320)
    */
-  vmeDmaConfig(2,5,1); 
+  vmeDmaConfig(2, 5, 1);
 
   /*****************
    *   TI SETUP
    *****************/
-  int overall_offset=0x80;
 
 #ifndef TI_DATA_READOUT
   /* Disable data readout */
@@ -62,39 +61,29 @@ rocDownload()
 #endif
 
   /* Set crate ID */
-  tiSetCrateID(0x01); /* ROC 1 */
+  tiSetCrateID(0x01);		/* e.g. ROC 1 */
 
+#ifdef TI_MASTER
   tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
 
   /* Set needed TS input bits */
-  tiEnableTSInput( TI_TSINPUT_1 );
+  tiEnableTSInput(TI_TSINPUT_1);
 
-  /* Load the trigger table that associates 
-     pins 21/22 | 23/24 | 25/26 : trigger1
-     pins 29/30 | 31/32 | 33/34 : trigger2
-  */
+  /* Load the trigger table that associates
+     pins 21/22 | 23/24 | 25/26 : trig1 (physics trigger)
+     pins 29/30 | 31/32 | 33/34 : trig2 (playback/simulation trigger)
+   */
   tiLoadTriggerTable(0);
 
-  tiSetTriggerHoldoff(1,10,0);
-  tiSetTriggerHoldoff(2,10,0);
+  tiSetTriggerHoldoff(1, 10, 0);
+  tiSetTriggerHoldoff(2, 10, 0);
 
-/*   /\* Set the sync delay width to 0x40*32 = 2.048us *\/ */
-  tiSetSyncDelayWidth(0x54, 0x40, 1);
-
-  /* Set the busy source to non-default value (no Switch Slot B busy) */
-  tiSetBusySource(TI_BUSY_LOOPBACK,1);
-
-/*   tiSetFiberDelay(10,0xcf); */
-
-#ifdef TI_MASTER
   /* Set number of events per block */
   tiSetBlockLevel(BLOCKLEVEL);
-#endif
 
-  tiSetEventFormat(1);
-
+  /* Maximum blocks in the system that need read out */
   tiSetBlockBufferLevel(BUFFERLEVEL);
-
+#endif
 
   tiStatus(0);
 
@@ -109,9 +98,15 @@ rocDownload()
 void
 rocPrestart()
 {
-  unsigned short iflag;
-  int stat;
-  int islot;
+
+#ifdef TI_MASTER
+  /* Set number of events per block (broadcasted to all connected TI Slaves) */
+  tiSetBlockLevel(BLOCKLEVEL);
+  printf("rocPrestart: Block Level set to %d\n", BLOCKLEVEL);
+
+  /* Reset Active ROC Masks */
+  tiTriggerReadyReset();
+#endif
 
   tiStatus(0);
 
@@ -125,16 +120,22 @@ rocPrestart()
 void
 rocGo()
 {
-  int islot;
+  unsigned int tmask = 0;
   /* Enable modules, if needed, here */
 
   /* Get the current block level */
-  BLOCKLEVEL = tiGetCurrentBlockLevel();
-  printf("%s: Current Block Level = %d\n",
-	 __FUNCTION__,BLOCKLEVEL);
-
   /* Use this info to change block level is all modules */
+  BLOCKLEVEL = tiGetCurrentBlockLevel();
+  printf("%s: Current Block Level = %d\n", __func__, BLOCKLEVEL);
 
+  /* Enable Slave Ports that have indicated they are active */
+  tiResetSlaveConfig();
+  tmask = tiGetTrigSrcEnabledFiberMask();
+  printf("%s: TI Source Enable Mask = 0x%x\n", __func__, tmask);
+  if (tmask != 0)
+    tiAddSlaveMask(tmask);
+
+  tiStatus(0);
 }
 
 /****************************************
@@ -143,13 +144,10 @@ rocGo()
 void
 rocEnd()
 {
-
-  int islot;
-
   tiStatus(0);
 
-  printf("rocEnd: Ended after %d blocks\n",tiGetIntCount());
-  
+  printf("rocEnd: Ended after %d blocks\n", tiGetIntCount());
+
 }
 
 /****************************************
@@ -159,12 +157,18 @@ void
 rocTrigger(int arg)
 {
   int ii, islot;
-  int stat, dCnt, len=0, idata;
+  int stat, dCnt, len = 0, idata;
   int ev_type = 0;
-  
-  tiSetOutputPort(1,0,0,0);
 
-  BANKOPEN(5,BT_UI4,0);
+  tiSetOutputPort(1, 0, 0, 0);
+
+  /* Open an event of event_type = 1 (replaced later).
+     Data contained in banks (BT_BANK) */
+  EVENTOPEN(1, BT_BANK);
+
+  /* Open a bank of type (for example) 5
+     Each data word is a 4-byte unsigned integer */
+  BANKOPEN(5, BT_UI4, 0);
   *dma_dabufp++ = LSWAP(tiGetIntCount());
   *dma_dabufp++ = LSWAP(0xdead);
   *dma_dabufp++ = LSWAP(0xcebaf111);
@@ -172,25 +176,27 @@ rocTrigger(int arg)
 
 
 #ifdef TI_DATA_READOUT
-  BANKOPEN(4,BT_UI4,0);
+  /* Open a bank of type (for example) 4
+     Each data word is a 4-byte unsigned integer */
+  BANKOPEN(4, BT_UI4, 0);
 
-  vmeDmaConfig(2,5,1); 
-  dCnt = tiReadBlock(dma_dabufp,8+(5*BLOCKLEVEL),1);
-  if(dCnt<=0)
+  vmeDmaConfig(2, 5, 1);
+  dCnt = tiReadBlock(dma_dabufp, 8 + (5 * BLOCKLEVEL), 1);
+  if (dCnt <= 0)
     {
-      printf("No data or error.  dCnt = %d\n",dCnt);
+      printf("No data or error.  dCnt = %d\n", dCnt);
     }
   else
     {
       ev_type = tiDecodeTriggerType(dma_dabufp, dCnt, 1);
-      if(ev_type <= 0)
+      if (ev_type <= 0)
 	{
 	  /* Could not find trigger type */
 	  ev_type = 1;
 	}
-      
+
       /* CODA 2.x only allows for 4 bits of trigger type */
-      ev_type &= 0xF; 
+      ev_type &= 0xF;
 
       the_event->type = ev_type;
 
@@ -200,15 +206,17 @@ rocTrigger(int arg)
   BANKCLOSE;
 #endif
 
-  tiSetOutputPort(0,0,0,0);
+  EVENTCLOSE;
+
+  tiSetOutputPort(0, 0, 0, 0);
 
 }
 
 void
 rocCleanup()
 {
-  int islot=0;
+  int islot = 0;
 
-  printf("%s: Reset all FADCs\n",__FUNCTION__);
-  
+  printf("%s: Reset/cleanup modules and libraries\n", __func__);
+
 }

@@ -1,8 +1,8 @@
 /*************************************************************************
  *
- *  fadc_list.c - Library of routines for readout and buffering of 
+ *  fadc_list.c - Library of routines for readout and buffering of
  *                events using a JLAB Trigger Interface and
- *                Distribution Module (TID) AND one or more FADC250 
+ *                Distribution Module (TID) AND one or more FADC250
  *                with a Linux VME controller.
  *
  */
@@ -16,8 +16,8 @@
 #define TI_READOUT TI_READOUT_TS_POLL  /* Poll for available data, external triggers */
 #define TI_ADDR    (21<<19)              /* GEO slot 21 */
 
-/* Decision on whether or not to readout the TI for each block 
-   - Comment out to disable readout 
+/* Decision on whether or not to readout the TI for each block
+   - Comment out to disable readout
 */
 #define TI_DATA_READOUT
 
@@ -55,7 +55,7 @@ extern   int fadcID[FA_MAX_BOARDS]; /* Array of slot numbers, discovered by the 
 int NFADC;                          /* The Maximum number of tries the library will
                                      * use before giving up finding FADC250s */
 int FA_SLOT;                        /* We'll use this over and over again to provide
-				     * us access to the current FADC slot number */ 
+				     * us access to the current FADC slot number */
 
 
 
@@ -84,17 +84,17 @@ rocDownload()
 
 
   /* Setup Address and data modes for DMA transfers
-   *   
+   *
    *  vmeDmaConfig(addrType, dataType, sstMode);
    *
    *  addrType = 0 (A16)    1 (A24)    2 (A32)
    *  dataType = 0 (D16)    1 (D32)    2 (BLK32) 3 (MBLK) 4 (2eVME) 5 (2eSST)
    *  sstMode  = 0 (SST160) 1 (SST267) 2 (SST320)
    */
-  vmeDmaConfig(2,5,1); 
+  vmeDmaConfig(2,5,1);
 
   /***************************************
-   * TI Setup 
+   * TI Setup
    ***************************************/
 #ifndef TI_DATA_READOUT
   /* Disable data readout */
@@ -111,7 +111,7 @@ rocDownload()
   /* Set needed TS input bits */
 /*   tiEnableTSInput( TI_TSINPUT_1 ); */
 
-  /* Load the trigger table that associates 
+  /* Load the trigger table that associates
      pins 21/22 | 23/24 | 25/26 : trigger1
      pins 29/30 | 31/32 | 33/34 : trigger2
   */
@@ -138,11 +138,11 @@ rocDownload()
 
   tiSetBlockBufferLevel(BUFFERLEVEL);
 
-  tiStatus();
+  tiStatus(0);
 
 
   /***************************************
-   * FADC Setup 
+   * FADC Setup
    ***************************************/
   /* Here, we assume that the addresses of each board were set according to their
    * geographical address (slot number):
@@ -168,10 +168,10 @@ rocDownload()
   faInit((unsigned int)(3<<19),(1<<19),NFADC,iFlag);
   NFADC=nfadc;        /* Redefine our NFADC with what was found from the driver */
   vmeSetQuietFlag(0); /* Turn the error statements back on */
-  
+
   /* Calculate the maximum number of words per block transfer (assuming Pulse mode)
-   *   MAX = NFADC * BLOCKLEVEL * (EvHeader + TrigTime*2 + Pulse*2*chan) 
-   *         + 2*32 (words for byte alignment) 
+   *   MAX = NFADC * BLOCKLEVEL * (EvHeader + TrigTime*2 + Pulse*2*chan)
+   *         + 2*32 (words for byte alignment)
    */
   if(faMode = 1) /* Raw window Mode */
     MAXFADCWORDS = NFADC * BLOCKLEVEL * (1+2+FADC_WINDOW_WIDTH*16) + 3;
@@ -181,7 +181,7 @@ rocDownload()
    * it's first in the readout
    */
 /*   MAXTIDWORDS = 8+(3*BLOCKLEVEL); */
-  
+
   printf("**************************************************\n");
   printf("* Calculated MAX FADC words per block = %d\n",MAXFADCWORDS);
 /*   printf("* Calculated MAX TID  words per block = %d\n",MAXTIDWORDS); */
@@ -195,13 +195,13 @@ rocDownload()
 /*       printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"); */
 /*     } */
 
-  
+
   if(NFADC>1)
     faEnableMultiBlock(1);
 
   /* Additional Configuration for each module */
   fadcSlotMask=0;
-  for(islot=0;islot<NFADC;islot++) 
+  for(islot=0;islot<NFADC;islot++)
     {
       FA_SLOT = fadcID[islot];      /* Grab the current module's slot number */
       fadcSlotMask |= (1<<FA_SLOT); /* Add it to the mask */
@@ -210,7 +210,7 @@ rocDownload()
       faSetDAC(FA_SLOT,FADC_DAC_LEVEL,0);
       /* Set the threshold for data readout */
       faSetThreshold(FA_SLOT,FADC_THRESHOLD,0);
-	
+
       /*  Setup option 1 processing - RAW Window Data     <-- */
       /*        option 2            - RAW Pulse Data */
       /*        option 3            - Integral Pulse Data */
@@ -221,7 +221,7 @@ rocDownload()
       /*  Setup for both ADC banks(0 - all channels 0-15) */
       /* Integral Pulse Data */
       faSetProcMode(FA_SLOT,faMode,FADC_WINDOW_LAT,FADC_WINDOW_WIDTH,3,6,1,0);
-	
+
       /* Bus errors to terminate block transfers (preferred) */
       faEnableBusError(FA_SLOT);
       /* Set the Block level */
@@ -287,7 +287,7 @@ rocPrestart()
 /*   ctpFiberReset(); */
 
   /* FADC Perform some resets, status */
-  for(islot=0;islot<NFADC;islot++) 
+  for(islot=0;islot<NFADC;islot++)
     {
       FA_SLOT = fadcID[islot];
       faSetClockSource(FA_SLOT,2);
@@ -298,10 +298,10 @@ rocPrestart()
     }
 
   /* TI Status */
-  tiStatus();
+  tiStatus(0);
 
   /*  Enable FADC */
-  for(islot=0;islot<NFADC;islot++) 
+  for(islot=0;islot<NFADC;islot++)
     {
       FA_SLOT = fadcID[islot];
       faChanDisable(FA_SLOT,0xffff);
@@ -367,18 +367,18 @@ rocEnd()
   int islot;
 
   /* FADC Disable */
-  for(islot=0;islot<NFADC;islot++) 
+  for(islot=0;islot<NFADC;islot++)
     {
       FA_SLOT = fadcID[islot];
       faDisable(FA_SLOT,0);
       faStatus(FA_SLOT,0);
     }
 
-  tiStatus();
+  tiStatus(0);
   sdStatus();
 
   printf("rocEnd: Ended after %d blocks\n",tiGetIntCount());
-  
+
 }
 
 /****************************************
@@ -425,7 +425,7 @@ rocTrigger(int arg)
 #ifdef TI_DATA_READOUT
   BANKOPEN(4,BT_UI4,0);
 
-  vmeDmaConfig(2,5,1); 
+  vmeDmaConfig(2,5,1);
   dCnt = tiReadBlock(dma_dabufp,8+(5*BLOCKLEVEL),1);
   if(dCnt<=0)
     {
@@ -443,16 +443,16 @@ rocTrigger(int arg)
   if(NFADC!=0)
     {
       FA_SLOT = fadcID[0];
-      for(itime=0;itime<100;itime++) 
+      for(itime=0;itime<100;itime++)
 	{
 	  gbready = faGBready();
 	  stat = (gbready == fadcSlotMask);
-	  if (stat>0) 
+	  if (stat>0)
 	    {
 	      break;
 	    }
 	}
-      if(stat>0) 
+      if(stat>0)
 	{
 	  if(NFADC>1) roflag=2; /* Use token passing scheme to readout all modules */
 	  BANKOPEN(3,BT_UI4,0);
@@ -468,12 +468,12 @@ rocTrigger(int arg)
 		  printf("%s: WARNING.. faReadBlock returned dCnt >= MAXFADCWORDS (%d >= %d)\n",
 			 __FUNCTION__,dCnt, MAXFADCWORDS);
 		}
-	      else 
+	      else
 		dma_dabufp += dCnt;
 	    }
 	  BANKCLOSE;
-	} 
-      else 
+	}
+      else
 	{
 	  printf ("FADC%d: no events   stat=%d  intcount = %d   gbready = 0x%08x  fadcSlotMask = 0x%08x\n",
 		  FA_SLOT,stat,tiGetIntCount(),gbready,fadcSlotMask);
@@ -511,7 +511,7 @@ rocCleanup()
    *   - Turn off all A32 (block transfer) addresses
    */
 /*   printf("%s: Reset all FADCs\n",__FUNCTION__); */
-  
+
   for(islot=0; islot<NFADC; islot++)
     {
       FA_SLOT = fadcID[islot];
