@@ -7258,6 +7258,111 @@ tiTriggerReadyReset()
 }
 
 /**
+ * @ingroup MasterConfig
+ * @brief Reset the registers that record bit errors recorded on the trigger link.
+ *
+ */
+void
+tiTriggerLinkErrorReset()
+{
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  if(!tiMaster)
+    {
+      printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return;
+    }
+
+  TILOCK;
+  vmeWrite32(&TIp->syncCommand,
+	     TI_SYNCCOMMAND_GTP_STATUSB_RESET);
+  TIUNLOCK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get the error status bits for the trigger link
+ *
+ * @param pflag
+ *  - !0: Print to standard out
+ *
+ * @return Trigger Link bits if successful, ERROR otherwise
+ */
+unsigned int
+tiGetTriggerLinkStatus(int pflag)
+{
+  unsigned int rval = 0, bitflags = 0;
+  int ibit = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->GTPStatusB);
+  TIUNLOCK;
+
+  if(pflag)
+    {
+      printf("STATUS for Trigger Links\n");
+
+      printf("      Connected    RX Data Error      Disparity    NON 8b/10b Data\n");
+      printf("     (12345678)      (12345678)      (12345678)      (12345678)\n");
+      printf("--------------------------------------------------------------------------------\n");
+
+      printf("      ");
+      bitflags = rval & TI_GTPSTATUSB_CHANNEL_BONDING_MASK;
+      for(ibit = 0; ibit < 8; ibit++)
+	{
+	  if( (1<<ibit) & bitflags )
+	    printf("%d", ibit+1);
+	  else
+	    printf("-");
+	}
+
+      printf("        ");
+      bitflags = (rval & TI_GTPSTATUSB_DATA_ERROR_MASK) >> 8;
+      for(ibit = 0; ibit < 8; ibit++)
+	{
+	  if( (1<<ibit) & bitflags )
+	    printf("%d", ibit+1);
+	  else
+	    printf("-");
+	}
+
+      printf("        ");
+      bitflags = (rval & TI_GTPSTATUSB_DISPARITY_ERROR_MASK) >> 16;
+      for(ibit = 0; ibit < 8; ibit++)
+	{
+	  if( (1<<ibit) & bitflags )
+	    printf("%d", ibit+1);
+	  else
+	    printf("-");
+	}
+      printf("        ");
+
+      bitflags = (rval & TI_GTPSTATUSB_DATA_NOT_IN_TABLE_ERROR_MASK) >> 24;
+      for(ibit = 0; ibit < 8; ibit++)
+	{
+	  if( (1<<ibit) & bitflags )
+	    printf("%d", ibit+1);
+	  else
+	    printf("-");
+	}
+
+      printf("\n");
+    }
+
+  return rval;
+}
+
+/**
  * @ingroup MasterReadout
  * @brief Generate non-physics triggers until the current block is filled.
  *    This feature is useful for "end of run" situations.
