@@ -473,10 +473,8 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   tiSyncEventFlag = 0; tiSyncEventReceived = 0;
   tiNReadoutEvents = 0; tiDoSyncResetRequest = 0;
 
-#if 0
   if((mode == TI_READOUT_TS_INT) || (mode == TI_READOUT_TS_POLL))
     tiMaster = 0;
-#endif
 
   if(tiMaster==0) /* Reload only on the TI Slaves */
     {
@@ -2353,6 +2351,8 @@ tiSetSyncSource(unsigned int sync)
     }
 
   TILOCK;
+  vmeWrite32(&TIp->reset, TI_RESET_AUTOALIGN_HFBR1_SYNC | TI_RESET_AUTOALIGN_HFBR5_SYNC);
+  taskDelay(1);
   vmeWrite32(&TIp->sync,sync);
   TIUNLOCK;
 
