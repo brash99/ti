@@ -70,6 +70,7 @@ unsigned long tiA24Offset=0;                            /* Difference in CPU A24
 unsigned int  tiA32Base  =0x08000000;                   /* Minimum VME A32 Address for use by TI */
 unsigned long tiA32Offset=0;                            /* Difference in CPU A32 Base and VME A32 Base */
 int tiMaster=1;                               /* Whether or not this TI is the Master */
+int tiUseTsRev2=0;
 int tiCrateID=0x59;                           /* Crate ID */
 int tiBlockLevel=0;                           /* Current Block level for TI */
 int tiNextBlockLevel=0;                       /* Next Block level for TI */
@@ -244,6 +245,8 @@ tiSetFiberIn_preInit(int port)
  *     - 1 TI/TImaster Trigger - Interrupt Mode
  *     - 2 External Trigger - Polling Mode
  *     - 3 TI/TImaster Trigger - Polling Mode
+ *     - 4 TSrev2 Trigger + TRG - Interrupt Mode
+ *     - 5 TSrev2 Trigger + TRG - Polling Mode
  *
  *  @param iFlag Initialization bit mask
  *     - 0   Do not initialize the board, just setup the pointers to the registers
@@ -551,6 +554,33 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	}
       break;
 
+    case TI_READOUT_TSREV2_INT:
+    case TI_READOUT_TSREV2_POLL:
+      printf("... Configure as TI on TS (rev2) branch...\n");
+      /*
+	 TI on TS rev2 Branch Configuration:
+	 - Trigger Type and Readout ACK on TS Branch ribbon cable
+	 - L1A connected to FP-TRG input
+      */
+      tiMaster = 1;
+      tiUseTsRev2 = 1;
+
+      /* Clear the Slave Mask */
+      tiSlaveMask = 0;
+
+      /* BUSY from Loopback and Switch Slot B */
+      if(tiNoVXS==1)
+	tiSetBusySource(TI_BUSY_LOOPBACK,1);
+      else
+	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
+
+      /* Onboard Clock Source */
+      tiSetClockSource(TI_CLOCK_INTERNAL);
+
+      /* Loopback Sync Source */
+      tiSetSyncSource(TI_SYNC_LOOPBACK);
+      break;
+
     default:
       printf("%s: ERROR: Invalid TI Mode %d\n",
 	     __FUNCTION__,mode);
@@ -604,7 +634,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   /* Disable all TS Inputs */
   tiDisableTSInput(TI_TSINPUT_ALL);
 
-  if(tiMaster!=1)
+  if(tiMaster != 1)
     {
       if(FiberMeas() == ERROR)
 	{
@@ -885,7 +915,12 @@ tiStatus(int pflag)
     printf("DISABLED\n");
 
   if(tiMaster)
-    printf(" Configured as a TI Master\n");
+    if(tiUseTsRev2)
+      {
+	printf(" Configured as a TI Connected to TS rev2 Branch\n");
+      }
+    else
+      printf(" Configured as a TI Master\n");
   else
     printf(" Configured as a TI Slave\n");
 
@@ -1223,6 +1258,13 @@ tiSetSlavePort(int port)
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
+
   if((port!=1) && (port!=5))
     {
       printf("%s: ERROR: Invalid port specified (%d).  Must be 1 or 5 for TI Slave.\n",
@@ -1335,6 +1377,13 @@ tiSlaveStatus(int pflag)
   if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return;
     }
 
@@ -1751,6 +1800,13 @@ tiGetPortTrigSrcEnabled(int port)
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
+
   if((port<0) || (port>8))
     {
       printf("%s: ERROR: Invalid port (%d)\n",
@@ -1787,6 +1843,13 @@ tiGetSlaveBlocklevel(int port)
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -1848,6 +1911,13 @@ tiBroadcastNextBlockLevel(int blockLevel)
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
+    }
+
+  if((tiUseTsRev2 == 1) && (blockLevel != 1))
+    {
+      printf("%s: WARN: Invalid blockLevel (%d) for use with TS rev2 branch.  Using 1.",
+	     __func__, blockLevel);
+      blockLevel = 1;
     }
 
   TILOCK;
@@ -2095,6 +2165,14 @@ tiSetTriggerSource(int trig)
       /* Set VME and Loopback by default */
       trigenable  = TI_TRIGSRC_VME;
       trigenable |= TI_TRIGSRC_LOOPBACK;
+
+      if(tiUseTsRev2 && (trig != TI_TRIGGER_TSINPUTS))
+	{
+	  printf("%s: WARN: Only valid choice with TS rev 2 is (%d).\n",
+		 __func__, TI_TRIGGER_TSINPUTS);
+	  printf("  Ignoring specified trig (%d)\n",trig);
+	  trig = TI_TRIGGER_TSINPUTS;
+	}
 
       switch(trig)
 	{
@@ -5120,6 +5198,13 @@ tiAddSlave(unsigned int fiber)
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
+
   if((fiber<1) || (fiber>8) )
     {
       printf("%s: ERROR: Invalid value for fiber (%d)\n",
@@ -5163,6 +5248,13 @@ tiRemoveSlave(unsigned int fiber)
   if(!tiMaster)
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -5211,6 +5303,13 @@ tiAddSlaveMask(unsigned int fibermask)
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -5979,6 +6078,13 @@ tiLoadTriggerTable(int mode)
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -6981,6 +7087,13 @@ tiSetSyncEventInterval(int blk_interval)
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Sync Event Interval is set by TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
+
   if(blk_interval>TI_SYNCEVENTCTRL_NBLOCKS_MASK)
     {
       printf("%s: WARN: Value for blk_interval (%d) too large.  Setting to %d\n",
@@ -7016,6 +7129,13 @@ tiGetSyncEventInterval()
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
+
   TILOCK;
   rval = vmeRead32(&TIp->syncEventCtrl) & TI_SYNCEVENTCTRL_NBLOCKS_MASK;
   TIUNLOCK;
@@ -7043,6 +7163,13 @@ tiForceSyncEvent()
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
+
   TILOCK;
   vmeWrite32(&TIp->reset, TI_RESET_FORCE_SYNCEVENT);
   TIUNLOCK;
@@ -7067,6 +7194,13 @@ tiSyncResetRequest()
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -7099,6 +7233,12 @@ tiGetSyncResetRequest()
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
 
   TILOCK;
   request = (vmeRead32(&TIp->blockBuffer) & TI_BLOCKBUFFER_SYNCRESET_REQUESTED)>>30;
@@ -7127,6 +7267,13 @@ tiEnableSyncResetRequest(unsigned int portMask, int self)
   if(!tiMaster)
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -7171,6 +7318,13 @@ tiSyncResetRequestStatus(int pflag)
   if(!tiMaster)
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -7235,6 +7389,13 @@ tiTriggerReadyReset()
       return;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return;
+    }
+
   TILOCK;
   /* Reset Receiver */
   vmeWrite32(&TIp->reset, TI_RESET_MGT_RX_RESET);
@@ -7277,6 +7438,13 @@ tiTriggerLinkErrorReset()
       return;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return;
+    }
+
   TILOCK;
   vmeWrite32(&TIp->syncCommand,
 	     TI_SYNCCOMMAND_GTP_STATUSB_RESET);
@@ -7301,6 +7469,13 @@ tiGetTriggerLinkStatus(int pflag)
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -7611,6 +7786,13 @@ tiGetConnectedFiberMask()
       return ERROR;
     }
 
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
+      return ERROR;
+    }
+
   TILOCK;
   rval = (vmeRead32(&TIp->fiber) & TI_FIBER_CONNECTED_MASK)>>16;
   TIUNLOCK;
@@ -7638,6 +7820,13 @@ tiGetTrigSrcEnabledFiberMask()
   if(!tiMaster)
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiUseTsRev2)
+    {
+      printf("%s: ERROR: Invalid usage with TS rev 2.\n",
+	     __func__);
       return ERROR;
     }
 
@@ -7951,10 +8140,12 @@ tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg)
     {
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
+    case TI_READOUT_TSREV2_POLL:
       break;
 
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
+    case TI_READOUT_TSREV2_INT:
 #ifdef VXWORKS
       intConnect(INUM_TO_IVEC(tiIntVec),tiInt,arg);
 #else
@@ -8027,6 +8218,7 @@ tiIntDisconnect()
     {
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
+    case TI_READOUT_TSREV2_INT:
 
 #ifdef VXWORKS
       /* Disconnect any current interrupts */
@@ -8044,6 +8236,7 @@ tiIntDisconnect()
 
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
+    case TI_READOUT_TSREV2_POLL:
 #ifndef VXWORKS
       if(tipollthread)
 	{
@@ -8184,6 +8377,7 @@ tiIntEnable(int iflag)
     {
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
+    case TI_READOUT_TSREV2_POLL:
 #ifndef VXWORKS
       tiStartPollingThread();
 #endif
@@ -8191,6 +8385,7 @@ tiIntEnable(int iflag)
 
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
+    case TI_READOUT_TSREV2_INT:
 #ifdef VXWORKS
       lock_key = intLock();
       sysIntEnable(tiIntLevel);

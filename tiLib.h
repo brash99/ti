@@ -132,10 +132,12 @@ struct TI_A24RegStruct
                                      TS  trigger - Interrupt mode   1
                                      Ext trigger - polling  mode    2
                                      TS  trigger - polling  mode    3  */
-#define TI_READOUT_EXT_INT    0
-#define TI_READOUT_TS_INT     1
-#define TI_READOUT_EXT_POLL   2
-#define TI_READOUT_TS_POLL    3
+#define TI_READOUT_EXT_INT     0
+#define TI_READOUT_TS_INT      1
+#define TI_READOUT_EXT_POLL    2
+#define TI_READOUT_TS_POLL     3
+#define TI_READOUT_TSREV2_INT  4
+#define TI_READOUT_TSREV2_POLL 5
 
 /* Supported firmware version */
 #define TI_SUPPORTED_FIRMWARE 0x081
