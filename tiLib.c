@@ -2166,12 +2166,12 @@ tiSetTriggerSource(int trig)
       trigenable  = TI_TRIGSRC_VME;
       trigenable |= TI_TRIGSRC_LOOPBACK;
 
-      if(tiUseTsRev2 && (trig != TI_TRIGGER_TSINPUTS))
+      if(tiUseTsRev2 && (trig != TI_TRIGGER_TSREV2))
 	{
 	  printf("%s: WARN: Only valid choice with TS rev 2 is (%d).\n",
-		 __func__, TI_TRIGGER_TSINPUTS);
+		 __func__, TI_TRIGGER_TSREV2);
 	  printf("  Ignoring specified trig (%d)\n",trig);
-	  trig = TI_TRIGGER_TSINPUTS;
+	  trig = TI_TRIGGER_TSREV2;
 	}
 
       switch(trig)
