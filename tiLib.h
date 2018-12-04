@@ -132,13 +132,15 @@ struct TI_A24RegStruct
                                      TS  trigger - Interrupt mode   1
                                      Ext trigger - polling  mode    2
                                      TS  trigger - polling  mode    3  */
-#define TI_READOUT_EXT_INT    0
-#define TI_READOUT_TS_INT     1
-#define TI_READOUT_EXT_POLL   2
-#define TI_READOUT_TS_POLL    3
+#define TI_READOUT_EXT_INT     0
+#define TI_READOUT_TS_INT      1
+#define TI_READOUT_EXT_POLL    2
+#define TI_READOUT_TS_POLL     3
+#define TI_READOUT_TSREV2_INT  4
+#define TI_READOUT_TSREV2_POLL 5
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x081
+#define TI_SUPPORTED_FIRMWARE 0x084
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -474,6 +476,7 @@ struct TI_A24RegStruct
 /* 0xB8 GTPtriggerBufferLength bits and masks */
 #define TI_GTPTRIGGERBUFFERLENGTH_GLOBAL_LENGTH_MASK 0x000007FF
 #define TI_GTPTRIGGERBUFFERLENGTH_SUBSYS_LENGTH_MASK 0x07FF0000
+#define TI_GTPTRIGGERBUFFERLENGTH_IODELAY_READY      (1<<26)
 #define TI_GTPTRIGGERBUFFERLENGTH_HFBR1_MGT_ERROR    (1<<28)
 #define TI_GTPTRIGGERBUFFERLENGTH_CLK250_DCM_LOCK    (1<<29)
 #define TI_GTPTRIGGERBUFFERLENGTH_CLK125_DCM_LOCK    (1<<30)
@@ -662,6 +665,7 @@ void tiResetEB();
 void tiSyncResetResync();
 void tiClockReset();
 int  tiSetAdr32(unsigned int a32base);
+unsigned int tiGetAdr32();
 int  tiDisableA32();
 int  tiResetEventCounter();
 unsigned long long int tiGetEventCounter();
@@ -782,5 +786,7 @@ void tiClearEvTypeScalers();
 int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
 void tiPrintEvTypeScalers();
 void tiUnload(int pflag);
+int  tiWaitForIODelayReset(int nwait);
+
 
 #endif /* TILIB_H */

@@ -28,7 +28,7 @@ CFLAGS			= -Wall -g
 else
 CFLAGS			= -O
 endif
-CFLAGS			+= -I. -I${LINUXVME_INC} -I${CODA}/common/include\
+CFLAGS			+= -I. -isystem${LINUXVME_INC} -I${CODA}/common/include\
 			  -L. -L${LINUXVME_LIB} -DJLAB
 CFLAGS			+= -lrt -lpthread -ljvme -lti $(ROLLIBS)
 CFLAGS			+= -DLINUX -DDAYTIME=\""`date`"\"
