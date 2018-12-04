@@ -476,6 +476,7 @@ struct TI_A24RegStruct
 /* 0xB8 GTPtriggerBufferLength bits and masks */
 #define TI_GTPTRIGGERBUFFERLENGTH_GLOBAL_LENGTH_MASK 0x000007FF
 #define TI_GTPTRIGGERBUFFERLENGTH_SUBSYS_LENGTH_MASK 0x07FF0000
+#define TI_GTPTRIGGERBUFFERLENGTH_IODELAY_READY      (1<<26)
 #define TI_GTPTRIGGERBUFFERLENGTH_HFBR1_MGT_ERROR    (1<<28)
 #define TI_GTPTRIGGERBUFFERLENGTH_CLK250_DCM_LOCK    (1<<29)
 #define TI_GTPTRIGGERBUFFERLENGTH_CLK125_DCM_LOCK    (1<<30)
@@ -785,5 +786,7 @@ void tiClearEvTypeScalers();
 int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
 void tiPrintEvTypeScalers();
 void tiUnload(int pflag);
+int  tiWaitForIODelayReset(int nwait);
+
 
 #endif /* TILIB_H */

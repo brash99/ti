@@ -651,7 +651,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     {
       // TI IODELAY reset
       vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-      taskDelay(20);
+      tiWaitForIODelayReset(10);
 
       // TI Sync auto alignment
       vmeWrite32(&TIp->reset,TI_RESET_AUTOALIGN_HFBR1_SYNC);
@@ -1334,7 +1334,7 @@ tiSetSlavePort(int port)
   /* TI IODELAY reset */
   TILOCK;
   vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-  taskDelay(20);
+  tiWaitForIODelayReset(10);
 
   /* TI Sync auto alignment */
   if(tiSlaveFiberIn==1)
@@ -6722,7 +6722,7 @@ FiberMeas()
 #ifdef SKIPIODELAY
       /* Reset the IODELAY */
       vmeWrite32(&TIp->reset,TI_RESET_IODELAY);
-      taskDelay(20);
+      tiWaitForIODelayReset(10);
 #endif
       /* Auto adjust the return signal phase */
       vmeWrite32(&TIp->reset,TI_RESET_FIBER_AUTO_ALIGN);
@@ -9208,4 +9208,36 @@ tiUnload(int pflag)
 
   if(pflag)
     printf("%s: INFO: TI pointer set to NULL\n",__func__);
+}
+
+int
+tiWaitForIODelayReset(int nwait)
+{
+  int iwait = 0, ready = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",
+	     __func__);
+      return ERROR;
+    }
+
+  if(nwait <= 0)
+    nwait = 100;
+
+  TILOCK;
+  while((!ready) && (iwait++ < nwait))
+    {
+      ready = vmeRead32(&TIp->GTPtriggerBufferLength) & TI_GTPTRIGGERBUFFERLENGTH_IODELAY_READY;
+    }
+  TIUNLOCK;
+
+  if(!ready)
+    {
+      printf("%s: ERROR: TI Not ready after nwait (%d)\n",
+	     __func__, nwait);
+      return ERROR;
+    }
+
+  return OK;
 }
