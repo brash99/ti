@@ -265,6 +265,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   unsigned int firmwareInfo;
   int stat;
   int noBoardInit=0, noFirmwareCheck=0;
+  int supportedVersion = TI_SUPPORTED_FIRMWARE;
+  int supportedType    = TI_SUPPORTED_TYPE;
+  int tiFirmwareType;
 
 
   /* Check VME address */
@@ -406,9 +409,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   firmwareInfo = tiGetFirmwareVersion();
   if(firmwareInfo>0)
     {
-      int supportedVersion = TI_SUPPORTED_FIRMWARE;
-      int supportedType    = TI_SUPPORTED_TYPE;
-      int tiFirmwareType   = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
+      tiFirmwareType   = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
 
       tiVersion = firmwareInfo&0xFFF;
       printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X (prodID = %d)\n",
@@ -579,6 +580,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
       /* Loopback Sync Source */
       tiSetSyncSource(TI_SYNC_LOOPBACK);
+
+      tiUseBroadcastBufferLevel(0);
+
       break;
 
     default:
@@ -899,6 +903,9 @@ tiStatus(int pflag)
 #endif
   printf("--------------------------------------------------------------------------------\n");
 
+  printf(" Firmware revision: 0x%x\n",
+	 tiVersion);
+
   printf(" A32 Data buffer ");
   if((ro->vmeControl&TI_VMECONTROL_A32) == TI_VMECONTROL_A32)
     {
@@ -993,33 +1000,44 @@ tiStatus(int pflag)
 
   if(tiMaster)
     {
-      if((ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK) == 0)
-	printf(" Sync Events DISABLED\n");
+      if(tiUseTsRev2)
+	{
+	  printf(" Sync Events to be received from TSrev2\n");
+	}
       else
-	printf(" Sync Event period  = %d blocks\n",
-	       ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK);
+	{
+	  if((ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK) == 0)
+	    printf(" Sync Events DISABLED\n");
+	  else
+	    printf(" Sync Event period  = %d blocks\n",
+		   ro->syncEventCtrl & TI_SYNCEVENTCTRL_NBLOCKS_MASK);
+	}
     }
 
   printf("\n");
-  printf(" Fiber Status         1     2     3     4     5     6     7     8\n");
-  printf("                    ----- ----- ----- ----- ----- ----- ----- -----\n");
-  printf("  Connected          ");
-  for(ifiber=0; ifiber<8; ifiber++)
+
+  if(!tiUseTsRev2)
     {
-      printf("%s   ",
-	     (ro->fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"YES":"   ");
-    }
-  printf("\n");
-  if(tiMaster)
-    {
-      printf("  Trig Src Enabled   ");
+      printf(" Fiber Status         1     2     3     4     5     6     7     8\n");
+      printf("                    ----- ----- ----- ----- ----- ----- ----- -----\n");
+      printf("  Connected          ");
       for(ifiber=0; ifiber<8; ifiber++)
 	{
 	  printf("%s   ",
-		 (ro->fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"YES":"   ");
+		 (ro->fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"YES":"   ");
 	}
+      printf("\n");
+      if(tiMaster)
+	{
+	  printf("  Trig Src Enabled   ");
+	  for(ifiber=0; ifiber<8; ifiber++)
+	    {
+	      printf("%s   ",
+		     (ro->fiber & TI_FIBER_TRIGSRC_ENABLED_TI(ifiber+1))?"YES":"   ");
+	    }
+	}
+      printf("\n\n");
     }
-  printf("\n\n");
 
   printf(" Clock Source (%d) = \n",ro->clock & TI_CLOCK_MASK);
   switch(ro->clock & TI_CLOCK_MASK)
@@ -1067,7 +1085,7 @@ tiStatus(int pflag)
       if(tiTriggerSource & TI_TRIGSRC_TSINPUTS)
 	printf("   Front Panel TS Inputs\n");
       if(tiTriggerSource & TI_TRIGSRC_TSREV2)
-	printf("   Trigger Supervisor (rev2)\n");
+	printf("   Trigger Supervisor (rev2) + Front Panel TRG\n");
       if(tiTriggerSource & TI_TRIGSRC_PULSER)
 	printf("   Internal Pulser\n");
       if(tiTriggerSource & TI_TRIGSRC_PART_1)
@@ -1163,7 +1181,7 @@ tiStatus(int pflag)
 	}
     }
 
-  if(tiMaster)
+  if(tiMaster && !tiUseTsRev2)
     {
       printf("\n");
       printf(" Trigger Rules:\n");
@@ -1197,7 +1215,10 @@ tiStatus(int pflag)
 	}
 
       printf("\n");
-      tiSyncResetRequestStatus(1);
+      if(!tiUseTsRev2)
+	{
+	  tiSyncResetRequestStatus(1);
+	}
     }
   printf("\n");
 
@@ -1219,7 +1240,7 @@ tiStatus(int pflag)
   printf("\n");
   printf(" Input counter %d\n",ro->inputCounter);
 
-  if(tiMaster)
+  if(tiMaster && (!tiUseTsRev2))
     tiSlaveStatus(pflag);
 
   printf("--------------------------------------------------------------------------------\n");
@@ -2197,6 +2218,7 @@ tiSetTriggerSource(int trig)
 	  break;
 
 	case TI_TRIGGER_TSREV2:
+	  trigenable &= ~TI_TRIGSRC_VME;
 	  trigenable |= TI_TRIGSRC_TSREV2;
 	  break;
 
@@ -3335,12 +3357,13 @@ tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
   int ievent = 1;
   unsigned int dataword = 0;
   int nevtypes = 0;
+  int extra_ev_type_bitshift = 0;
 
-  if(TIp==NULL)
+  if(tiUseTsRev2)
     {
-      logMsg("tiDecodeTriggerTypes: ERROR: TI not initialized\n",0,1,2,3,4,5);
-      return ERROR;
+      extra_ev_type_bitshift = 1;
     }
+
 
   /* Loop until we find the trigger bank */
   while(iword < data_len)
@@ -3380,7 +3403,11 @@ tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
 #endif
       if((dataword & 0x00FF0000)>>16 == 0x01)
 	{
-	  evtypes[nevtypes++] = (dataword & 0xFF000000) >> 24;
+	  if(extra_ev_type_bitshift)
+	    evtypes[nevtypes++] = (dataword & 0xFF000000) >> 26;
+	  else
+	    evtypes[nevtypes++] = (dataword & 0xFF000000) >> 24;
+
 
 	  if(ievent == blocklevel)
 	    {
