@@ -9210,6 +9210,13 @@ tiUnload(int pflag)
     printf("%s: INFO: TI pointer set to NULL\n",__func__);
 }
 
+/**
+ * @ingroup Status
+ *
+ * @brief Check TI Ready for specified number of times after iodelay reset.
+ *
+ * @param nwait Number of times to poll register for ready state
+ */
 int
 tiWaitForIODelayReset(int nwait)
 {
