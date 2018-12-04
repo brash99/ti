@@ -140,7 +140,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TSREV2_POLL 5
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x081
+#define TI_SUPPORTED_FIRMWARE 0x084
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -664,6 +664,7 @@ void tiResetEB();
 void tiSyncResetResync();
 void tiClockReset();
 int  tiSetAdr32(unsigned int a32base);
+unsigned int tiGetAdr32();
 int  tiDisableA32();
 int  tiResetEventCounter();
 unsigned long long int tiGetEventCounter();
