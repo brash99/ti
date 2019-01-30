@@ -131,6 +131,8 @@ rocTrigger(int arg)
 {
   int dCnt;
   int ev_type = 0;
+  int rval = OK;
+  int sync_flag = 0, late_fail = 0;
 
   tiSetOutputPort(1, 0, 0, 0);
 
@@ -150,17 +152,21 @@ rocTrigger(int arg)
     }
   else
     {
-      ev_type = tiDecodeTriggerType(dma_dabufp, dCnt, 1);
+      rval = tiDecodeTSrev2Data((volatile unsigned int *) dma_dabufp, dCnt,
+				(int *)&sync_flag, (int *)&late_fail, (int *)&ev_type);
 
-      if ((ev_type <= 0) || (ev_type > 0xF))
+      if(rval == OK)
 	{
-	  printf("%s: ERROR: Invalid event type (%d)\n",
-		 __func__, ev_type);
-	  ev_type = 1;
-	}
+	  if ((ev_type <= 0) || (ev_type > 0xF))
+	    {
+	      printf("%s: ERROR: Invalid event type (%d)\n",
+		     __func__, ev_type);
+	      ev_type = 1;
+	    }
 
-      /* ** Redefine event type in event buffer ** */
-      the_event->type = ev_type;
+	  /* ** Redefine event type in event buffer ** */
+	  the_event->type = ev_type | (sync_flag << 8);
+	}
 
       dma_dabufp += dCnt;
     }
@@ -169,7 +175,7 @@ rocTrigger(int arg)
 
   EVENTCLOSE;
 
-  if(tiGetSyncEventFlag() == 1)
+  if(sync_flag == 1)
     {
       /* Flush out TI data, if it's there (out of sync) */
       int davail = tiBReady();
