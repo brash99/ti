@@ -643,6 +643,9 @@ int  tiCheckTriggerBlock(volatile unsigned int *data);
 int  tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
 			  int nevents, unsigned int *evtypes);
 int  tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event);
+int  tiDecodeTSrev2Data(volatile unsigned int *data, int data_len,
+			int *syncFlag, int *lateFail, int *evType);
+
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
