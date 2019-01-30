@@ -3502,6 +3502,13 @@ tiDecodeTSrev2Data(volatile unsigned int *data, int data_len,
   unsigned int dataword = 0;
   int found = 0;
 
+  if(!tiUseTsRev2)
+    {
+      logMsg("tiDecodeTsRev2Data: ERROR: TI not initialized for TSrev2 feature.\n",
+	     0,1,2,3,4,5);
+      return ERROR;
+    }
+
   *syncFlag = 0;
   *lateFail = 0;
   *evType   = 0;
@@ -3509,7 +3516,7 @@ tiDecodeTSrev2Data(volatile unsigned int *data, int data_len,
   if(data_len > 0xFFF)
     {
       logMsg("tiDecodeTsRev2Data: ERROR: Invalid data length (%d).\n",
-	     __func__);
+	     0,1,2,3,4,5);
       return ERROR;
     }
 
@@ -3567,7 +3574,7 @@ tiDecodeTSrev2Data(volatile unsigned int *data, int data_len,
   if(!found)
     {
       logMsg("tiDecodeTSrev2Data: ERROR: Trigger data not found\n",
-	     0, 1, 2, 3, 4, 5, 6);
+	     0, 1, 2, 3, 4, 5);
       return ERROR;
     }
 
