@@ -3480,6 +3480,108 @@ tiDecodeTriggerType(volatile unsigned int *data, int data_len, int event)
 }
 
 /**
+ * @ingroup Readout
+ * @brief Provided TI data (trigger block, or raw TI blocked data), decode the
+ * event type for the specified event of block.
+ *
+ * @param data     - local memory address to find trigger block
+ * @param data_len - length of provided 'data' array
+ * @param syncFlag - local memory to store syncFlag
+ * @param lateFail - local memory to store lateFail
+ * @param evType   - local memory to store event type
+ *
+ * @return OK if successful, ERROR otherwise
+ *
+ */
+int
+tiDecodeTSrev2Data(volatile unsigned int *data, int data_len,
+		   int *syncFlag, int *lateFail, int *evType)
+{
+  int iword = 0;
+  int blocklevel = -1;
+  unsigned int dataword = 0;
+  int found = 0;
+
+  if(!tiUseTsRev2)
+    {
+      logMsg("tiDecodeTsRev2Data: ERROR: TI not initialized for TSrev2 feature.\n",
+	     0,1,2,3,4,5);
+      return ERROR;
+    }
+
+  *syncFlag = 0;
+  *lateFail = 0;
+  *evType   = 0;
+
+  if(data_len > 0xFFF)
+    {
+      logMsg("tiDecodeTsRev2Data: ERROR: Invalid data length (%d).\n",
+	     0,1,2,3,4,5);
+      return ERROR;
+    }
+
+  /* Loop until we find the trigger bank */
+  while(iword < data_len)
+    {
+      dataword = data[iword];
+#ifndef VXWORKS
+      dataword = LSWAP(dataword);
+#endif
+      if( ((dataword & 0xFF100000)>>16 == 0xFF10) &&
+	  ((dataword & 0x0000FF00)>>8 == 0x20) )
+	{
+	  blocklevel =  dataword & 0xFF;
+	  iword++;
+	  break;
+	}
+      iword++;
+    }
+
+  if(blocklevel == -1)
+    {
+      logMsg("tiDecodeTSrev2Data: ERROR: Failed to find Trigger Bank header\n",
+	     0,1,2,3,4,5);
+      return ERROR;
+    }
+
+  if(blocklevel != 1)
+    {
+      logMsg("tiDecodeTSrev2Data: ERROR: Invalid Blocklevel (%d).  Must be 1.\n",
+	     blocklevel,1,2,3,4,5);
+      return ERROR;
+    }
+
+  /* Loop until trigger data is found... should be the next word */
+  while(iword < data_len)
+    {
+      dataword = data[iword];
+#ifndef VXWORKS
+      dataword = LSWAP(dataword);
+#endif
+
+      if( ((dataword & 0x00FF0000)>>16) == 0x01)
+	{
+	  *syncFlag = (dataword & (1<<24)) ? 1 : 0;
+	  *lateFail = (dataword & (1<<25)) ? 1 : 0;
+	  *evType   = (dataword & 0xFC000000) >> 26;
+	  found = 1;
+	  break;
+	}
+
+      iword++;
+    }
+
+  if(!found)
+    {
+      logMsg("tiDecodeTSrev2Data: ERROR: Trigger data not found\n",
+	     0, 1, 2, 3, 4, 5);
+      return ERROR;
+    }
+
+  return OK;
+}
+
+/**
  * @ingroup Config
  * @brief Enable Fiber transceiver
  *
