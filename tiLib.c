@@ -3561,8 +3561,8 @@ tiDecodeTSrev2Data(volatile unsigned int *data, int data_len,
 
       if( ((dataword & 0x00FF0000)>>16) == 0x01)
 	{
-	  *syncFlag = dataword & (1<<24);
-	  *lateFail = dataword & (1<<25);
+	  *syncFlag = (dataword & (1<<24)) ? 1 : 0;
+	  *lateFail = (dataword & (1<<25)) ? 1 : 0;
 	  *evType   = (dataword & 0xFC000000) >> 26;
 	  found = 1;
 	  break;
