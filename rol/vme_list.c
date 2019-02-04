@@ -147,10 +147,12 @@ rocTrigger(int arg)
   int dCnt;
   int ev_type = 0;
 
+  /* Set the O#1 level output HIGH for debugging readout time */
   tiSetOutputPort(1, 0, 0, 0);
 
-  /* Open an event of event_type = 1 (replaced later).
-     Data contained in banks (BT_BANK) */
+  /* Open an event of event_type = 1 (placeholder).
+  ** placeholder changed below **
+     All Data to follow will be contained in banks (BT_BANK) */
   EVENTOPEN(1, BT_BANK);
 
   /* EXAMPLE:
@@ -164,8 +166,9 @@ rocTrigger(int arg)
   BANKCLOSE;
 
 
-  /* Open a bank of tag (for example) 4
-     Each data word is a 4-byte unsigned integer */
+  /* Open a bank of tag (for example) 4, for the TI data.
+     Each data word is a 4-byte unsigned integer (BT_UI4)
+  */
   BANKOPEN(4, BT_UI4, 0);
 
   vmeDmaConfig(2, 5, 1);
@@ -186,6 +189,9 @@ rocTrigger(int arg)
       /* CODA 2.x only allows for 4 bits of trigger type */
       ev_type &= 0xF;
 
+      /*
+	Replace the event type placeholder with the correct info from the TI
+      */
       the_event->type = ev_type;
 
       dma_dabufp += dCnt;
@@ -195,10 +201,12 @@ rocTrigger(int arg)
 
   EVENTCLOSE;
 
+  /* Set the O#1 level output LOW for debugging readout time */
   tiSetOutputPort(0, 0, 0, 0);
 
 }
 
+#ifdef TI_MASTER
 extern int tsLiveCalc;
 extern FUNCPTR tsLiveFunc;
 /*
@@ -218,6 +226,7 @@ tsLive(int sflag)
 
   return retval;
 }
+#endif /* TI_MASTER */
 
 void
 rocCleanup()
@@ -225,7 +234,7 @@ rocCleanup()
 
   printf("%s: Reset/cleanup modules and libraries\n", __func__);
 
-
+#ifdef TI_MASTER
   /* Disable tiLive() wrapper function */
   vmeBusLock();
   tsLiveCalc = 0;
@@ -234,5 +243,6 @@ rocCleanup()
   /* Disable TI library */
   tiUnload(1);
   vmeBusUnlock();
+#endif /* TI_MASTER */
 
 }
