@@ -15,11 +15,6 @@
 #define TI_READOUT TI_READOUT_EXT_POLL	/* Poll for available data, external triggers */
 #define TI_ADDR    (21<<19)	/* GEO slot 21 */
 
-/* Decision on whether or not to readout the TI for each block
-   - Comment out to disable readout
-*/
-#define TI_DATA_READOUT
-
 #define FIBER_LATENCY_OFFSET 0x4A	/* measured longest fiber length */
 
 #include "dmaBankTools.h"
@@ -52,13 +47,6 @@ rocDownload()
   /*****************
    *   TI SETUP
    *****************/
-
-#ifndef TI_DATA_READOUT
-  /* Disable data readout */
-  tiDisableDataReadout();
-  /* Disable A32... where that data would have been stored on the TI */
-  tiDisableA32();
-#endif
 
   /* Set crate ID */
   tiSetCrateID(0x01);		/* e.g. ROC 1 */
@@ -156,18 +144,21 @@ rocEnd()
 void
 rocTrigger(int arg)
 {
-  int ii, islot;
-  int stat, dCnt, len = 0, idata;
+  int dCnt;
   int ev_type = 0;
 
+  /* Set the O#1 level output HIGH for debugging readout time */
   tiSetOutputPort(1, 0, 0, 0);
 
-  /* Open an event of event_type = 1 (replaced later).
-     Data contained in banks (BT_BANK) */
+  /* Open an event of event_type = 1 (placeholder).
+  ** placeholder changed below **
+     All Data to follow will be contained in banks (BT_BANK) */
   EVENTOPEN(1, BT_BANK);
 
-  /* Open a bank of type (for example) 5
-     Each data word is a 4-byte unsigned integer */
+  /* EXAMPLE:
+     Open a bank of tag 5 (tag range: 1-65279)
+     Each data word is a 4-byte unsigned integer (BT_UI4)
+  */
   BANKOPEN(5, BT_UI4, 0);
   *dma_dabufp++ = LSWAP(tiGetIntCount());
   *dma_dabufp++ = LSWAP(0xdead);
@@ -175,9 +166,9 @@ rocTrigger(int arg)
   BANKCLOSE;
 
 
-#ifdef TI_DATA_READOUT
-  /* Open a bank of type (for example) 4
-     Each data word is a 4-byte unsigned integer */
+  /* Open a bank of tag (for example) 4, for the TI data.
+     Each data word is a 4-byte unsigned integer (BT_UI4)
+  */
   BANKOPEN(4, BT_UI4, 0);
 
   vmeDmaConfig(2, 5, 1);
@@ -198,25 +189,60 @@ rocTrigger(int arg)
       /* CODA 2.x only allows for 4 bits of trigger type */
       ev_type &= 0xF;
 
+      /*
+	Replace the event type placeholder with the correct info from the TI
+      */
       the_event->type = ev_type;
 
       dma_dabufp += dCnt;
     }
 
   BANKCLOSE;
-#endif
 
   EVENTCLOSE;
 
+  /* Set the O#1 level output LOW for debugging readout time */
   tiSetOutputPort(0, 0, 0, 0);
 
 }
 
+#ifdef TI_MASTER
+extern int tsLiveCalc;
+extern FUNCPTR tsLiveFunc;
+/*
+   tiLive() wrapper allows the Live Time display in rcGUI to work
+*/
+int
+tsLive(int sflag)
+{
+  unsigned int retval = 0;
+
+  vmeBusLock();
+  if(tsLiveFunc != NULL)
+    {
+      retval = tiLive(sflag);
+    }
+  vmeBusUnlock();
+
+  return retval;
+}
+#endif /* TI_MASTER */
+
 void
 rocCleanup()
 {
-  int islot = 0;
 
   printf("%s: Reset/cleanup modules and libraries\n", __func__);
+
+#ifdef TI_MASTER
+  /* Disable tiLive() wrapper function */
+  vmeBusLock();
+  tsLiveCalc = 0;
+  tsLiveFunc = NULL;
+
+  /* Disable TI library */
+  tiUnload(1);
+  vmeBusUnlock();
+#endif /* TI_MASTER */
 
 }

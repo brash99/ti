@@ -753,6 +753,10 @@ int  tiSetTSInputDelay(int chan, int delay);
 int  tiGetTSInputDelay(int chan);
 int  tiPrintTSInputDelay();
 unsigned int tiGetGTPBufferLength(int pflag);
+
+int  tiGetConnectedFiberMask();
+int  tiGetTrigSrcEnabledFiberMask();
+
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
 int  tiGetGeoAddress();
