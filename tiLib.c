@@ -4592,7 +4592,7 @@ tiBReady()
   rval        = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
   readyInt    = (blockBuffer&TI_BLOCKBUFFER_BREADY_INT_MASK)>>24;
   tiSyncEventReceived = (blockBuffer&TI_BLOCKBUFFER_SYNCEVENT)>>31;
-  tiNReadoutEvents = (blockBuffer&TI_BLOCKBUFFER_RO_NEVENTS_MASK)>>24;
+  tiNReadoutEvents = (blockBuffer&TI_BLOCKBUFFER_RO_NEVENTS_MASK)>>21;
   tiTriggerMissed = (blockBuffer & TI_BLOCKBUFFER_TRIGGER_MISSED) ? 1 : 0;
 
   if( (readyInt==1) && (tiSyncEventReceived) )
