@@ -97,6 +97,7 @@ static int          tiVersion     = 0x0;     /* Firmware version */
 static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
 static int          tiNReadoutEvents = 0;    /* Number of events to readout from crate modules */
+static int          tiTriggerMissed = 0;     /* Flag indicating that a trigger was missed, due to full fifo */
 static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
 static int          tiSlotNumber=0;          /* Slot number in which the TI resides */
 static int          tiSwapTriggerBlock=0;    /* Decision on whether or not to swap the trigger block endianness */
@@ -476,6 +477,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
   tiSyncEventFlag = 0; tiSyncEventReceived = 0;
   tiNReadoutEvents = 0; tiDoSyncResetRequest = 0;
+  tiTriggerMissed = 0;
 
   if((mode == TI_READOUT_TS_INT) || (mode == TI_READOUT_TS_POLL))
     tiMaster = 0;
@@ -4590,7 +4592,8 @@ tiBReady()
   rval        = (blockBuffer&TI_BLOCKBUFFER_BLOCKS_READY_MASK)>>8;
   readyInt    = (blockBuffer&TI_BLOCKBUFFER_BREADY_INT_MASK)>>24;
   tiSyncEventReceived = (blockBuffer&TI_BLOCKBUFFER_SYNCEVENT)>>31;
-  tiNReadoutEvents = (blockBuffer&TI_BLOCKBUFFER_RO_NEVENTS_MASK)>>24;
+  tiNReadoutEvents = (blockBuffer&TI_BLOCKBUFFER_RO_NEVENTS_MASK)>>21;
+  tiTriggerMissed = (blockBuffer & TI_BLOCKBUFFER_TRIGGER_MISSED) ? 1 : 0;
 
   if( (readyInt==1) && (tiSyncEventReceived) )
     tiSyncEventFlag = 1;
@@ -4659,6 +4662,26 @@ tiGetReadoutEvents()
 
   TILOCK;
   rval = tiNReadoutEvents;
+  TIUNLOCK;
+
+  return rval;
+}
+
+
+/**
+ * @ingroup Readout
+ * @brief Return the status of the trigger missed flag (trigger missed due to fifo full)
+ *        This bit resets with a syncReset.
+ *
+ * @return 1 if trigger has been missed, otherwise 0.
+ */
+int
+tiGetTriggerMissedFlag()
+{
+  int rval=0;
+
+  TILOCK;
+  rval = tiTriggerMissed;
   TIUNLOCK;
 
   return rval;

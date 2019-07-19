@@ -140,7 +140,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TSREV2_POLL 5
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x084
+#define TI_SUPPORTED_FIRMWARE 0x092
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -336,10 +336,10 @@ struct TI_A24RegStruct
 /* 0x34 blockBuffer bits and masks */
 #define TI_BLOCKBUFFER_BUFFERLEVEL_MASK      0x000000FF
 #define TI_BLOCKBUFFER_BLOCKS_READY_MASK     0x0000FF00
-#define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x00FF0000
-#define TI_BLOCKBUFFER_RO_NEVENTS_MASK       0x07000000
-#define TI_BLOCKBUFFER_BLOCKS_NEEDACK_MASK   0x7F000000
+#define TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK     0x001F0000
+#define TI_BLOCKBUFFER_RO_NEVENTS_MASK       0x00E00000
 #define TI_BLOCKBUFFER_BREADY_INT_MASK       0x0F000000
+#define TI_BLOCKBUFFER_TRIGGER_MISSED        (1<<27)
 #define TI_BLOCKBUFFER_BUSY_ON_BLOCKLIMIT    (1<<28)
 #define TI_BLOCKBUFFER_SYNCRESET_REQUESTED   (1<<30)
 #define TI_BLOCKBUFFER_SYNCEVENT             (1<<31)
@@ -753,6 +753,10 @@ int  tiSetTSInputDelay(int chan, int delay);
 int  tiGetTSInputDelay(int chan);
 int  tiPrintTSInputDelay();
 unsigned int tiGetGTPBufferLength(int pflag);
+
+int  tiGetConnectedFiberMask();
+int  tiGetTrigSrcEnabledFiberMask();
+
 unsigned int tiGetSWAStatus(int reg);
 unsigned int tiGetSWBStatus(int reg);
 int  tiGetGeoAddress();
