@@ -36,7 +36,7 @@ mytiISR(int arg)
   int dCnt, len=0,idata;
   DMANODE *outEvent;
   int tibready=0, timeout=0;
-  int printout = 1000;
+  int printout = 1;
   int dataCheck=0;
 
   unsigned int tiIntCount = tiGetIntCount();
@@ -265,10 +265,13 @@ main(int argc, char *argv[]) {
       printf("INFO: Attached TI Interrupt\n");
     }
 
-  /* tiSetTriggerSource(TI_TRIGGER_TSINPUTS); */
-#define SOFTTRIG
+#ifdef SOFTTRIG
   tiSetTriggerSource(TI_TRIGGER_PULSER);
-  tiEnableTSInput(0x2f);
+#else
+  tiSetTriggerSource(TI_TRIGGER_TSINPUTS);
+  tiEnableTSInput(0x3f);
+#endif
+
 
   /*     tiSetFPInput(0x0); */
   /*     tiSetGenInput(0xffff); */
