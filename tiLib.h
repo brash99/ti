@@ -140,7 +140,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TSREV2_POLL 5
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x092
+#define TI_SUPPORTED_FIRMWARE 0x093
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
