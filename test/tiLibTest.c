@@ -25,7 +25,7 @@ extern int tiA32Base;
 extern int tiNeedAck;
 
 #define BLOCKLEVEL 1
-
+#define SOFTTRIG
 #define DO_READOUT
 
 /* Interrupt Service routine */
