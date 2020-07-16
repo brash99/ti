@@ -1389,7 +1389,7 @@ void
 tiSlaveStatus(int pflag)
 {
   int iport=0, ibs=0, ifiber=0;
-  unsigned int TIBase;
+  unsigned long TIBase;
   unsigned int hfbr_tiID[8] = {1,2,3,4,5,6,7};
   unsigned int master_tiID;
   unsigned int blockStatus[5];
