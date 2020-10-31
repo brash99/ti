@@ -3,89 +3,75 @@
 #    Makefile
 #
 # Description:
-#    Makefile for the JLAB extensions to the GEFANUC Controller API
+#    Makefile for TI firmware updating program
 #
 #
-# $Date$
-# $Rev$
+DEBUG	?= 1
+QUIET	?= 1
 #
-DEBUG=1
-
-ifndef ARCH
-	ifdef LINUXVME_LIB
-		ARCH=Linux
-	else
-		ARCH=VXWORKSPPC
-	endif
+ifeq ($(QUIET),1)
+        Q = @
+else
+        Q =
 endif
 
-FWFILES	= $(shell cat .currentfw)
+ARCH	?= $(shell uname -m)
+OS	?= LINUX
 
-# Defs and build for VxWorks
-ifeq ($(ARCH),VXWORKSPPC)
-VXWORKS_ROOT = /site/vxworks/5.5/ppc/target
+ifdef CODA_VME
+CODA_VME_INC = -I${CODA_VME}/include
+endif
+ifdef CODA_VME_LIB
+CODA_LIB = -L${CODA_VME_LIB}
+endif
 
-CC			= ccppc
-LD			= ldppc
-DEFS			= -mcpu=604 -DCPU=PPC604 -DVXWORKS -D_GNU_TOOL -mlongcall \
-				-fno-for-scope -fno-builtin -fvolatile -DVXWORKSPPC
-INCS			= -I. -I../ -I$(VXWORKS_ROOT)/h -I$(VXWORKS_ROOT)/h/rpc -I$(VXWORKS_ROOT)/h/net
-CFLAGS			= $(INCS) $(DEFS)
-OBJS			= tiFirmwareUpdate.o
-PROGS			=
-endif #ARCH=VXWORKSPPC#
-
-# Defs and build for Linux
-ifeq ($(ARCH),Linux)
-
-LINUXVME_LIB	?= ../../libs
+# linuxvme defaults, if they're not already defined
 LINUXVME_INC	?= ../../include
+LINUXVME_LIB	?= ../../lib
 LINUXVME_BIN	?= ../../bin
-LINUXVME_FW	?= ../../firmware
 
+CROSS_COMPILE		=
 CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
 RANLIB                  = ranlib
-CFLAGS			= -I. -I${LINUXVME_INC} \
-			  -L. -L${LINUXVME_LIB}
-ifdef DEBUG
-CFLAGS			+= -Wall -g
-else
-CFLAGS			+= -O2
-endif
-OBJS			=
-PROGS			= tiFirmwareUpdate
+INCS			= -I. -I../ -I${LINUXVME_INC} ${CODA_VME_INC}
+CFLAGS			= -L. -L../ -L${LINUXVME_LIB} ${CODA_LIB} -lrt -ljvme -lti
+ifeq ($(DEBUG),1)
+	CFLAGS		+= -Wall -g
 endif
 
-ifeq ($(ARCH),VXWORKSPPC)
-all: $(OBJS)
-else
-all: $(PROGS)
-endif
+SRC			= $(wildcard *.c)
+DEPS			= $(SRC:.c=.d)
+OBJ			= $(SRC:.c=.o)
+PROGS			= $(SRC:.c=)
 
-clean:
-	@rm -vf $(PROGS) $(OBJS) *~
+all: echoarch $(PROGS)
+
+clean distclean:
+	@rm -f $(PROGS) *~ $(OBJS) $(DEPS)
 
 %: %.c
-	@echo "Making $@ for $(ARCH)"
-	$(CC) $(CFLAGS) -o $@ $(@:%=%.c) -lrt -ljvme -lti 
+	@echo " CC     $@"
+	${Q}$(CC) $(CFLAGS) $(INCS) -o $@ $<
 
-ifeq ($(ARCH),VXWORKSPPC)
-tiFirmwareUpdate.o: tiFirmwareUpdate.c
-	@echo "Making $@ for $(ARCH)"
-	$(CC) $(CFLAGS) -c -DTEMPE -o $@ $(<)
-	$(CC) $(CFLAGS) -c -o $(@:.o=_univ.o) $(<)
-else
+%.d: %.c
+	@echo " DEP    $@"
+	@set -e; rm -f $@; \
+	$(CC) -MM -shared $(INCS) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1 $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
+
 install: $(PROGS)
-	@echo "Installing $(PROGS)"
-	@install -v -d $(LINUXVME_BIN)
-	@install -v -p $(PROGS) -D $(LINUXVME_BIN)/
+	@echo " CP     ${PROGS}"
+	${Q}cp ${PWD}/$(PROGS) $(LINUXVME_BIN)/
 
-fwinstall:
-	@ln -sf $(FWFILES) ti_current_firmware.svf
-	@install -v -d $(LINUXVME_FW)/ti
-	@install -p -m 664 -v $(FWFILES) ti_current_firmware.svf -D $(LINUXVME_FW)/ti
+coda_install: $(PROGS)
+	@echo " CODACP ${PROGS}"
+	${Q}cp ${PWD}/$(PROGS) $(CODA_VME_BIN)/
 
-endif
+-include $(DEPS)
 
-.PHONY: all clean
+.PHONY: all clean distclean
+
+echoarch:
+	@echo "Make for $(OS)-$(ARCH)"
