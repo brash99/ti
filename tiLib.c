@@ -8964,6 +8964,12 @@ tiRocEnable(int roc)
       return ERROR;
     }
 
+
+  if(roc == 2) /* ROC acknowledge from SWA / VTP */
+    {
+      tiSetBusySource(TI_BUSY_SWA, 0);
+    }
+
   TILOCK;
   vmeWrite32(&TIp->rocEnable, (vmeRead32(&TIp->rocEnable) & TI_ROCENABLE_MASK) |
 	     TI_ROCENABLE_ROC(roc-1));
@@ -8986,6 +8992,11 @@ tiRocEnableMask(int rocmask)
       printf("%s: ERROR: Invalid rocmask (0x%x)\n",
 	     __FUNCTION__,rocmask);
       return ERROR;
+    }
+
+  if(rocmask & (1 << 1) ) /* ROC acknowledge from SWA / VTP */
+    {
+      tiSetBusySource(TI_BUSY_SWA, 0);
     }
 
   TILOCK;
