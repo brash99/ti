@@ -7140,7 +7140,7 @@ tiUserSyncReset(int enable, int blflag)
   else
     printf("LOW\n");
 
-  if((blflag > 0) && (enable = 0)) /* Set the block level from "Next" to Current */
+  if((blflag > 0) && (enable == 0)) /* Set the block level from "Next" to Current */
     {
       printf("%s: INFO: Broadcasting Block Level %d, Buffer Level %d\n",
 	     __FUNCTION__,
