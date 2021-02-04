@@ -7110,12 +7110,14 @@ tiResetSyncHistory()
  * @param enable
  *   - >0: High
  *   -  0: Low
- * @param pflag
- *   - >0: Print status to standard out
- *   -  0: Supress status message
+ * @param blflag Option to change block level, after SyncReset Low (enable = 0)
+ *       -   0: Do not change block level
+ *       -  >0: Broadcast block level to all connected slaves (including self)
+ *            BlockLevel broadcasted will be set to library value
+ *            (Set with tiSetBlockLevel)
  */
 void
-tiUserSyncReset(int enable, int pflag)
+tiUserSyncReset(int enable, int blflag)
 {
   if(TIp == NULL)
     {
@@ -7132,13 +7134,19 @@ tiUserSyncReset(int enable, int pflag)
   taskDelay(2);
   TIUNLOCK;
 
-  if(pflag)
+  printf("%s: User Sync Reset ",__FUNCTION__);
+  if(enable)
+    printf("HIGH\n");
+  else
+    printf("LOW\n");
+
+  if((blflag > 0) && (enable = 0)) /* Set the block level from "Next" to Current */
     {
-      printf("%s: User Sync Reset ",__FUNCTION__);
-      if(enable)
-	printf("HIGH\n");
-      else
-	printf("LOW\n");
+      printf("%s: INFO: Broadcasting Block Level %d, Buffer Level %d\n",
+	     __FUNCTION__,
+	     tiNextBlockLevel, tiBlockBufferLevel);
+      tiBroadcastNextBlockLevel(tiNextBlockLevel);
+      tiSetBlockBufferLevel(tiBlockBufferLevel);
     }
 
 }
