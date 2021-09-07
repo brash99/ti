@@ -324,11 +324,14 @@ struct TI_A24RegStruct
 #define TI_BUSY_MONITOR_HFBR8    (1<<31)
 
 /* 0x2C clock bits and mask  */
-#define TI_CLOCK_INTERNAL    (0)
-#define TI_CLOCK_HFBR5       (1)
-#define TI_CLOCK_HFBR1       (2)
-#define TI_CLOCK_FP          (3)
-#define TI_CLOCK_MASK        0x0000000F
+#define TI_CLOCK_INTERNAL          (0)
+#define TI_CLOCK_HFBR5             (1)
+#define TI_CLOCK_HFBR1             (2)
+#define TI_CLOCK_FP                (3)
+#define TI_CLOCK_MASK              0x0000000F
+#define TI_CLOCK_BRIDGEMODE_MASK   0x000F0000
+#define TI_CLOCK_BRIDGEMODE_ENABLE 0x00050000
+#define TI_CLOCK_SC1_MASK          0x0F000000
 
 /* 0x30 trig1Prescale bits and masks */
 #define TI_TRIG1PRESCALE_MASK          0x0000FFFF
@@ -797,6 +800,7 @@ int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
 void tiPrintEvTypeScalers();
 void tiUnload(int pflag);
 int  tiWaitForIODelayReset(int nwait);
-
+int  tiGetSC1();
+int  tiPrintClockConfiguration();
 
 #endif /* TILIB_H */

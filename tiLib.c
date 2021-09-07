@@ -9431,3 +9431,103 @@ tiWaitForIODelayReset(int nwait)
 
   return OK;
 }
+
+/**
+ * @ingroup Status
+ *
+ * @brief Return bitmask showing readback of SC1 dipswitches
+ *
+ * @returns SC1 bitmask if successful, otherwise ERROR
+ */
+int
+tiGetSC1()
+{
+  int rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",
+	     __func__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->clock) & TI_CLOCK_SC1_MASK) >> 24;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Status
+ *
+ * @brief Print clock configuration to standard out
+ *
+ * @returns OK if successful, otherwise ERROR
+ */
+int
+tiPrintClockConfiguration()
+{
+  int sc1 = tiGetSC1();
+
+  if(sc1 < 0)
+    return ERROR;
+
+  int bit2=0, bit3=0, bit4=0, bit5=0;
+  bit2 = (sc1 & 0x1) ? 0 : 1; /* These seem flipped in davme2 */
+  bit3 = (sc1 & 0x2) ? 1 : 0;
+  bit4 = (sc1 & 0x4) ? 0 : 1;
+  bit5 = (sc1 & 0x8) ? 1 : 0;
+
+  /* Decode the bits (TI Manual section 5.2.1) */
+  float clock_X, clock_Y, clock_A, clock_B;
+  if(bit3 == 1)
+    clock_Y = 125.;
+  else
+    clock_Y = 31.25;
+
+  if(bit5 == 1)
+    clock_X = 125.;
+  else
+    clock_X = 250.;
+
+  if(bit2 == 1)
+    clock_B = clock_Y;
+  else
+    clock_B = clock_X;
+
+  if(bit4 == 1)
+    clock_A = clock_Y;
+  else
+    clock_A = clock_X;
+
+  /*
+    TI Clock Configuration
+
+    SC1 status               Clock Selection
+    2  3  4  5     A: Slots 3 - 10     B: Slots 13 - 20
+    ---------------------------------------------------
+    1  1  1  1             250 Mhz            31.25 Mhz
+
+   */
+
+  printf("\n");
+  printf("TI Clock Configuration\n");
+  printf("\n");
+  printf("SC1 status               Clock Selection\n");
+  printf("2  3  4  5     A: Slots 3 - 10     B: Slots 13 - 20\n");
+  printf("---------------------------------------------------\n");
+
+  printf("%d  %d  %d  %d %x", bit2, bit3, bit4, bit5, sc1);
+  printf("        ");
+
+  printf("%3.2f MHz", clock_A);
+  printf("           ");
+
+  printf("%3.2f MHz", clock_B);
+  printf("\n");
+
+  printf("\n");
+  printf("\n");
+
+  return OK;
+}
