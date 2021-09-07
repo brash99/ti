@@ -415,10 +415,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tiFirmwareType   = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
 
       tiVersion = firmwareInfo&0xFFF;
-      printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X (prodID = %d)\n",
-	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType,
-	     tiVersion,
-	     prodID);
+      printf("  ID: 0x%x \tFirmware Type %X Version %X.%X (tip%x.svf)\n",
+	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16,
+	     tiFirmwareType,
+	     (tiVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+	     tiVersion & TI_FIRMWARE_MINOR_VERSION_MASK,
+	     tiVersion);
 
       if(tiFirmwareType != supportedType)
 	{
@@ -436,20 +438,36 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	    }
 	}
 
-      if(tiVersion < supportedVersion)
+      unsigned int
+	major = (tiVersion & TI_FIRMWARE_MAJOR_VERSION_MASK) >> 4,
+	minor = tiVersion & TI_FIRMWARE_MINOR_VERSION_MASK;
+
+      /* Check Major Version */
+      if(major != ((supportedVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>> 4))
 	{
 	  if(noFirmwareCheck)
 	    {
-	      printf("%s: WARN: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x  (IGNORED)\n",
-		     __FUNCTION__,tiVersion,supportedVersion);
+	      printf("%s: WARNING: Firmware major version (%x) not supported by this driver.\n  Supported major version = %x (check library for update: tip%x.svf)\n",
+		     __FUNCTION__,major,
+		     (supportedVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+		     supportedVersion);
 	    }
 	  else
 	    {
-	      printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
-		     __FUNCTION__,tiVersion,supportedVersion);
+	      printf("%s: ERROR: Firmware major version (%x) not supported by this driver.\n  Supported major version = %x (check library for update: tip%x.svf)\n",
+		     __FUNCTION__,major,
+		     (supportedVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+		     supportedVersion);
 	      TIp=NULL;
 	      return ERROR;
 	    }
+	}
+      else if(minor < (supportedVersion & TI_FIRMWARE_MINOR_VERSION_MASK))
+	{
+	  /* Check Minor Version (warning only) */
+	  printf("%s: WARNING: Firmware minor version (0x%x) is less than that supported by this driver.\n  Supported minor version = 0x%x (check library for update: tip%x.svf)\n",
+		 __FUNCTION__, minor, supportedVersion & TI_FIRMWARE_MINOR_VERSION_MASK,
+		 supportedVersion);
 	}
     }
   else
@@ -907,7 +925,9 @@ tiStatus(int pflag)
 #endif
   printf("--------------------------------------------------------------------------------\n");
 
-  printf(" Firmware revision: 0x%x\n",
+  printf(" Firmware revision: %x.%x (tip%x.svf)\n",
+	 (tiVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+	 tiVersion & TI_FIRMWARE_MINOR_VERSION_MASK,
 	 tiVersion);
 
   printf(" A32 Data buffer ");
@@ -1665,9 +1685,10 @@ tiGetSerialNumber(char **rSN)
       strcpy((char *)rSN,retSN);
     }
 
-
+#ifdef DEBUGSN
   printf("%s: TI Serial Number is %s (0x%08x)\n",
 	 __FUNCTION__,retSN,rval);
+#endif
 
   return rval;
 

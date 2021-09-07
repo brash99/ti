@@ -67,7 +67,7 @@ LIBS			= lib${BASENAME}.a lib${BASENAME}.so
 endif #OS=LINUX#
 
 ifdef DEBUG
-CFLAGS			+= -Wall -g
+CFLAGS			+= -Wall -Wno-unused -g
 else
 CFLAGS			+= -O2
 endif
