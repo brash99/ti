@@ -538,7 +538,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       else
 	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
       /* Onboard Clock Source */
-      tiSetClockSource(TI_CLOCK_INTERNAL);
+      tiSetClockSource(TI_CLKSRC_INTERNAL);
       /* Loopback Sync Source */
       tiSetSyncSource(TI_SYNC_LOOPBACK);
       break;
@@ -558,7 +558,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  /* Enable HFBR#1 */
 	  tiEnableFiber(1);
 	  /* HFBR#1 Clock Source */
-	  tiSetClockSource(1);
+	  tiSetClockSource(TI_CLKSRC_HFBR1);
 	  /* HFBR#1 Sync Source */
 	  tiSetSyncSource(TI_SYNC_HFBR1);
 	  /* HFBR#1 Trigger Source */
@@ -569,7 +569,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  /* Enable HFBR#5 */
 	  tiEnableFiber(5);
 	  /* HFBR#5 Clock Source */
-	  tiSetClockSource(5);
+	  tiSetClockSource(TI_CLKSRC_HFBR5);
 	  /* HFBR#5 Sync Source */
 	  tiSetSyncSource(TI_SYNC_HFBR5);
 	  /* HFBR#5 Trigger Source */
@@ -598,12 +598,39 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
 
       /* Onboard Clock Source */
-      tiSetClockSource(TI_CLOCK_INTERNAL);
+      tiSetClockSource(TI_CLKSRC_INTERNAL);
 
       /* Loopback Sync Source */
       tiSetSyncSource(TI_SYNC_LOOPBACK);
 
       tiUseBroadcastBufferLevel(0);
+
+      break;
+
+    case TI_READOUT_BRIDGE_INT:
+    case TI_READOUT_BRIDGE_POLL:
+      printf("... Configure as TI Bridge...\n");
+      /* Bridge Configuration: takes in triggers from HFBR1 from TI-Master or TS */
+
+      /* Bridge is not a master.  It's a Slave that can add Slaves */
+      tiMaster = 0;
+      tiSlaveFiberIn = TI_SLAVE_FIBER_IN;
+
+      /* Clear the Slave Mask */
+      tiSlaveMask = 0;
+
+      /* BUSY from Loopback and Switch Slot B */
+      if(tiNoVXS==1)
+	tiSetBusySource(TI_BUSY_LOOPBACK,1);
+      else
+	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
+
+      /* Bridge Port Clock Source */
+      tiSetClockSource(TI_CLOCK_BRIDGE);
+      /* Bridge HFBR Sync Source */
+      tiSetSyncSource(TI_SYNC_BRIDGE);
+      /* Bridge HFBR Trigger Source */
+      tiSetTriggerSource(TI_TRIGGER_BRIDGE);
 
       break;
 
@@ -1333,7 +1360,7 @@ tiSetSlavePort(int port)
       /* Enable HFBR#1 */
       tiEnableFiber(1);
       /* HFBR#1 Clock Source */
-      tiSetClockSource(1);
+      tiSetClockSource(TI_CLKSRC_HFBR1);
       /* HFBR#1 Sync Source */
       tiSetSyncSource(TI_SYNC_HFBR1);
       /* HFBR#1 Trigger Source */
@@ -1344,7 +1371,7 @@ tiSetSlavePort(int port)
       /* Enable HFBR#5 */
       tiEnableFiber(5);
       /* HFBR#5 Clock Source */
-      tiSetClockSource(5);
+      tiSetClockSource(TI_CLKSRC_HFBR5);
       /* HFBR#5 Sync Source */
       tiSetSyncSource(TI_SYNC_HFBR5);
       /* HFBR#5 Trigger Source */
@@ -5085,6 +5112,7 @@ tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigne
  *         -   0:  Onboard clock
  *         -   1:  External clock (HFBR1 input)
  *         -   5:  External clock (HFBR5 input)
+ *         -   9:  Bridge port clock (firmware defined)
  *
  * @return OK if successful, otherwise ERROR
  */
@@ -5104,17 +5132,22 @@ tiSetClockSource(unsigned int source)
 
   switch(source)
     {
-    case 0: /* ONBOARD */
+    case TI_CLKSRC_INTERNAL:
       clkset = TI_CLOCK_INTERNAL;
       sprintf(sClock,"ONBOARD (%d)",source);
       break;
-    case 1: /* EXTERNAL (HFBR1) */
+    case TI_CLKSRC_HFBR1:
       clkset = TI_CLOCK_HFBR1;
       sprintf(sClock,"EXTERNAL-HFBR1 (%d)",source);
       break;
-    case 5: /* EXTERNAL (HFBR5) */
+    case TI_CLKSRC_HFBR5:
       clkset = TI_CLOCK_HFBR5;
       sprintf(sClock,"EXTERNAL-HFBR5 (%d)",source);
+      break;
+    case TI_CLKSRC_BRIDGE:
+      clkset = TI_CLOCK_BRIDGE;
+      clkset |= TI_CLOCK_BRIDGEMODE_ENABLE;
+      sprintf(sClock,"EXTERNAL-Bridge Port (%d)",source);
       break;
     default:
       printf("%s: ERROR: Invalid Clock Souce (%d)\n",__FUNCTION__,source);
@@ -5184,11 +5217,17 @@ tiSetClockSource(unsigned int source)
  * @ingroup Status
  * @brief Get the current clock source
  * @return Current Clock Source
+ *         -   0:  Onboard clock
+ *         -   1:  External clock (HFBR1 input)
+ *         -   5:  External clock (HFBR5 input)
+ *         -   9:  Bridge port clock (firmware defined)
  */
 int
 tiGetClockSource()
 {
   int rval=0;
+  unsigned int reg = 0;
+
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -5196,8 +5235,35 @@ tiGetClockSource()
     }
 
   TILOCK;
-  rval = vmeRead32(&TIp->clock) & 0x3;
+  reg = vmeRead32(&TIp->clock);
   TIUNLOCK;
+
+  if((reg & TI_CLOCK_BRIDGEMODE_MASK) == TI_CLOCK_BRIDGEMODE_ENABLE)
+    {
+      rval = TI_CLKSRC_BRIDGE;
+    }
+  else
+    {
+      switch(reg & TI_CLOCK_MASK)
+	{
+	case TI_CLOCK_INTERNAL:
+	  rval = TI_CLKSRC_INTERNAL;
+	  break;
+
+	case TI_CLOCK_HFBR1:
+	  rval = TI_CLKSRC_HFBR1;
+	  break;
+
+	case TI_CLOCK_HFBR5:
+	  rval = TI_CLKSRC_HFBR5;
+	  break;
+
+	default:
+	  printf("%s: ERROR: Unexpected clock source register (0x%08x)\n",
+		 __func__, reg);
+	  rval = ERROR;
+	}
+    }
 
   return rval;
 }

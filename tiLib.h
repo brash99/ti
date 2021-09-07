@@ -138,6 +138,8 @@ struct TI_A24RegStruct
 #define TI_READOUT_TS_POLL     3
 #define TI_READOUT_TSREV2_INT  4
 #define TI_READOUT_TSREV2_POLL 5
+#define TI_READOUT_BRIDGE_INT  6
+#define TI_READOUT_BRIDGE_POLL 7
 
 /* Supported firmware version */
 #define TI_SUPPORTED_FIRMWARE 0x111
@@ -570,9 +572,14 @@ struct TI_A24RegStruct
 #define TI_TRIGGER_HFBR5    10
 #define TI_TRIGGER_TRIG21   11
 
+/* Clock Sources, used by tiSetClockSource */
+#define TI_CLKSRC_INTERNAL 0
+#define TI_CLKSRC_HFBR1    1
+#define TI_CLKSRC_HFBR5    5
+#define TI_CLKSRC_BRIDGE   9
+
 /* Define default Interrupt vector and level */
 #define TI_INT_VEC      0xec
-/* #define TI_INT_VEC      0xc8 */
 #define TI_INT_LEVEL    5
 
 /* i2c data masks - 16bit data default */
@@ -594,6 +601,12 @@ struct TI_A24RegStruct
 #define TI_BLOCK_TRAILER_SYNCEVENT_FLAG    (1 << 21)
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
+
+/* Bridge-mode definitions - Fiber port is Defined as Port 5 in firmware */
+#define TI_SLAVE_FIBER_IN 5
+#define TI_SYNC_BRIDGE    TI_SYNC_HFBR5
+#define TI_TRIGGER_BRIDGE TI_TRIGGER_HFBR5
+#define TI_CLOCK_BRIDGE   TI_CLOCK_HFBR5
 
 /* tiInit initialization flag bits */
 #define TI_INIT_NO_INIT                 (1<<0)
