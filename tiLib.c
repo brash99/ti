@@ -70,6 +70,7 @@ unsigned long tiA24Offset=0;                            /* Difference in CPU A24
 unsigned int  tiA32Base  =0x08000000;                   /* Minimum VME A32 Address for use by TI */
 unsigned long tiA32Offset=0;                            /* Difference in CPU A32 Base and VME A32 Base */
 int tiMaster=1;                               /* Whether or not this TI is the Master */
+int tiBridge=0;                               /* Whether or not this TI is a bridge */
 int tiUseTsRev2=0;
 int tiCrateID=0x59;                           /* Crate ID */
 int tiBlockLevel=0;                           /* Current Block level for TI */
@@ -548,6 +549,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       printf("... Configure as TI Slave...\n");
       /* Slave Configuration: takes in triggers from the Master (supervisor) */
       tiMaster = 0;
+
+      /* Fiber Reset */
+      tiResetFiber();
+
       /* BUSY from Switch Slot B */
       if(tiNoVXS==1)
 	tiSetBusySource(0,1);
@@ -611,6 +616,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     case TI_READOUT_BRIDGE_POLL:
       printf("... Configure as TI Bridge...\n");
       /* Bridge Configuration: takes in triggers from HFBR1 from TI-Master or TS */
+      tiBridge = 1;
 
       /* Bridge is not a master.  It's a Slave that can add Slaves */
       tiMaster = 0;
@@ -618,6 +624,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
       /* Clear the Slave Mask */
       tiSlaveMask = 0;
+
+      /* Fiber Reset */
+      tiResetFiber();
 
       /* BUSY from Loopback and Switch Slot B */
       if(tiNoVXS==1)
@@ -1318,9 +1327,16 @@ tiStatus(int pflag)
 int
 tiSetSlavePort(int port)
 {
- if(TIp==NULL)
+  if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiBridge)
+    {
+      printf("%s: ERROR: TI Bridge Port is hardcoded to %d \n",
+	     __FUNCTION__, TI_SLAVE_FIBER_IN);
       return ERROR;
     }
 
@@ -5413,7 +5429,7 @@ tiResetSlaveConfig()
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -5449,7 +5465,7 @@ tiAddSlave(unsigned int fiber)
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -5502,7 +5518,7 @@ tiRemoveSlave(unsigned int fiber)
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -8045,7 +8061,7 @@ tiGetConnectedFiberMask()
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -8082,7 +8098,7 @@ tiGetTrigSrcEnabledFiberMask()
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;

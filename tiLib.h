@@ -768,6 +768,10 @@ unsigned int tiGetTriggerLinkStatus(int pflag);
 
 int  tiFillToEndBlock();
 int  tiResetMGT();
+
+int  tiResetMGTRx();
+int  tiResetFiber();
+
 int  tiSetTSInputDelay(int chan, int delay);
 int  tiGetTSInputDelay(int chan);
 int  tiPrintTSInputDelay();
