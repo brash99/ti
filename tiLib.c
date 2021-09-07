@@ -96,6 +96,8 @@ static int          tiFiberLatencyMeasurement = 0; /* Measured fiber latency */
 static int          tiVersion     = 0x0;     /* Firmware version */
 static int          tiSyncEventFlag = 0;     /* Sync Event/Block Flag */
 static int          tiSyncEventReceived = 0; /* Indicates reception of sync event */
+static int          tiBlockSyncFlag = 0;     /* Sync Event Flag in Trigger Block previous readout */
+
 static int          tiNReadoutEvents = 0;    /* Number of events to readout from crate modules */
 static int          tiTriggerMissed = 0;     /* Flag indicating that a trigger was missed, due to full fifo */
 static int          tiDoSyncResetRequest =0; /* Option to request a sync reset during readout ack */
@@ -3172,10 +3174,12 @@ tiReadTriggerBlock(volatile unsigned int *data)
 #ifndef VXWORKS
   word = LSWAP(word);
 #endif
-  if((iblktrl - iblkhead + 1) != (word & 0x3fffff))
+  tiBlockSyncFlag = (word & TI_BLOCK_TRAILER_SYNCEVENT_FLAG) ? 1 : 0;
+
+  if((iblktrl - iblkhead + 1) != (word & TI_BLOCK_TRAILER_WORD_COUNT_MASK))
     {
       logMsg("tiReadTriggerBlock: Number of words inconsistent (index count = %d, block trailer count = %d\n",
-	     (iblktrl - iblkhead + 1), word & 0x3fffff,3,4,5,6);
+	     (iblktrl - iblkhead + 1), word & TI_BLOCK_TRAILER_WORD_COUNT_MASK,3,4,5,6);
 
       if(tiFakeTriggerBank)
 	return tiGenerateTriggerBank(data);
@@ -3204,6 +3208,20 @@ tiReadTriggerBlock(volatile unsigned int *data)
 
   return rval;
 
+}
+
+/**
+ * @ingroup Readout
+ * @brief Return the value of the sync event flag from the previous call to
+ *        tiReadTriggerBlock
+ *
+ * @return tiBlockSyncFlag if successful, ERROR otherwise
+ *
+ */
+int
+tiGetBlockSyncFlag()
+{
+  return tiBlockSyncFlag;
 }
 
 /**

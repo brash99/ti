@@ -140,7 +140,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_TSREV2_POLL 5
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x101
+#define TI_SUPPORTED_FIRMWARE 0x103
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -587,6 +587,8 @@ struct TI_A24RegStruct
 #define TI_BLOCK_HEADER_SLOTS_MASK         0x001F0000
 #define TI_BLOCK_TRAILER_CRATEID_MASK      0x00FF0000
 #define TI_BLOCK_TRAILER_SLOTS_MASK        0x1F000000
+#define TI_BLOCK_TRAILER_WORD_COUNT_MASK   0x001FFFFF
+#define TI_BLOCK_TRAILER_SYNCEVENT_FLAG    (1 << 21)
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
 
@@ -639,6 +641,7 @@ int  tiReadBlock(volatile unsigned int *data, int nwrds, int rflag);
 int  tiFakeTriggerBankOnError(int enable);
 int  tiGenerateTriggerBank(volatile unsigned int *data);
 int  tiReadTriggerBlock(volatile unsigned int *data);
+int  tiGetBlockSyncFlag();
 int  tiCheckTriggerBlock(volatile unsigned int *data);
 int  tiDecodeTriggerTypes(volatile unsigned int *data, int data_len,
 			  int nevents, unsigned int *evtypes);
