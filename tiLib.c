@@ -2976,7 +2976,8 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 #ifndef VXWORKS
 	      val = LSWAP(val);
 #endif
-	      if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE
+	      if((val & ~TI_BLOCK_TRAILER_SYNCEVENT_FLAG) ==
+		 (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE
 			 | (tiSlotNumber<<22) | ii) )
 		{
 		  if((ii%2)!=0)
