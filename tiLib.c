@@ -629,13 +629,11 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tiResetFiber();
 
       /* BUSY from Loopback and Switch Slot B */
-      if(tiNoVXS==1)
-	tiSetBusySource(TI_BUSY_LOOPBACK,1);
-      else
-	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
+      if(tiNoVXS==0)
+	tiSetBusySource(TI_BUSY_SWB,1);
 
       /* Bridge Port Clock Source */
-      tiSetClockSource(TI_CLOCK_BRIDGE);
+      tiSetClockSource(TI_CLKSRC_BRIDGE);
       /* Bridge HFBR Sync Source */
       tiSetSyncSource(TI_SYNC_BRIDGE);
       /* Bridge HFBR Trigger Source */
@@ -989,7 +987,10 @@ tiStatus(int pflag)
     else
       printf(" Configured as a TI Master\n");
   else
-    printf(" Configured as a TI Slave\n");
+    if(tiBridge)
+      printf(" Configured as a TI Bridge\n");
+    else
+      printf(" Configured as a TI Slave\n");
 
   printf(" Readout Count: %d\n",tiIntCount);
   printf("     Ack Count: %d\n",tiAckCount);
@@ -1087,7 +1088,7 @@ tiStatus(int pflag)
 		 (ro->fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"YES":"   ");
 	}
       printf("\n");
-      if(tiMaster)
+      if(tiMaster || tiBridge)
 	{
 	  printf("  Trig Src Enabled   ");
 	  for(ifiber=0; ifiber<8; ifiber++)
@@ -1300,7 +1301,7 @@ tiStatus(int pflag)
   printf("\n");
   printf(" Input counter %d\n",ro->inputCounter);
 
-  if(tiMaster && (!tiUseTsRev2))
+  if((tiMaster && (!tiUseTsRev2)) || (tiBridge))
     tiSlaveStatus(pflag);
 
   printf("--------------------------------------------------------------------------------\n");
@@ -1497,7 +1498,7 @@ tiSlaveStatus(int pflag)
   TIBase = (unsigned long)TIp;
 
   printf("\n");
-  printf("TI-Master Port STATUS Summary\n");
+  printf("TI-Master/Bridge Port STATUS Summary\n");
   printf("--------------------------------------------------------------------------------\n");
 
   if(pflag>0)
@@ -8423,11 +8424,13 @@ tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg)
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
     case TI_READOUT_TSREV2_POLL:
+    case TI_READOUT_BRIDGE_POLL:
       break;
 
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
     case TI_READOUT_TSREV2_INT:
+    case TI_READOUT_BRIDGE_INT:
 #ifdef VXWORKS
       intConnect(INUM_TO_IVEC(tiIntVec),tiInt,arg);
 #else
@@ -8501,7 +8504,7 @@ tiIntDisconnect()
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
     case TI_READOUT_TSREV2_INT:
-
+    case TI_READOUT_BRIDGE_INT:
 #ifdef VXWORKS
       /* Disconnect any current interrupts */
       sysIntDisable(tiIntLevel);
@@ -8519,6 +8522,7 @@ tiIntDisconnect()
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
     case TI_READOUT_TSREV2_POLL:
+    case TI_READOUT_BRIDGE_POLL:
 #ifndef VXWORKS
       if(tipollthread)
 	{
@@ -8660,6 +8664,7 @@ tiIntEnable(int iflag)
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
     case TI_READOUT_TSREV2_POLL:
+    case TI_READOUT_BRIDGE_POLL:
 #ifndef VXWORKS
       tiStartPollingThread();
 #endif
@@ -8668,6 +8673,7 @@ tiIntEnable(int iflag)
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
     case TI_READOUT_TSREV2_INT:
+    case TI_READOUT_BRIDGE_INT:
 #ifdef VXWORKS
       lock_key = intLock();
       sysIntEnable(tiIntLevel);
