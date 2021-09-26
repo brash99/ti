@@ -142,7 +142,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_BRIDGE_POLL 7
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x111
+#define TI_SUPPORTED_FIRMWARE 0x112
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
