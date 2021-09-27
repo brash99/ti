@@ -70,6 +70,7 @@ unsigned long tiA24Offset=0;                            /* Difference in CPU A24
 unsigned int  tiA32Base  =0x08000000;                   /* Minimum VME A32 Address for use by TI */
 unsigned long tiA32Offset=0;                            /* Difference in CPU A32 Base and VME A32 Base */
 int tiMaster=1;                               /* Whether or not this TI is the Master */
+int tiBridge=0;                               /* Whether or not this TI is a bridge */
 int tiUseTsRev2=0;
 int tiCrateID=0x59;                           /* Crate ID */
 int tiBlockLevel=0;                           /* Current Block level for TI */
@@ -415,10 +416,12 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       tiFirmwareType   = (firmwareInfo & TI_FIRMWARE_TYPE_MASK)>>12;
 
       tiVersion = firmwareInfo&0xFFF;
-      printf("  ID: 0x%x \tFirmware (type - revision): 0x%X - 0x%03X (prodID = %d)\n",
-	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16, tiFirmwareType,
-	     tiVersion,
-	     prodID);
+      printf("  ID: 0x%x \tFirmware Type %X Version %X.%X (tip%x.svf)\n",
+	     (firmwareInfo&TI_FIRMWARE_ID_MASK)>>16,
+	     tiFirmwareType,
+	     (tiVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+	     tiVersion & TI_FIRMWARE_MINOR_VERSION_MASK,
+	     tiVersion);
 
       if(tiFirmwareType != supportedType)
 	{
@@ -436,20 +439,36 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	    }
 	}
 
-      if(tiVersion < supportedVersion)
+      unsigned int
+	major = (tiVersion & TI_FIRMWARE_MAJOR_VERSION_MASK) >> 4,
+	minor = tiVersion & TI_FIRMWARE_MINOR_VERSION_MASK;
+
+      /* Check Major Version */
+      if(major != ((supportedVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>> 4))
 	{
 	  if(noFirmwareCheck)
 	    {
-	      printf("%s: WARN: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x  (IGNORED)\n",
-		     __FUNCTION__,tiVersion,supportedVersion);
+	      printf("%s: WARNING: Firmware major version (%x) not supported by this driver.\n  Supported major version = %x (check library for update: tip%x.svf)\n",
+		     __FUNCTION__,major,
+		     (supportedVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+		     supportedVersion);
 	    }
 	  else
 	    {
-	      printf("%s: ERROR: Firmware version (0x%x) not supported by this driver.\n  Supported version = 0x%x\n",
-		     __FUNCTION__,tiVersion,supportedVersion);
+	      printf("%s: ERROR: Firmware major version (%x) not supported by this driver.\n  Supported major version = %x (check library for update: tip%x.svf)\n",
+		     __FUNCTION__,major,
+		     (supportedVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+		     supportedVersion);
 	      TIp=NULL;
 	      return ERROR;
 	    }
+	}
+      else if(minor < (supportedVersion & TI_FIRMWARE_MINOR_VERSION_MASK))
+	{
+	  /* Check Minor Version (warning only) */
+	  printf("%s: WARNING: Firmware minor version (0x%x) is less than that supported by this driver.\n  Supported minor version = 0x%x (check library for update: tip%x.svf)\n",
+		 __FUNCTION__, minor, supportedVersion & TI_FIRMWARE_MINOR_VERSION_MASK,
+		 supportedVersion);
 	}
     }
   else
@@ -520,7 +539,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       else
 	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
       /* Onboard Clock Source */
-      tiSetClockSource(TI_CLOCK_INTERNAL);
+      tiSetClockSource(TI_CLKSRC_INTERNAL);
       /* Loopback Sync Source */
       tiSetSyncSource(TI_SYNC_LOOPBACK);
       break;
@@ -530,6 +549,10 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       printf("... Configure as TI Slave...\n");
       /* Slave Configuration: takes in triggers from the Master (supervisor) */
       tiMaster = 0;
+
+      /* Fiber Reset */
+      tiResetFiber();
+
       /* BUSY from Switch Slot B */
       if(tiNoVXS==1)
 	tiSetBusySource(0,1);
@@ -540,7 +563,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  /* Enable HFBR#1 */
 	  tiEnableFiber(1);
 	  /* HFBR#1 Clock Source */
-	  tiSetClockSource(1);
+	  tiSetClockSource(TI_CLKSRC_HFBR1);
 	  /* HFBR#1 Sync Source */
 	  tiSetSyncSource(TI_SYNC_HFBR1);
 	  /* HFBR#1 Trigger Source */
@@ -551,7 +574,7 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	  /* Enable HFBR#5 */
 	  tiEnableFiber(5);
 	  /* HFBR#5 Clock Source */
-	  tiSetClockSource(5);
+	  tiSetClockSource(TI_CLKSRC_HFBR5);
 	  /* HFBR#5 Sync Source */
 	  tiSetSyncSource(TI_SYNC_HFBR5);
 	  /* HFBR#5 Trigger Source */
@@ -580,12 +603,41 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 	tiSetBusySource(TI_BUSY_LOOPBACK | TI_BUSY_SWB,1);
 
       /* Onboard Clock Source */
-      tiSetClockSource(TI_CLOCK_INTERNAL);
+      tiSetClockSource(TI_CLKSRC_INTERNAL);
 
       /* Loopback Sync Source */
       tiSetSyncSource(TI_SYNC_LOOPBACK);
 
       tiUseBroadcastBufferLevel(0);
+
+      break;
+
+    case TI_READOUT_BRIDGE_INT:
+    case TI_READOUT_BRIDGE_POLL:
+      printf("... Configure as TI Bridge...\n");
+      /* Bridge Configuration: takes in triggers from HFBR1 from TI-Master or TS */
+      tiBridge = 1;
+
+      /* Bridge is not a master.  It's a Slave that can add Slaves */
+      tiMaster = 0;
+      tiSlaveFiberIn = TI_SLAVE_FIBER_IN;
+
+      /* Clear the Slave Mask */
+      tiSlaveMask = 0;
+
+      /* Fiber Reset */
+      tiResetFiber();
+
+      /* BUSY from Loopback and Switch Slot B */
+      if(tiNoVXS==0)
+	tiSetBusySource(TI_BUSY_SWB,1);
+
+      /* Bridge Port Clock Source */
+      tiSetClockSource(TI_CLKSRC_BRIDGE);
+      /* Bridge HFBR Sync Source */
+      tiSetSyncSource(TI_SYNC_BRIDGE);
+      /* Bridge HFBR Trigger Source */
+      tiSetTriggerSource(TI_TRIGGER_BRIDGE);
 
       break;
 
@@ -877,6 +929,7 @@ tiStatus(int pflag)
   ro->syncEventCtrl= vmeRead32(&TIp->syncEventCtrl);
   ro->blocklimit   = vmeRead32(&TIp->blocklimit);
   ro->fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
+  ro->rocReadout   = vmeRead32(&TIp->rocReadout);
 
   ro->GTPStatusA   = vmeRead32(&TIp->GTPStatusA);
   ro->GTPStatusB   = vmeRead32(&TIp->GTPStatusB);
@@ -907,7 +960,9 @@ tiStatus(int pflag)
 #endif
   printf("--------------------------------------------------------------------------------\n");
 
-  printf(" Firmware revision: 0x%x\n",
+  printf(" Firmware revision: %x.%x (tip%x.svf)\n",
+	 (tiVersion & TI_FIRMWARE_MAJOR_VERSION_MASK)>>4,
+	 tiVersion & TI_FIRMWARE_MINOR_VERSION_MASK,
 	 tiVersion);
 
   printf(" A32 Data buffer ");
@@ -933,7 +988,10 @@ tiStatus(int pflag)
     else
       printf(" Configured as a TI Master\n");
   else
-    printf(" Configured as a TI Slave\n");
+    if(tiBridge)
+      printf(" Configured as a TI Bridge\n");
+    else
+      printf(" Configured as a TI Slave\n");
 
   printf(" Readout Count: %d\n",tiIntCount);
   printf("     Ack Count: %d\n",tiAckCount);
@@ -962,14 +1020,17 @@ tiStatus(int pflag)
 
       printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->output) - TIBase, ro->output);
       printf("  fiberSyncDelay (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro->fiberSyncDelay);
-      printf("  nblocks        (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->nblocks) - TIBase, ro->nblocks);
+      printf("  rocReadout     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->rocReadout) - TIBase, ro->rocReadout);
 
-      printf("  GTPStatusA     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro->GTPStatusA);
-      printf("  GTPStatusB     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro->GTPStatusB);
+      printf("  nblocks        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->nblocks) - TIBase, ro->nblocks);
 
-      printf("  livetime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->livetime) - TIBase, ro->livetime);
-      printf("  busytime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->busytime) - TIBase, ro->busytime);
-      printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro->GTPtriggerBufferLength);
+      printf("  GTPStatusA     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro->GTPStatusA);
+      printf("  GTPStatusB     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro->GTPStatusB);
+
+      printf("  livetime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->livetime) - TIBase, ro->livetime);
+      printf("  busytime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->busytime) - TIBase, ro->busytime);
+      printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro->GTPtriggerBufferLength);
+      printf("  rocEnable      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->rocEnable) - TIBase, ro->rocEnable);
       printf("\n");
     }
   printf("\n");
@@ -1018,6 +1079,14 @@ tiStatus(int pflag)
 	}
     }
 
+  printf(" Sub ROCs enable mask  : 0x%02x\n",
+	 ro->rocEnable & TI_ROCENABLE_MASK);
+
+  printf(" Sub ROCs blocks ready : 0x%02x   0x%02x   0x%02x  0x%02x\n",
+	 ro->rocReadout & TI_ROCREADOUT_VME_NBLOCKS_READY_MASK,
+	 (ro->rocReadout & TI_ROCREADOUT_ROC2_NBLOCKS_READY_MASK) >> 8,
+	 (ro->rocReadout & TI_ROCREADOUT_ROC3_NBLOCKS_READY_MASK) >> 16,
+	 (ro->rocReadout & TI_ROCREADOUT_ROC4_NBLOCKS_READY_MASK) >> 24);
   printf("\n");
 
   if(!tiUseTsRev2)
@@ -1031,7 +1100,7 @@ tiStatus(int pflag)
 		 (ro->fiber & TI_FIBER_CONNECTED_TI(ifiber+1))?"YES":"   ");
 	}
       printf("\n");
-      if(tiMaster)
+      if(tiMaster || tiBridge)
 	{
 	  printf("  Trig Src Enabled   ");
 	  for(ifiber=0; ifiber<8; ifiber++)
@@ -1244,7 +1313,7 @@ tiStatus(int pflag)
   printf("\n");
   printf(" Input counter %d\n",ro->inputCounter);
 
-  if(tiMaster && (!tiUseTsRev2))
+  if((tiMaster && (!tiUseTsRev2)) || (tiBridge))
     tiSlaveStatus(pflag);
 
   printf("--------------------------------------------------------------------------------\n");
@@ -1271,9 +1340,16 @@ tiStatus(int pflag)
 int
 tiSetSlavePort(int port)
 {
- if(TIp==NULL)
+  if(TIp==NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(tiBridge)
+    {
+      printf("%s: ERROR: TI Bridge Port is hardcoded to %d \n",
+	     __FUNCTION__, TI_SLAVE_FIBER_IN);
       return ERROR;
     }
 
@@ -1313,7 +1389,7 @@ tiSetSlavePort(int port)
       /* Enable HFBR#1 */
       tiEnableFiber(1);
       /* HFBR#1 Clock Source */
-      tiSetClockSource(1);
+      tiSetClockSource(TI_CLKSRC_HFBR1);
       /* HFBR#1 Sync Source */
       tiSetSyncSource(TI_SYNC_HFBR1);
       /* HFBR#1 Trigger Source */
@@ -1324,7 +1400,7 @@ tiSetSlavePort(int port)
       /* Enable HFBR#5 */
       tiEnableFiber(5);
       /* HFBR#5 Clock Source */
-      tiSetClockSource(5);
+      tiSetClockSource(TI_CLKSRC_HFBR5);
       /* HFBR#5 Sync Source */
       tiSetSyncSource(TI_SYNC_HFBR5);
       /* HFBR#5 Trigger Source */
@@ -1434,7 +1510,7 @@ tiSlaveStatus(int pflag)
   TIBase = (unsigned long)TIp;
 
   printf("\n");
-  printf("TI-Master Port STATUS Summary\n");
+  printf("TI-Master/Bridge Port STATUS Summary\n");
   printf("--------------------------------------------------------------------------------\n");
 
   if(pflag>0)
@@ -1665,9 +1741,10 @@ tiGetSerialNumber(char **rSN)
       strcpy((char *)rSN,retSN);
     }
 
-
+#ifdef DEBUGSN
   printf("%s: TI Serial Number is %s (0x%08x)\n",
 	 __FUNCTION__,retSN,rval);
+#endif
 
   return rval;
 
@@ -2912,7 +2989,8 @@ tiReadBlock(volatile unsigned int *data, int nwrds, int rflag)
 #ifndef VXWORKS
 	      val = LSWAP(val);
 #endif
-	      if(val == (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE
+	      if((val & ~TI_BLOCK_TRAILER_SYNCEVENT_FLAG) ==
+		 (TI_DATA_TYPE_DEFINE_MASK | TI_BLOCK_TRAILER_WORD_TYPE
 			 | (tiSlotNumber<<22) | ii) )
 		{
 		  if((ii%2)!=0)
@@ -5064,6 +5142,7 @@ tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigne
  *         -   0:  Onboard clock
  *         -   1:  External clock (HFBR1 input)
  *         -   5:  External clock (HFBR5 input)
+ *         -   9:  Bridge port clock (firmware defined)
  *
  * @return OK if successful, otherwise ERROR
  */
@@ -5083,17 +5162,22 @@ tiSetClockSource(unsigned int source)
 
   switch(source)
     {
-    case 0: /* ONBOARD */
+    case TI_CLKSRC_INTERNAL:
       clkset = TI_CLOCK_INTERNAL;
       sprintf(sClock,"ONBOARD (%d)",source);
       break;
-    case 1: /* EXTERNAL (HFBR1) */
+    case TI_CLKSRC_HFBR1:
       clkset = TI_CLOCK_HFBR1;
       sprintf(sClock,"EXTERNAL-HFBR1 (%d)",source);
       break;
-    case 5: /* EXTERNAL (HFBR5) */
+    case TI_CLKSRC_HFBR5:
       clkset = TI_CLOCK_HFBR5;
       sprintf(sClock,"EXTERNAL-HFBR5 (%d)",source);
+      break;
+    case TI_CLKSRC_BRIDGE:
+      clkset = TI_CLOCK_BRIDGE;
+      clkset |= TI_CLOCK_BRIDGEMODE_ENABLE;
+      sprintf(sClock,"EXTERNAL-Bridge Port (%d)",source);
       break;
     default:
       printf("%s: ERROR: Invalid Clock Souce (%d)\n",__FUNCTION__,source);
@@ -5163,11 +5247,17 @@ tiSetClockSource(unsigned int source)
  * @ingroup Status
  * @brief Get the current clock source
  * @return Current Clock Source
+ *         -   0:  Onboard clock
+ *         -   1:  External clock (HFBR1 input)
+ *         -   5:  External clock (HFBR5 input)
+ *         -   9:  Bridge port clock (firmware defined)
  */
 int
 tiGetClockSource()
 {
   int rval=0;
+  unsigned int reg = 0;
+
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -5175,8 +5265,35 @@ tiGetClockSource()
     }
 
   TILOCK;
-  rval = vmeRead32(&TIp->clock) & 0x3;
+  reg = vmeRead32(&TIp->clock);
   TIUNLOCK;
+
+  if((reg & TI_CLOCK_BRIDGEMODE_MASK) == TI_CLOCK_BRIDGEMODE_ENABLE)
+    {
+      rval = TI_CLKSRC_BRIDGE;
+    }
+  else
+    {
+      switch(reg & TI_CLOCK_MASK)
+	{
+	case TI_CLOCK_INTERNAL:
+	  rval = TI_CLKSRC_INTERNAL;
+	  break;
+
+	case TI_CLOCK_HFBR1:
+	  rval = TI_CLKSRC_HFBR1;
+	  break;
+
+	case TI_CLOCK_HFBR5:
+	  rval = TI_CLKSRC_HFBR5;
+	  break;
+
+	default:
+	  printf("%s: ERROR: Unexpected clock source register (0x%08x)\n",
+		 __func__, reg);
+	  rval = ERROR;
+	}
+    }
 
   return rval;
 }
@@ -5326,7 +5443,7 @@ tiResetSlaveConfig()
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -5362,7 +5479,7 @@ tiAddSlave(unsigned int fiber)
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -5415,7 +5532,7 @@ tiRemoveSlave(unsigned int fiber)
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -7958,7 +8075,7 @@ tiGetConnectedFiberMask()
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -7995,7 +8112,7 @@ tiGetTrigSrcEnabledFiberMask()
       return ERROR;
     }
 
-  if(!tiMaster)
+  if((!tiMaster) & (!tiBridge))
     {
       printf("%s: ERROR: TI is not the TI Master.\n",__FUNCTION__);
       return ERROR;
@@ -8319,11 +8436,13 @@ tiIntConnect(unsigned int vector, VOIDFUNCPTR routine, unsigned int arg)
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
     case TI_READOUT_TSREV2_POLL:
+    case TI_READOUT_BRIDGE_POLL:
       break;
 
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
     case TI_READOUT_TSREV2_INT:
+    case TI_READOUT_BRIDGE_INT:
 #ifdef VXWORKS
       intConnect(INUM_TO_IVEC(tiIntVec),tiInt,arg);
 #else
@@ -8397,7 +8516,7 @@ tiIntDisconnect()
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
     case TI_READOUT_TSREV2_INT:
-
+    case TI_READOUT_BRIDGE_INT:
 #ifdef VXWORKS
       /* Disconnect any current interrupts */
       sysIntDisable(tiIntLevel);
@@ -8415,6 +8534,7 @@ tiIntDisconnect()
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
     case TI_READOUT_TSREV2_POLL:
+    case TI_READOUT_BRIDGE_POLL:
 #ifndef VXWORKS
       if(tipollthread)
 	{
@@ -8556,6 +8676,7 @@ tiIntEnable(int iflag)
     case TI_READOUT_TS_POLL:
     case TI_READOUT_EXT_POLL:
     case TI_READOUT_TSREV2_POLL:
+    case TI_READOUT_BRIDGE_POLL:
 #ifndef VXWORKS
       tiStartPollingThread();
 #endif
@@ -8564,6 +8685,7 @@ tiIntEnable(int iflag)
     case TI_READOUT_TS_INT:
     case TI_READOUT_EXT_INT:
     case TI_READOUT_TSREV2_INT:
+    case TI_READOUT_BRIDGE_INT:
 #ifdef VXWORKS
       lock_key = intLock();
       sysIntEnable(tiIntLevel);
@@ -9409,4 +9531,284 @@ tiWaitForIODelayReset(int nwait)
     }
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ *
+ * @brief Return bitmask showing readback of SC1 dipswitches
+ *
+ * @returns SC1 bitmask if successful, otherwise ERROR
+ */
+int
+tiGetSC1()
+{
+  int rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",
+	     __func__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->clock) & TI_CLOCK_SC1_MASK) >> 24;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Status
+ *
+ * @brief Print clock configuration to standard out
+ *
+ * @returns OK if successful, otherwise ERROR
+ */
+int
+tiPrintClockConfiguration()
+{
+  int sc1 = tiGetSC1();
+
+  if(sc1 < 0)
+    return ERROR;
+
+  int bit2=0, bit3=0, bit4=0, bit5=0;
+  bit2 = (sc1 & 0x1) ? 0 : 1; /* These seem flipped in davme2 */
+  bit3 = (sc1 & 0x2) ? 1 : 0;
+  bit4 = (sc1 & 0x4) ? 0 : 1;
+  bit5 = (sc1 & 0x8) ? 1 : 0;
+
+  /* Decode the bits (TI Manual section 5.2.1) */
+  float clock_X, clock_Y, clock_A, clock_B;
+  if(bit3 == 1)
+    clock_Y = 125.;
+  else
+    clock_Y = 31.25;
+
+  if(bit5 == 1)
+    clock_X = 125.;
+  else
+    clock_X = 250.;
+
+  if(bit2 == 1)
+    clock_B = clock_Y;
+  else
+    clock_B = clock_X;
+
+  if(bit4 == 1)
+    clock_A = clock_Y;
+  else
+    clock_A = clock_X;
+
+  /*
+    TI Clock Configuration
+
+    SC1 status               Clock Selection
+    2  3  4  5     A: Slots 3 - 10     B: Slots 13 - 20
+    ---------------------------------------------------
+    1  1  1  1             250 Mhz            31.25 Mhz
+
+   */
+
+  printf("\n");
+  printf("TI Clock Configuration\n");
+  printf("\n");
+  printf("SC1 status               Clock Selection\n");
+  printf("2  3  4  5     A: Slots 3 - 10     B: Slots 13 - 20\n");
+  printf("---------------------------------------------------\n");
+
+  printf("%d  %d  %d  %d %x", bit2, bit3, bit4, bit5, sc1);
+  printf("        ");
+
+  printf("%3.2f MHz", clock_A);
+  printf("           ");
+
+  printf("%3.2f MHz", clock_B);
+  printf("\n");
+
+  printf("\n");
+  printf("\n");
+
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Print some trigger status information to standard out
+ *
+ * @param pflag if pflag>0, print out raw registers
+ *
+ */
+
+void
+tiTriggerStatus(int pflag)
+{
+  struct TI_A24RegStruct *ro;
+  int iinp, ifiber;
+  unsigned long TIBase;
+  unsigned long long int l1a_count=0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  ro = (struct TI_A24RegStruct *) malloc(sizeof(struct TI_A24RegStruct));
+  if(ro == NULL)
+    {
+      printf("%s: ERROR allocating memory for TI register structure\n",
+	     __FUNCTION__);
+      return;
+    }
+
+#ifndef READTI
+#define READTI(_reg)				\
+  ro->_reg = vmeRead32(&TIp->_reg);
+#endif
+
+  tiLatchTimers();
+  tiGetCurrentBlockLevel();
+  TILOCK;
+  vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
+  READTI(blockBuffer);
+  READTI(rocReadout);
+  READTI(readoutAck);
+
+  READTI(nblocks);
+  READTI(mgtResetStatus);
+
+  READTI(rocEnable);
+  READTI(rxAckStatus);
+  READTI(clockStatus);
+  TIUNLOCK;
+
+#ifndef PREG
+#define PREG(_off, _reg)						\
+      printf("  %14.18s (0x%04lx) = 0x%08x%s",				\
+	     #_reg, (unsigned long)&ro->_reg - (unsigned long)ro, ro->_reg, \
+	     #_off);
+#endif
+
+  printf("\n");
+  printf("--------------------------------------------------------------------------------\n");
+  printf("  *** Trigger Status *** \n");
+
+  if(pflag)
+    {
+      printf("\n");
+      printf(" Registers (offset):\n");
+      PREG(\t,blockBuffer);
+      PREG(\n,rocReadout);
+
+      PREG(\t,readoutAck);
+      PREG(\n,nblocks);
+
+      PREG(\t,mgtResetStatus);
+      PREG(\n,rocEnable);
+
+      PREG(\t,rxAckStatus);
+      PREG(\n,clockStatus);
+
+      printf("\n");
+    }
+
+  printf("\n");
+  printf(" Sub ROCs enable mask  : 0x%02x\n",
+	 ro->rocEnable & TI_ROCENABLE_MASK);
+
+  // rocReadout   mgtResetstatus
+  printf(" ------------- rocReadout ------------ | ------------ mgtResetStatus ----------|\n");
+  printf("     ROC4      ROC3      ROC2       VME       StatusEnables        Trig To Send\n");
+  printf("---------|---------|---------|---------|-------------------|-------------------|\n");
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_ROC4_NBLOCKS_READY_MASK) >> 24);
+
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_ROC3_NBLOCKS_READY_MASK) >> 16);
+
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_ROC2_NBLOCKS_READY_MASK) >> 8);
+
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_VME_NBLOCKS_READY_MASK));
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->mgtResetStatus & TI_MGTRESETSTATUS_ENABLES_MASK)>>24);
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->mgtResetStatus & TI_MGTRESETSTATUS_TX_TRIG_MASK)>>24);
+
+  printf("\n\n");
+
+  // readoutAck   rxAckstatus
+  printf(" -------- readoutAck ------- |         | ------------ rxAckStatus ------------ |\n");
+  printf("       TX    RX VTP  RX Local                  RX   RO Acks  DataBlks  Ack+BUSY\n");
+  printf("---------|---------|---------|         |---------|---------|---------|---------|\n");
+  printf("%9d ",
+	 (ro->readoutAck & TI_READOUTACK_SENT_MASK)>>16);
+
+  printf("%9d ",
+	 (ro->readoutAck & TI_READOUTACK_VTP_MASK)>>8);
+
+  printf("%9d ",
+	 (ro->readoutAck & TI_READOUTACK_LOCAL_MASK));
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_TRIG_ACK_MASK)>>24);
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_RO_ACK_MASK)>>16);
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_DATABLOCKS_MASK)>>8);
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_BUSY_ACK_MASK));
+
+  printf("\n\n");
+
+  // clockStatus
+  printf(" -- clockStatus -- |         | ------------ blockBuffer ------------ |\n");
+  printf("                                         Evts for    Dumped SyncEvent\n");
+  printf(" Clock250  ClockAux              BReady FullBlock   on FULL  Received\n");
+  printf("---------|---------|         |---------|---------|---------|---------|\n");
+
+  printf("%9d ",
+	 (ro->clockStatus & TI_CLOCKSTATUS_250_MASK)>>16);
+
+  printf("%9d ",
+	 (ro->clockStatus & TI_CLOCKSTATUS_AUX_MASK));
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_BLOCKS_READY_MASK) >> 8);
+
+  printf("%9d ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK) >> 16);
+
+  printf("%9s ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_TRIGGER_MISSED) ? "YES" : "no");
+
+  printf("%9s ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_SYNCEVENT) ? "YES" : "no");
+
+  printf("\n\n");
+
+
+
+  printf("--------------------------------------------------------------------------------\n");
+  printf("\n\n");
+
+  if(ro)
+    free(ro);
+
 }

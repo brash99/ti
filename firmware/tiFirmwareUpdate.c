@@ -153,18 +153,8 @@ main(int argc, char *argv[])
 	  printf("\n Board Serial Number from PROM usercode is: 0x%08x (%d) \n", BoardSerialNumber,
 		 BoardSerialNumber&0xffff);
 	}
+      printf("\n");
 
-      firmwareInfo = tiGetFirmwareVersion();
-      if(firmwareInfo>0)
-	{
-	  printf("\n  User ID: 0x%x \tFirmware (version - revision): 0x%X - 0x%03X\n",
-		 (firmwareInfo&0xFFFF0000)>>16, (firmwareInfo&0xF000)>>12, firmwareInfo&0xFFF);
-	  printf("\n");
-	}
-      else
-	{
-	  printf("  Error reading Firmware Version\n");
-	}
     }
   else
     {
