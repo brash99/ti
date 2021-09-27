@@ -64,6 +64,8 @@ main(int argc, char *argv[])
 
   tiStatus(1);
 
+  tiTriggerStatus(1);
+
 CLOSE:
   vmeBusUnlock();
 

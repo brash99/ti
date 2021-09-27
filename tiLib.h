@@ -71,7 +71,9 @@ struct TI_A24RegStruct
   /** 0x00048 */          unsigned int blank1;
   /** 0x0004C */ volatile unsigned int output;
   /** 0x00050 */ volatile unsigned int fiberSyncDelay;
-  /** 0x00054 */          unsigned int blank2[(0x64-0x54)/4];
+  /** 0x00054 */ volatile unsigned int rocReadout;
+  /** 0x00058 */ volatile unsigned int readoutAck;
+  /** 0x0005C */          unsigned int blank2[(0x64-0x5C)/4];
   /** 0x00064 */ volatile unsigned int inputPrescale;
   /** 0x00068 */          unsigned int blank3[(0x74-0x68)/4];
   /** 0x00074 */ volatile unsigned int pulserEvType;
@@ -98,14 +100,16 @@ struct TI_A24RegStruct
   /** 0x000D4 */ volatile unsigned int syncEventCtrl;
   /** 0x000D8 */ volatile unsigned int eventNumber_hi;
   /** 0x000DC */ volatile unsigned int eventNumber_lo;
-  /** 0x000E0 */          unsigned int blank4[(0xEC-0xE0)/4];
+  /** 0x000E0 */ volatile unsigned int clockStatus;
+  /** 0x000E4 */ volatile unsigned int mgtResetStatus;
+  /** 0x000E8 */ volatile unsigned int rxAckStatus;
   /** 0x000EC */ volatile unsigned int rocEnable;
   /** 0x000F0 */          unsigned int blank5[(0xFC-0xF0)/4];
   /** 0x000FC */ volatile unsigned int blocklimit;
   /** 0x00100 */ volatile unsigned int reset;
   /** 0x00104 */ volatile unsigned int fpDelay[2];
   /** 0x0010C */          unsigned int blank6[(0x110-0x10C)/4];
-  /** 0x00110 */          unsigned int busy_scaler1[7];
+  /** 0x00110 */ volatile unsigned int busy_scaler1[7];
   /** 0x0012C */          unsigned int blank7[(0x138-0x12C)/4];
   /** 0x00138 */ volatile unsigned int triggerRuleMin;
   /** 0x0013C */          unsigned int blank8;
@@ -142,7 +146,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_BRIDGE_POLL 7
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x112
+#define TI_SUPPORTED_FIRMWARE 0x113
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -383,6 +387,17 @@ struct TI_A24RegStruct
 #define TI_FIBERSYNCDELAY_LOOPBACK_SYNCDELAY_MASK 0x00FF0000
 #define TI_FIBERSYNCDELAY_HFBR5_SYNCDELAY_MASK    0xFF000000
 
+/* 0x54 rocReadout bits and masks */
+#define TI_ROCREADOUT_VME_NBLOCKS_READY_MASK  0x000000FF
+#define TI_ROCREADOUT_ROC2_NBLOCKS_READY_MASK 0x0000FF00
+#define TI_ROCREADOUT_ROC3_NBLOCKS_READY_MASK 0x00FF0000
+#define TI_ROCREADOUT_ROC4_NBLOCKS_READY_MASK 0xFF000000
+
+/* 0x58 readoutAck bits and masks */
+#define TI_READOUTACK_SENT_MASK  0xFFFF0000
+#define TI_READOUTACK_VTP_MASK   0x0000FF00
+#define TI_READOUTACK_LOCAL_MASK 0x000000FF
+
 /* 0x74 inputPrescale bits and masks */
 #define TI_INPUTPRESCALE_FP1_MASK   0x0000000F
 #define TI_INPUTPRESCALE_FP2_MASK   0x000000F0
@@ -456,6 +471,20 @@ struct TI_A24RegStruct
 /* 0x9C runningMode settings */
 #define TI_RUNNINGMODE_ENABLE          0x71
 #define TI_RUNNINGMODE_DISABLE         0x0
+
+/* 0xE0 clockStatus bits and masks */
+#define TI_CLOCKSTATUS_250_MASK  0xFFFF0000
+#define TI_CLOCKSTATUS_AUX_MASK  0x0000FFFF
+
+/* 0xE4 mgtResetStatus bits and masks */
+#define TI_MGTRESETSTATUS_ENABLES_MASK 0xFF000000
+#define TI_MGTRESETSTATUS_TX_TRIG_MASK 0x00FF0000
+
+/* 0xE8 rxAckStatus bits and masks */
+#define TI_RXACKSTATUS_TRIG_ACK_MASK   0xFF000000
+#define TI_RXACKSTATUS_RO_ACK_MASK     0x00FF0000
+#define TI_RXACKSTATUS_DATABLOCKS_MASK 0x0000FF00
+#define TI_RXACKSTATUS_BUSY_ACK_MASK   0x000000FF
 
 /* 0xA0 fiberLatencyMeasurement bits and masks */
 #define TI_FIBERLATENCYMEASUREMENT_CARRYCHAIN_MASK 0x0000FFFF
@@ -819,5 +848,6 @@ void tiUnload(int pflag);
 int  tiWaitForIODelayReset(int nwait);
 int  tiGetSC1();
 int  tiPrintClockConfiguration();
+void tiTriggerStatus(int pflag);
 
 #endif /* TILIB_H */
