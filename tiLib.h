@@ -478,7 +478,7 @@ struct TI_A24RegStruct
 
 /* 0xE4 mgtResetStatus bits and masks */
 #define TI_MGTRESETSTATUS_ENABLES_MASK 0xFF000000
-#define TI_MGTRESETSTATUS_RX_TRIG_MASK 0x00FF0000
+#define TI_MGTRESETSTATUS_TX_TRIG_MASK 0x00FF0000
 
 /* 0xE8 rxAckStatus bits and masks */
 #define TI_RXACKSTATUS_TRIG_ACK_MASK   0xFF000000
@@ -848,5 +848,6 @@ void tiUnload(int pflag);
 int  tiWaitForIODelayReset(int nwait);
 int  tiGetSC1();
 int  tiPrintClockConfiguration();
+void tiTriggerStatus(int pflag);
 
 #endif /* TILIB_H */

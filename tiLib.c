@@ -9632,3 +9632,183 @@ tiPrintClockConfiguration()
 
   return OK;
 }
+
+/**
+ * @ingroup Status
+ * @brief Print some trigger status information to standard out
+ *
+ * @param pflag if pflag>0, print out raw registers
+ *
+ */
+
+void
+tiTriggerStatus(int pflag)
+{
+  struct TI_A24RegStruct *ro;
+  int iinp, ifiber;
+  unsigned long TIBase;
+  unsigned long long int l1a_count=0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return;
+    }
+
+  ro = (struct TI_A24RegStruct *) malloc(sizeof(struct TI_A24RegStruct));
+  if(ro == NULL)
+    {
+      printf("%s: ERROR allocating memory for TI register structure\n",
+	     __FUNCTION__);
+      return;
+    }
+
+#ifndef READTI
+#define READTI(_reg)				\
+  ro->_reg = vmeRead32(&TIp->_reg);
+#endif
+
+  tiLatchTimers();
+  tiGetCurrentBlockLevel();
+  TILOCK;
+  vmeWrite32(&TIp->reset,TI_RESET_SCALERS_LATCH);
+  READTI(blockBuffer);
+  READTI(rocReadout);
+  READTI(readoutAck);
+
+  READTI(nblocks);
+  READTI(mgtResetStatus);
+
+  READTI(rocEnable);
+  READTI(rxAckStatus);
+  READTI(clockStatus);
+  TIUNLOCK;
+
+#ifndef PREG
+#define PREG(_off, _reg)						\
+      printf("  %14.18s (0x%04lx) = 0x%08x%s",				\
+	     #_reg, (unsigned long)&ro->_reg - (unsigned long)ro, ro->_reg, \
+	     #_off);
+#endif
+
+  printf("\n");
+  printf("--------------------------------------------------------------------------------\n");
+  printf("  *** Trigger Status *** \n");
+
+  if(pflag)
+    {
+      printf("\n");
+      printf(" Registers (offset):\n");
+      PREG(\t,blockBuffer);
+      PREG(\n,rocReadout);
+
+      PREG(\t,readoutAck);
+      PREG(\n,nblocks);
+
+      PREG(\t,mgtResetStatus);
+      PREG(\n,rocEnable);
+
+      PREG(\t,rxAckStatus);
+      PREG(\n,clockStatus);
+
+      printf("\n");
+    }
+
+  printf("\n");
+  printf(" Sub ROCs enable mask  : 0x%02x\n",
+	 ro->rocEnable & TI_ROCENABLE_MASK);
+
+  // rocReadout   mgtResetstatus
+  printf(" ------------- rocReadout ------------ | ------------ mgtResetStatus ----------|\n");
+  printf("     ROC4      ROC3      ROC2       VME       StatusEnables        Trig To Send\n");
+  printf("---------|---------|---------|---------|-------------------|-------------------|\n");
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_ROC4_NBLOCKS_READY_MASK) >> 24);
+
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_ROC3_NBLOCKS_READY_MASK) >> 16);
+
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_ROC2_NBLOCKS_READY_MASK) >> 8);
+
+  printf("%9d ",
+	 (ro->rocReadout & TI_ROCREADOUT_VME_NBLOCKS_READY_MASK));
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->mgtResetStatus & TI_MGTRESETSTATUS_ENABLES_MASK)>>24);
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->mgtResetStatus & TI_MGTRESETSTATUS_TX_TRIG_MASK)>>24);
+
+  printf("\n\n");
+
+  // readoutAck   rxAckstatus
+  printf(" -------- readoutAck ------- |         | ------------ rxAckStatus ------------ |\n");
+  printf("       TX    RX VTP  RX Local                  RX   RO Acks  DataBlks  Ack+BUSY\n");
+  printf("---------|---------|---------|         |---------|---------|---------|---------|\n");
+  printf("%9d ",
+	 (ro->readoutAck & TI_READOUTACK_SENT_MASK)>>16);
+
+  printf("%9d ",
+	 (ro->readoutAck & TI_READOUTACK_VTP_MASK)>>8);
+
+  printf("%9d ",
+	 (ro->readoutAck & TI_READOUTACK_LOCAL_MASK));
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_TRIG_ACK_MASK)>>24);
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_RO_ACK_MASK)>>16);
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_DATABLOCKS_MASK)>>8);
+
+  printf("%9d ",
+	 (ro->rxAckStatus & TI_RXACKSTATUS_BUSY_ACK_MASK));
+
+  printf("\n\n");
+
+  // clockStatus
+  printf(" -- clockStatus -- |         | ------------ blockBuffer ------------ |\n");
+  printf("                                         Evts for    Dumped SyncEvent\n");
+  printf(" Clock250  ClockAux              BReady FullBlock   on FULL  Received\n");
+  printf("---------|---------|         |---------|---------|---------|---------|\n");
+
+  printf("%9d ",
+	 (ro->clockStatus & TI_CLOCKSTATUS_250_MASK)>>16);
+
+  printf("%9d ",
+	 (ro->clockStatus & TI_CLOCKSTATUS_AUX_MASK));
+
+  printf("          ");
+
+  printf("%9d ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_BLOCKS_READY_MASK) >> 8);
+
+  printf("%9d ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_TRIGGERS_IN_BLOCK) >> 16);
+
+  printf("%9s ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_TRIGGER_MISSED) ? "YES" : "no");
+
+  printf("%9s ",
+	 (ro->blockBuffer & TI_BLOCKBUFFER_SYNCEVENT) ? "YES" : "no");
+
+  printf("\n\n");
+
+
+
+  printf("--------------------------------------------------------------------------------\n");
+  printf("\n\n");
+
+  if(ro)
+    free(ro);
+
+}
