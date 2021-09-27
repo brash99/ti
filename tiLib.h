@@ -71,7 +71,8 @@ struct TI_A24RegStruct
   /** 0x00048 */          unsigned int blank1;
   /** 0x0004C */ volatile unsigned int output;
   /** 0x00050 */ volatile unsigned int fiberSyncDelay;
-  /** 0x00054 */          unsigned int blank2[(0x64-0x54)/4];
+  /** 0x00054 */          unsigned int rocReadout;
+  /** 0x00058 */          unsigned int blank2[(0x64-0x58)/4];
   /** 0x00064 */ volatile unsigned int inputPrescale;
   /** 0x00068 */          unsigned int blank3[(0x74-0x68)/4];
   /** 0x00074 */ volatile unsigned int pulserEvType;
@@ -142,7 +143,7 @@ struct TI_A24RegStruct
 #define TI_READOUT_BRIDGE_POLL 7
 
 /* Supported firmware version */
-#define TI_SUPPORTED_FIRMWARE 0x112
+#define TI_SUPPORTED_FIRMWARE 0x113
 #define TI_SUPPORTED_TYPE     3
 
 /* Firmware Masks */
@@ -382,6 +383,12 @@ struct TI_A24RegStruct
 #define TI_FIBERSYNCDELAY_HFBR1_SYNCDELAY_MASK    0x0000FF00
 #define TI_FIBERSYNCDELAY_LOOPBACK_SYNCDELAY_MASK 0x00FF0000
 #define TI_FIBERSYNCDELAY_HFBR5_SYNCDELAY_MASK    0xFF000000
+
+/* 0x54 rocReadout bits and masks */
+#define TI_ROCREADOUT_VME_NBLOCKS_READY_MASK  0x000000FF
+#define TI_ROCREADOUT_ROC2_NBLOCKS_READY_MASK 0x0000FF00
+#define TI_ROCREADOUT_ROC3_NBLOCKS_READY_MASK 0x00FF0000
+#define TI_ROCREADOUT_ROC4_NBLOCKS_READY_MASK 0xFF000000
 
 /* 0x74 inputPrescale bits and masks */
 #define TI_INPUTPRESCALE_FP1_MASK   0x0000000F

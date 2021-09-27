@@ -929,6 +929,7 @@ tiStatus(int pflag)
   ro->syncEventCtrl= vmeRead32(&TIp->syncEventCtrl);
   ro->blocklimit   = vmeRead32(&TIp->blocklimit);
   ro->fiberSyncDelay = vmeRead32(&TIp->fiberSyncDelay);
+  ro->rocReadout   = vmeRead32(&TIp->rocReadout);
 
   ro->GTPStatusA   = vmeRead32(&TIp->GTPStatusA);
   ro->GTPStatusB   = vmeRead32(&TIp->GTPStatusB);
@@ -1019,14 +1020,17 @@ tiStatus(int pflag)
 
       printf("  output         (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->output) - TIBase, ro->output);
       printf("  fiberSyncDelay (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->fiberSyncDelay) - TIBase, ro->fiberSyncDelay);
-      printf("  nblocks        (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->nblocks) - TIBase, ro->nblocks);
+      printf("  rocReadout     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->rocReadout) - TIBase, ro->rocReadout);
 
-      printf("  GTPStatusA     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro->GTPStatusA);
-      printf("  GTPStatusB     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro->GTPStatusB);
+      printf("  nblocks        (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->nblocks) - TIBase, ro->nblocks);
 
-      printf("  livetime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->livetime) - TIBase, ro->livetime);
-      printf("  busytime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->busytime) - TIBase, ro->busytime);
-      printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro->GTPtriggerBufferLength);
+      printf("  GTPStatusA     (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPStatusA) - TIBase, ro->GTPStatusA);
+      printf("  GTPStatusB     (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->GTPStatusB) - TIBase, ro->GTPStatusB);
+
+      printf("  livetime       (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->livetime) - TIBase, ro->livetime);
+      printf("  busytime       (0x%04lx) = 0x%08x\t", (unsigned long)(&TIp->busytime) - TIBase, ro->busytime);
+      printf("  GTPTrgBufLen   (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->GTPtriggerBufferLength) - TIBase, ro->GTPtriggerBufferLength);
+      printf("  rocEnable      (0x%04lx) = 0x%08x\n", (unsigned long)(&TIp->rocEnable) - TIBase, ro->rocEnable);
       printf("\n");
     }
   printf("\n");
@@ -1075,6 +1079,14 @@ tiStatus(int pflag)
 	}
     }
 
+  printf(" Sub ROCs enable mask  : 0x%02x\n",
+	 ro->rocEnable & TI_ROCENABLE_MASK);
+
+  printf(" Sub ROCs blocks ready : 0x%02x   0x%02x   0x%02x  0x%02x\n",
+	 ro->rocReadout & TI_ROCREADOUT_VME_NBLOCKS_READY_MASK,
+	 (ro->rocReadout & TI_ROCREADOUT_ROC2_NBLOCKS_READY_MASK) >> 8,
+	 (ro->rocReadout & TI_ROCREADOUT_ROC3_NBLOCKS_READY_MASK) >> 16,
+	 (ro->rocReadout & TI_ROCREADOUT_ROC4_NBLOCKS_READY_MASK) >> 24);
   printf("\n");
 
   if(!tiUseTsRev2)
