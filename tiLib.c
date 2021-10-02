@@ -691,6 +691,9 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
   /* Set this to 1 (ROC Lock mode), by default. */
   tiSetBlockBufferLevel(1);
 
+  /* Always go busy when bufferlevel is reached */
+  tiBusyOnBufferLevel(1);
+
   /* Disable all TS Inputs */
   tiDisableTSInput(TI_TSINPUT_ALL);
 
@@ -4980,8 +4983,12 @@ tiBusyOnBufferLevel(int enable)
     }
 
   TILOCK;
-  vmeWrite32(&TIp->vmeControl,
-	     vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_BUSY_ON_BUFFERLEVEL);
+  if(enable)
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) | TI_VMECONTROL_BUSY_ON_BUFFERLEVEL);
+  else
+    vmeWrite32(&TIp->vmeControl,
+	       vmeRead32(&TIp->vmeControl) & ~TI_VMECONTROL_BUSY_ON_BUFFERLEVEL);
   TIUNLOCK;
 
   return OK;
