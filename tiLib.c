@@ -550,9 +550,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       /* Slave Configuration: takes in triggers from the Master (supervisor) */
       tiMaster = 0;
 
-      /* Fiber Reset */
-      tiResetFiber();
-
       /* BUSY from Switch Slot B */
       if(tiNoVXS==1)
 	tiSetBusySource(0,1);
@@ -624,9 +621,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
 
       /* Clear the Slave Mask */
       tiSlaveMask = 0;
-
-      /* Fiber Reset */
-      tiResetFiber();
 
       /* BUSY from Loopback and Switch Slot B */
       if(tiNoVXS==0)
