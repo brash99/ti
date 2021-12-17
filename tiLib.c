@@ -9819,3 +9819,99 @@ tiTriggerStatus(int pflag)
     free(ro);
 
 }
+
+/**
+ * @ingroup Status
+ * @brief Routine to return the values stored at the TIs registers
+ *
+ * @param   data_buffer  - local memory address to place data
+ * @param   maxwords - Max number of words to transfer
+ *
+ * @return Number of words transferred to data if successful, ERROR otherwise
+ */
+
+int
+tiGetHWRegisters(unsigned int *data_buffer, unsigned int maxwords)
+{
+  int ireg = 0, nwords = 0;
+  int maxreg = 0x1FC;
+
+  unsigned int *tireg = (unsigned int *)TIp;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  /* JLab Data type 13 header */
+  data_buffer[nwords++] =
+    TI_DATA_TYPE_DEFINE_MASK | // bit 31
+    TI_REG_HEADER_WORD_TYPE | // bits 27-30
+    (tiSlotNumber << 22) | // bits 22-26
+    TI_MODULE_ID; // bits 18-21
+
+  while( (ireg <= maxreg) && (nwords < maxwords) )
+    {
+      data_buffer[nwords++] = ireg;
+      data_buffer[nwords++] = vmeRead32(&tireg[ireg>>2]);
+      ireg = ireg + 4;
+    }
+
+  /* Plug the nwords - 1 into the header */
+  data_buffer[0] |= (nwords - 1);
+
+  TIUNLOCK;
+
+  return nwords;
+}
+
+/**
+ * @ingroup Status
+ * @brief Print TIs HW registers to standard out
+ *
+ * @param formatFlag How many registers to display per line
+ *
+ */
+
+ void
+tiPrintHWRegisters(int32_t formatFlag)
+{
+  unsigned int *data;
+  int idata = 0;
+  int maxreg = 0x1FC;
+  int nwords = 2 * ((maxreg + 4) >> 2) + 2;
+
+  data = (unsigned int *)malloc(nwords * sizeof(unsigned int));
+
+  if(data == NULL)
+    {
+      printf("%s: ERROR allocating memory for TI registers\n",
+	     __FUNCTION__);
+      return;
+    }
+
+  nwords = tiGetHWRegisters(data, nwords);
+
+  if(formatFlag == 0)
+    formatFlag = 1;
+
+  int ivalue;
+
+  printf("  TI Registers from tiGetHWRegisters()\n\n");
+  printf("    header :  0x%08x\n", data[0]);
+  for(idata = 1; idata < nwords; idata = idata + 1 + (2*formatFlag) - 1 )
+    {
+      printf("0x%08x : ", data[idata]);
+
+      for(ivalue = 0; ivalue < formatFlag; ivalue++)
+	printf(" 0x%08x", data[idata+1 + 2*ivalue]);
+
+      printf("\n");
+    }
+
+  if(data)
+    free(data);
+
+}

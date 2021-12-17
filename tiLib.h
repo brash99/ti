@@ -630,6 +630,8 @@ struct TI_A24RegStruct
 #define TI_BLOCK_TRAILER_SYNCEVENT_FLAG    (1 << 21)
 #define TI_DATA_BLKNUM_MASK                0x0000FF00
 #define TI_DATA_BLKLEVEL_MASK              0x000000FF
+#define TI_REG_HEADER_WORD_TYPE            (13 << 27)
+#define TI_MODULE_ID                       (0 << 18)
 
 /* Bridge-mode definitions - Fiber port is Defined as Port 5 in firmware */
 #define TI_SLAVE_FIBER_IN 5
@@ -849,5 +851,7 @@ int  tiWaitForIODelayReset(int nwait);
 int  tiGetSC1();
 int  tiPrintClockConfiguration();
 void tiTriggerStatus(int pflag);
+int  tiGetHWRegisters(unsigned int *data_buffer, unsigned int maxwords);
+void tiPrintHWRegisters(int32_t formatFlag);
 
 #endif /* TILIB_H */
