@@ -10,6 +10,7 @@ BASENAME=ti
 # Uncomment DEBUG line, to include some debugging info ( -g and -Wall)
 DEBUG	?= 1
 QUIET	?= 1
+
 #
 ifeq ($(QUIET),1)
         Q = @
@@ -55,12 +56,13 @@ LINUXVME_LIB		?= ../lib
 LINUXVME_INC		?= ../include
 
 CC			= gcc
+CXX			= g++
 ifeq ($(ARCH),i686)
 CC			+= -m32
 endif
 AR                      = ar
 RANLIB                  = ranlib
-CFLAGS			= -L. -L${LINUXVME_LIB} ${LIB_CODA}
+CFLAGS			= -fpic -L. -L${LINUXVME_LIB} ${LIB_CODA}
 INCS			= -I. -I${LINUXVME_INC} ${INC_CODA}
 
 LIBS			= lib${BASENAME}.a lib${BASENAME}.so
@@ -71,10 +73,11 @@ CFLAGS			+= -Wall -Wno-unused -g
 else
 CFLAGS			+= -O2
 endif
-SRC			= ${BASENAME}Lib.c
-HDRS			= $(SRC:.c=.h)
-OBJ			= ${BASENAME}Lib.o
-DEPS			= $(SRC:.c=.d)
+
+SRC			= ${BASENAME}Lib.c ${BASENAME}Config.cpp
+HDRS			= ${BASENAME}Lib.h ${BASENAME}Config.h
+OBJ			= $(HDRS:%.h=%.o)
+DEPS			= $(HDRS:%.h=%.d)
 
 ifeq ($(OS),LINUX)
 all: echoarch ${LIBS}
@@ -84,11 +87,15 @@ endif
 
 %.o: %.c
 	@echo " CC     $@"
-	${Q}$(CC) $(CFLAGS) $(INCS) -c -o $@ $(SRC)
+	${Q}$(CC) $(CFLAGS) $(INCS) -c -o $@ $<
 
-%.so: $(SRC)
+%.o: %.cpp
+	@echo " CXX    $@"
+	${Q}$(CXX) $(CFLAGS) -std=c++11 $(INCS) -c -o $@ $<
+
+%.so: $(OBJ)
 	@echo " CC     $@"
-	${Q}$(CC) -fpic -shared $(CFLAGS) $(INCS) -o $(@:%.a=%.so) $(SRC)
+	${Q}$(CC) -shared $(CFLAGS) $(INCS) -o $(@:%.a=%.so) $(OBJ)
 
 %.a: $(OBJ)
 	@echo " AR     $@"
@@ -104,6 +111,8 @@ install: $(LIBS)
 	${Q}cp $(PWD)/$(<:%.a=%.so) $(LINUXVME_LIB)/$(<:%.a=%.so)
 	@echo " CP     ${BASENAME}Lib.h"
 	${Q}cp ${PWD}/${BASENAME}Lib.h $(LINUXVME_INC)
+	@echo " CP     ${BASENAME}Config.h"
+	${Q}cp ${PWD}/${BASENAME}Config.h $(LINUXVME_INC)
 
 coda_install: $(LIBS)
 	@echo " CODACP $<"
@@ -112,6 +121,8 @@ coda_install: $(LIBS)
 	${Q}cp $(PWD)/$(<:%.a=%.so) $(CODA_VME_LIB)/$(<:%.a=%.so)
 	@echo " CODACP ${BASENAME}Lib.h"
 	${Q}cp ${PWD}/${BASENAME}Lib.h $(CODA_VME)/include
+	@echo " CODACP ${BASENAME}Config.h"
+	${Q}cp ${PWD}/${BASENAME}Config.h $(CODA_VME)/include
 
 %.d: %.c
 	@echo " DEP    $@"
@@ -120,12 +131,19 @@ coda_install: $(LIBS)
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
 
+%.d: %.cpp
+	@echo " DEP    $@"
+	@set -e; rm -f $@; \
+	$(CXX) -MM -shared $(INCS) $< > $@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	rm -f $@.$$$$
+
 -include $(DEPS)
 
 endif
 
 clean:
-	@rm -vf ${BASENAME}Lib.{o,d} lib${BASENAME}.{a,so}
+	@rm -vf ${OBJ} ${DEPS}
 
 echoarch:
 	@echo "Make for $(OS)-$(ARCH)"

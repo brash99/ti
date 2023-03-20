@@ -20,17 +20,10 @@
 #ifndef TILIB_H
 #define TILIB_H
 
-#ifndef VXWORKS
-#include <pthread.h>
-
-pthread_mutex_t tiISR_mutex=PTHREAD_MUTEX_INITIALIZER;
-#else
-/* #include <intLib.h> */
-extern int intLock();
-extern int intUnlock();
-#endif
 
 #ifdef VXWORKS
+extern int intLock();
+extern int intUnlock();
 int intLockKeya;
 #define INTLOCK {				\
     intLockKeya = intLock();			\
