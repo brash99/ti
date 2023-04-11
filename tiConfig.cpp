@@ -1,4 +1,5 @@
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -19,7 +20,6 @@ INIReader *ir;
 
 typedef std::map<std::string, int32_t> ti_param_map;
 
-static ti_param_map ti_general_ini;
 const ti_param_map ti_general_def
   {
     { "CRATE_ID", -1 },
@@ -34,6 +34,7 @@ const ti_param_map ti_general_def
     { "TRIGGER_SOURCE", -1 },
 
     { "SYNC_SOURCE", -1 },
+    { "SYNC_RESET_TYPE", -1 },
 
     { "BUSY_SOURCE_SWA", -1 },
     { "BUSY_SOURCE_SWB", -1 },
@@ -85,8 +86,8 @@ const ti_param_map ti_general_def
 
     { "FIBER_SYNC_DELAY", -1 }
   };
+static ti_param_map ti_general_ini = ti_general_def, ti_general_readback = ti_general_def;
 
-static ti_param_map ti_slaves_ini;
 const ti_param_map ti_slaves_def
   {
     { "ENABLE_FIBER_1", -1},
@@ -98,8 +99,8 @@ const ti_param_map ti_slaves_def
     { "ENABLE_FIBER_7", -1},
     { "ENABLE_FIBER_8", -1},
   };
+static ti_param_map ti_slaves_ini = ti_slaves_def, ti_slaves_readback = ti_slaves_def;
 
-static ti_param_map ti_tsinputs_ini;
 const ti_param_map ti_tsinputs_def
   {
     { "ENABLE_TS1", -1 },
@@ -123,8 +124,8 @@ const ti_param_map ti_tsinputs_def
     { "DELAY_TS5", -1 },
     { "DELAY_TS6", -1 }
   };
+static ti_param_map ti_tsinputs_ini = ti_tsinputs_def, ti_tsinputs_readback = ti_tsinputs_def;
 
-static ti_param_map ti_rules_ini;
 const ti_param_map ti_rules_def =
   {
     { "RULE_1", -1 },
@@ -140,6 +141,7 @@ const ti_param_map ti_rules_def =
     { "RULE_TIMESTEP_4", -1 },
     { "RULE_MIN_4", -1 },
   };
+static ti_param_map ti_rules_ini = ti_rules_def, ti_rules_readback = ti_rules_def;
 
 
 
@@ -239,7 +241,7 @@ tiConfigPrintParameters()
 }
 
 /**
- * @brief Write the local parameter structure to the library
+ * @brief Write the ini parameters to the module
  * @return 0
  */
 int32_t
@@ -316,6 +318,14 @@ param2ti()
   if(param_val > 0)
     {
       rval = tiSetSyncSource(param_val);
+      if(rval != OK)
+	return ERROR;
+    }
+
+  CHECK_PARAM(ti_general_ini, "SYNC_RESET_TYPE");
+  if(param_val > 0)
+    {
+      rval = tiSetSyncResetType(param_val);
       if(rval != OK)
 	return ERROR;
     }
@@ -535,9 +545,7 @@ param2ti()
   CHECK_PARAM(ti_general_ini, "FIBER_SYNC_DELAY");
   if(param_val > 0)
     {
-      rval = tiSetFiberSyncDelay(param_val);
-      if(rval != OK)
-	return ERROR;
+      tiSetFiberSyncDelay(param_val);
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_1");
@@ -683,6 +691,199 @@ tiConfig(const char *filename)
 
   tiConfigLoadParameters();
   return 0;
+}
+
+/**
+ * @brief Read the module parameters input the maps
+ * @return 0
+ */
+
+int32_t
+ti2param()
+{
+  int32_t rval = OK;
+
+  rval = tiGetCrateID(0);
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["CRATE_ID"] = rval;
+
+
+  rval = tiGetCurrentBlockLevel();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["BLOCK_LEVEL"] = rval;
+
+  rval = tiGetBlockBufferLevel();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["BLOCK_BUFFER_LEVEL"] = rval;
+
+  rval = tiGetInstantBlockLevelChange();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["INSTANT_BLOCKLEVEL_ENABLE"] = rval;
+
+#ifdef DNE
+  // FIXME: DNE
+  rval = tiGetUseBroadcastBlockBufferLevel();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["BROADCAST_BUFFER_LEVEL_ENABLE"] = rval;
+#endif
+
+  rval = tiGetBlockLimit();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["BLOCK_LIMIT"] = rval;
+
+#ifdef DNE
+  // FIXME: DNE
+  rval = tiGetTriggerSource();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["TRIGGER_SOURCE"] = rval;
+
+  rval = tiGetSyncSource();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["SYNC_SOURCE"] = rval;
+
+  rval = tiGetSyncResetType();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["SYNC_RESET_TYPE"] = rval;
+
+  rval = tiGetBusySourceMask();
+  ti_general_readback["BUSY_SOURCE_SWA"] = rval;
+  ti_general_readback["BUSY_SOURCE_SWB"] = rval;
+  ti_general_readback["BUSY_SOURCE_FP_TDC"] = rval;
+  ti_general_readback["BUSY_SOURCE_FP_ADC"] = rval;
+  ti_general_readback["BUSY_SOURCE_FP"] = rval;
+  ti_general_readback["BUSY_SOURCE_LOOPBACK"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER1"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER2"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER3"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER4"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER5"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER6"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER7"] = rval;
+  ti_general_readback["BUSY_SOURCE_FIBER8"] = rval;
+#endif
+
+  rval = tiGetClockSource();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["CLOCK_SOURCE"] = rval;
+
+  rval = tiGetPrescale();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["PRESCALE"] = rval;
+
+#ifdef DNE
+  rval = tiGetEventFormat();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["EVENT_FORMAT"] = rval;
+
+  rval = tiGetFPInputReadout();
+  if(rval == ERROR)
+    return ERROR;
+  else
+    ti_general_readback["FP_INPUT_READOUT_ENABLE"] = rval;
+#endif
+
+  return OK;
+}
+
+/**
+ * @brief Write the Ini values to an output file
+ */
+int32_t
+writeIni(const char* filename)
+{
+  std::ofstream outFile;
+  int32_t error;
+
+  outFile.open(filename);
+  if(!outFile)
+    {
+      std::cerr << __func__ << ": ERROR: Unable to open file for writting: " << filename << std::endl;
+      return -1;
+    }
+
+  outFile << "[general]" << std::endl;
+
+  ti_param_map::const_iterator pos = ti_general_def.begin();
+
+  while(pos != ti_general_def.end())
+    {
+      if(ti_general_readback[pos->first] != -1)
+	{
+	  outFile << pos->first << "= " << ti_general_readback[pos->first] << std::endl;
+	}
+
+      ++pos;
+    }
+
+  outFile << "[slaves]" << std::endl;
+
+  pos = ti_slaves_def.begin();
+  while(pos != ti_slaves_def.end())
+    {
+      if(ti_slaves_readback[pos->first] != -1)
+	{
+	  outFile << pos->first << "= " << ti_slaves_readback[pos->first] << std::endl;
+	}
+
+      ++pos;
+    }
+
+  outFile << "[tsinputs]" << std::endl;
+
+  pos = ti_tsinputs_def.begin();
+  while(pos != ti_tsinputs_def.end())
+    {
+      if(ti_tsinputs_readback[pos->first] != -1)
+	{
+	  outFile << pos->first << "= " << ti_tsinputs_readback[pos->first] << std::endl;
+	}
+
+      ++pos;
+    }
+
+  outFile << "[trigger_rules]" << std::endl;
+
+  pos = ti_rules_def.begin();
+  while(pos != ti_rules_def.end())
+    {
+      if(ti_rules_readback[pos->first] != -1)
+	{
+	  outFile << pos->first << "= " << ti_rules_readback[pos->first] << std::endl;
+	}
+
+      ++pos;
+    }
+
+
+
+
+  outFile.close();
+  return 0;
+
 }
 
 // destroy the ini object

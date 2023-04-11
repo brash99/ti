@@ -84,6 +84,7 @@ extern "C" {
   int32_t tiConfig(const char *filename);
   int32_t tiConfigFree();
   void    tiConfigPrintParameters();
+  int32_t writeIni(const char *filename);
 #ifdef __cplusplus
 }
 #endif

@@ -31,6 +31,8 @@ main(int argc, char *argv[])
   tiConfigFree();
 
   tiConfigPrintParameters();
+
+  writeIni("testout.ini");
   exit(0);
 }
 
