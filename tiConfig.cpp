@@ -81,7 +81,9 @@ const ti_param_map ti_general_def
     { "TRIGGER_TABLE", -1 },
 
     { "FIXED_PULSER_EVENTTYPE", -1 },
-    { "RANDOM_PULSER_EVENTTYPE", -1 }
+    { "RANDOM_PULSER_EVENTTYPE", -1 },
+
+    { "FIBER_SYNC_DELAY", -1 }
   };
 
 static ti_param_map ti_slaves_ini;
@@ -530,10 +532,10 @@ param2ti()
 
     }
 
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_1");
+  CHECK_PARAM(ti_general_ini, "FIBER_SYNC_DELAY");
   if(param_val > 0)
     {
-      rval = tiAddSlave(1);
+      rval = tiSetFiberSyncDelay(param_val);
       if(rval != OK)
 	return ERROR;
     }
