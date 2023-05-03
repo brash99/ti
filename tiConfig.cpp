@@ -477,7 +477,15 @@ param2ti()
 	return ERROR;
     }
 
-  // FIXME: PROMPT_TRIGGER_WIDTH
+  CHECK_PARAM(ti_general_ini, "PROMPT_TRIGGER_WIDTH");
+  if(param_val > 0)
+    {
+      int32_t width = param_val;
+
+      rval = tiSetPromptTriggerWidth(width);
+      if(rval != OK)
+	return ERROR;
+    }
 
   CHECK_PARAM(ti_general_ini, "SYNCRESET_DELAY");
   if(param_val > 0)
