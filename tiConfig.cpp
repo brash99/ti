@@ -203,7 +203,9 @@ parseIni()
 void
 tiConfigPrintParameters()
 {
+#ifdef DEBUGCONFIG
   std::cout << __func__ << ": INFO: HERE" << std::endl;
+#endif
 
   ti_param_map::const_iterator pos = ti_general_ini.begin();
 
@@ -247,6 +249,10 @@ tiConfigPrintParameters()
 int32_t
 param2ti()
 {
+#ifdef DEBUGCONFIG
+  std::cout << __func__ << ": INFO: HERE" << std::endl;
+#endif
+
   int32_t param_val = 0, rval = OK;
   ti_param_map::const_iterator pos;
 
@@ -255,7 +261,8 @@ param2ti()
   if(pos == __ini.end()) {						\
     std::cerr << __func__ << ": ERROR finding " << __key << std::endl;	\
     return ERROR;							\
-  }
+  }									\
+  param_val = pos->second;
 
   /* Write the parameters to the device */
   CHECK_PARAM(ti_general_ini, "CRATE_ID");
@@ -698,6 +705,7 @@ tiConfig(const char *filename)
     }
 
   tiConfigLoadParameters();
+
   return 0;
 }
 
