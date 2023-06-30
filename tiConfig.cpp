@@ -288,7 +288,7 @@ param2ti()
   std::cout << __func__ << ": INFO: here" << std::endl;
 #endif
 
-  int32_t param_val = 0, rval = OK;
+  int32_t param_val = 0, ti_rval = OK, rval = OK;
   ti_param_map::const_iterator pos;
 
 #define CHECK_PARAM(__ini, __key)					\
@@ -303,73 +303,73 @@ param2ti()
   CHECK_PARAM(ti_general_ini, "CRATE_ID");
   if(param_val > 0)
     {
-      rval = tiSetCrateID(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetCrateID(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "BLOCK_LEVEL");
   if(param_val > 0)
     {
-      rval = tiSetBlockLevel(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetBlockLevel(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "BLOCK_BUFFER_LEVEL");
   if(param_val > 0)
     {
-      rval = tiSetBlockBufferLevel(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetBlockBufferLevel(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "INSTANT_BLOCKLEVEL_ENABLE");
   if(param_val > 0)
     {
-      rval = tiSetInstantBlockLevelChange(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetInstantBlockLevelChange(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "BROADCAST_BUFFER_LEVEL_ENABLE");
   if(param_val > 0)
     {
-      rval = tiUseBroadcastBufferLevel(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiUseBroadcastBufferLevel(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "BLOCK_LIMIT");
   if(param_val > 0)
     {
-      rval = tiSetBlockLimit(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetBlockLimit(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "TRIGGER_SOURCE");
   if(param_val > 0)
     {
-      rval = tiSetTriggerSource(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetTriggerSource(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "SYNC_SOURCE");
   if(param_val > 0)
     {
-      rval = tiSetSyncSource(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetSyncSource(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "SYNC_RESET_TYPE");
   if(param_val > 0)
     {
-      rval = tiSetSyncResetType(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetSyncResetType(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   /* Busy Source, build a busy source mask */
@@ -433,74 +433,74 @@ param2ti()
 
   if(busy_source_mask != 0)
     {
-      rval = tiSetBusySource(busy_source_mask, 1);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetBusySource(busy_source_mask, 1);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
 
   CHECK_PARAM(ti_general_ini, "CLOCK_SOURCE");
   if(param_val > 0)
     {
-      rval = tiSetClockSource(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetClockSource(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "PRESCALE");
   if(param_val > 0)
     {
-      rval = tiSetPrescale(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetPrescale(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "EVENT_FORMAT");
   if(param_val > 0)
     {
-      rval = tiSetEventFormat(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetEventFormat(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "FP_INPUT_READOUT_ENABLE");
   if(param_val > 0)
     {
-      rval = tiSetFPInputReadout(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetFPInputReadout(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "GO_OUTPUT_ENABLE");
   if(param_val > 0)
     {
-      rval = tiSetGoOutput(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetGoOutput(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "TRIGGER_WINDOW");
   if(param_val > 0)
     {
-      rval = tiSetTriggerWindow(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetTriggerWindow(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "TRIGGER_INHIBIT_WINDOW");
   if(param_val > 0)
     {
-      rval = tiSetTriggerInhibitWindow(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetTriggerInhibitWindow(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "TRIGGER_LATCH_ON_LEVEL_ENABLE");
   if(param_val > 0)
     {
-      rval = tiSetTriggerLatchOnLevel(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetTriggerLatchOnLevel(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "TRIGGER_OUTPUT_DELAY");
@@ -514,9 +514,9 @@ param2ti()
       CHECK_PARAM(ti_general_ini, "TRIGGER_OUTPUT_DELAYSTEP");
       delaystep = param_val;
 
-      rval = tiSetTriggerPulse(1, delay, width, delaystep);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetTriggerPulse(1, delay, width, delaystep);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "PROMPT_TRIGGER_WIDTH");
@@ -524,9 +524,9 @@ param2ti()
     {
       int32_t width = param_val;
 
-      rval = tiSetPromptTriggerWidth(width);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetPromptTriggerWidth(width);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "SYNCRESET_DELAY");
@@ -546,35 +546,35 @@ param2ti()
   CHECK_PARAM(ti_general_ini, "EVENTTYPE_SCALERS_ENABLE");
   if(param_val > 0)
     {
-      rval = tiSetEvTypeScalers(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetEvTypeScalers(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_general_ini, "SCALER_MODE");
   if(param_val > 0)
     {
-      rval = tiSetScalerMode(param_val, 0);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetScalerMode(param_val, 0);
+      if(ti_rval != OK)
+	rval = ERROR;
 
     }
 
   CHECK_PARAM(ti_general_ini, "SYNCEVENT_INTERVAL");
   if(param_val > 0)
     {
-      rval = tiSetSyncEventInterval(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiSetSyncEventInterval(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
 
     }
 
   CHECK_PARAM(ti_general_ini, "TRIGGER_TABLE");
   if(param_val > 0)
     {
-      rval = tiTriggerTablePredefinedConfig(param_val);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiTriggerTablePredefinedConfig(param_val);
+      if(ti_rval != OK)
+	rval = ERROR;
 
     }
 
@@ -586,9 +586,9 @@ param2ti()
       CHECK_PARAM(ti_general_ini, "RANDOM_PULSER_EVENTTYPE");
       random = param_val;
 
-      rval = tiDefinePulserEventType(fixed, random);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiDefinePulserEventType(fixed, random);
+      if(ti_rval != OK)
+	rval = ERROR;
 
     }
 
@@ -601,65 +601,65 @@ param2ti()
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_1");
   if(param_val > 0)
     {
-      rval = tiAddSlave(1);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(1);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_2");
   if(param_val > 0)
     {
-      rval = tiAddSlave(2);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(2);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_3");
   if(param_val > 0)
     {
-      rval = tiAddSlave(3);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(3);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_4");
   if(param_val > 0)
     {
-      rval = tiAddSlave(4);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(4);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_5");
   if(param_val > 0)
     {
-      rval = tiAddSlave(5);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(5);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_6");
   if(param_val > 0)
     {
-      rval = tiAddSlave(6);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(6);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_7");
   if(param_val > 0)
     {
-      rval = tiAddSlave(7);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(7);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_8");
   if(param_val > 0)
     {
-      rval = tiAddSlave(8);
-      if(rval != OK)
-	return ERROR;
+      ti_rval = tiAddSlave(8);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
 #ifdef OLDWAY
@@ -671,11 +671,11 @@ param2ti()
 	{
 	  input_mask |= (1 << input);
 
-	  rval = tiSetTSInputDelay(input + 1, param.ts_inputs[input].delay);
+	  ti_rval = tiSetTSInputDelay(input + 1, param.ts_inputs[input].delay);
 	  if(rval != OK)
 	    return ERROR;
 
-	  rval = tiSetInputPrescale(input + 1, param.ts_inputs[input].prescale);
+	  ti_rval = tiSetInputPrescale(input + 1, param.ts_inputs[input].prescale);
 	  if(rval != OK)
 	    return ERROR;
 	}
@@ -683,10 +683,9 @@ param2ti()
 
   if(input_mask != 0)
     {
-      rval = tiEnableTSInput(input_mask);
-      if(rval != OK)
-	return ERROR;
-
+      ti_rval = tiEnableTSInput(input_mask);
+      if(ti_rval != OK)
+	rval = ERROR;
     }
 
   /* Trigger Rules */
@@ -694,22 +693,22 @@ param2ti()
     {
       if(param.trigger_rules[irule].window > 0)
 	{
-	  rval = tiSetTriggerHoldoff(irule, param.trigger_rules[irule].window,
+	  ti_rval = tiSetTriggerHoldoff(irule, param.trigger_rules[irule].window,
 				     param.trigger_rules[irule].timestep);
-	  if(rval != OK)
-	    return ERROR;
+	  if(ti_rval != OK)
+	    rval = ERROR;
 	}
 
       if(param.trigger_rules[irule].minimum > 0)
 	{
-	  rval = tiSetTriggerHoldoffMin(irule, param.trigger_rules[irule].minimum);
-	  if(rval != OK)
-	    return ERROR;
+	  ti_rval = tiSetTriggerHoldoffMin(irule, param.trigger_rules[irule].minimum);
+	  if(ti_rval != OK)
+	    rval = ERROR;
 	}
     }
 #endif // OLDWAY
 
-  return 0;
+  return rval;
 }
 
 int32_t
@@ -821,69 +820,69 @@ tiConfigDisablePulser()
 int32_t
 ti2param()
 {
-  int32_t rval = OK;
+  int32_t rval = OK, ti_rval = OK;
 
-  rval = tiGetCrateID(0);
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetCrateID(0);
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["CRATE_ID"] = rval;
 
 
-  rval = tiGetCurrentBlockLevel();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetCurrentBlockLevel();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["BLOCK_LEVEL"] = rval;
 
-  rval = tiGetBlockBufferLevel();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetBlockBufferLevel();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["BLOCK_BUFFER_LEVEL"] = rval;
 
-  rval = tiGetInstantBlockLevelChange();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetInstantBlockLevelChange();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["INSTANT_BLOCKLEVEL_ENABLE"] = rval;
 
 #ifdef DNE
   // FIXME: DNE
-  rval = tiGetUseBroadcastBlockBufferLevel();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetUseBroadcastBlockBufferLevel();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["BROADCAST_BUFFER_LEVEL_ENABLE"] = rval;
 #endif
 
-  rval = tiGetBlockLimit();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetBlockLimit();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["BLOCK_LIMIT"] = rval;
 
 #ifdef DNE
   // FIXME: DNE
-  rval = tiGetTriggerSource();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetTriggerSource();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["TRIGGER_SOURCE"] = rval;
 
-  rval = tiGetSyncSource();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetSyncSource();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["SYNC_SOURCE"] = rval;
 
-  rval = tiGetSyncResetType();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetSyncResetType();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["SYNC_RESET_TYPE"] = rval;
 
-  rval = tiGetBusySourceMask();
+  ti_rval = tiGetBusySourceMask();
   ti_general_readback["BUSY_SOURCE_SWA"] = rval;
   ti_general_readback["BUSY_SOURCE_SWB"] = rval;
   ti_general_readback["BUSY_SOURCE_FP_TDC"] = rval;
@@ -900,33 +899,33 @@ ti2param()
   ti_general_readback["BUSY_SOURCE_FIBER8"] = rval;
 #endif
 
-  rval = tiGetClockSource();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetClockSource();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["CLOCK_SOURCE"] = rval;
 
-  rval = tiGetPrescale();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetPrescale();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["PRESCALE"] = rval;
 
 #ifdef DNE
-  rval = tiGetEventFormat();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetEventFormat();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["EVENT_FORMAT"] = rval;
 
-  rval = tiGetFPInputReadout();
-  if(rval == ERROR)
-    return ERROR;
+  ti_rval = tiGetFPInputReadout();
+  if(ti_rval == ERROR)
+    rval = ERROR;
   else
     ti_general_readback["FP_INPUT_READOUT_ENABLE"] = rval;
 #endif
 
-  return OK;
+  return rval;
 }
 
 /**
