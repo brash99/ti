@@ -143,12 +143,25 @@ const ti_param_map ti_rules_def =
   };
 static ti_param_map ti_rules_ini = ti_rules_def, ti_rules_readback = ti_rules_def;
 
+const ti_param_map ti_pulser_def =
+  {
+    { "FIXED_ENABLE", -1 },
+    { "FIXED_NUMBER", -1 },
+    { "FIXED_PERIOD", -1 },
+    { "FIXED_RANGE", -1 },
+    { "RANDOM_ENABLE", -1 },
+    { "RANDOM_PRESCALE", -1 },
+  };
+static ti_param_map ti_pulser_ini = ti_pulser_def;
+
 
 
 int32_t
 tiConfigInitGlobals()
 {
+#ifdef DEBUG
   std::cout << __func__ << ": INFO: here" << std::endl;
+#endif
 
   return 0;
 }
@@ -160,7 +173,9 @@ tiConfigInitGlobals()
 void
 parseIni()
 {
+#ifdef DEBUG
   std::cout << __func__ << ": INFO: here" << std::endl;
+#endif
 
   if(ir == NULL)
     return;
@@ -194,6 +209,13 @@ parseIni()
       ++pos;
     }
 
+  pos = ti_pulser_def.begin();
+  while(pos != ti_pulser_def.end())
+    {
+      ti_pulser_ini[pos->first] = ir->GetInteger("pulser", pos->first, pos->second);
+      ++pos;
+    }
+
 
 }
 
@@ -203,12 +225,13 @@ parseIni()
 void
 tiConfigPrintParameters()
 {
-#ifdef DEBUGCONFIG
+#ifdef DEBUG
   std::cout << __func__ << ": INFO: HERE" << std::endl;
 #endif
 
   ti_param_map::const_iterator pos = ti_general_ini.begin();
 
+  printf("[general]\n");
   while(pos != ti_general_ini.end())
     {
       printf("  %28.24s = 0x%08x (%d)\n", pos->first.c_str(), pos->second, pos->second);
@@ -217,6 +240,7 @@ tiConfigPrintParameters()
 
   pos = ti_slaves_ini.begin();
 
+  printf("[slaves]\n");
   while(pos != ti_slaves_ini.end())
     {
       printf("  %28.24s = 0x%08x (%d)\n", pos->first.c_str(), pos->second, pos->second);
@@ -225,6 +249,7 @@ tiConfigPrintParameters()
 
   pos = ti_tsinputs_ini.begin();
 
+  printf("[tsinputs]\n");
   while(pos != ti_tsinputs_ini.end())
     {
       printf("  %28.24s = 0x%08x (%d)\n", pos->first.c_str(), pos->second, pos->second);
@@ -233,7 +258,17 @@ tiConfigPrintParameters()
 
   pos = ti_rules_ini.begin();
 
+  printf("[trigger rules]\n");
   while(pos != ti_rules_ini.end())
+    {
+      printf("  %28.24s = 0x%08x (%d)\n", pos->first.c_str(), pos->second, pos->second);
+      ++pos;
+    }
+
+  pos = ti_pulser_ini.begin();
+
+  printf("[pulser]\n");
+  while(pos != ti_pulser_ini.end())
     {
       printf("  %28.24s = 0x%08x (%d)\n", pos->first.c_str(), pos->second, pos->second);
       ++pos;
@@ -249,8 +284,8 @@ tiConfigPrintParameters()
 int32_t
 param2ti()
 {
-#ifdef DEBUGCONFIG
-  std::cout << __func__ << ": INFO: HERE" << std::endl;
+#ifdef DEBUG
+  std::cout << __func__ << ": INFO: here" << std::endl;
 #endif
 
   int32_t param_val = 0, rval = OK;
@@ -695,7 +730,9 @@ tiConfigLoadParameters()
 int32_t
 tiConfig(const char *filename)
 {
+#ifdef DEBUG
   std::cout << __func__ << ": INFO: here" << std::endl;
+#endif
 
   ir = new INIReader(filename);
   if(ir->ParseError() < 0)
@@ -707,6 +744,73 @@ tiConfig(const char *filename)
   tiConfigLoadParameters();
 
   return 0;
+}
+
+int32_t
+tiConfigEnablePulser()
+{
+  int32_t param_val = 0, rval = OK;
+  ti_param_map::const_iterator pos;
+
+  int32_t fixed_enable = 0, fixed_number = 0, fixed_period = 0, fixed_range = 0;
+  int32_t random_enable = 0, random_prescale = 0;
+
+  CHECK_PARAM(ti_pulser_ini, "FIXED_ENABLE");
+  fixed_enable = param_val;
+
+  CHECK_PARAM(ti_pulser_ini, "FIXED_NUMBER");
+  fixed_number = param_val;
+
+  CHECK_PARAM(ti_pulser_ini, "FIXED_PERIOD");
+  fixed_period = param_val;
+
+  CHECK_PARAM(ti_pulser_ini, "FIXED_RANGE");
+  fixed_range = param_val;
+
+  CHECK_PARAM(ti_pulser_ini, "RANDOM_ENABLE");
+  random_enable = param_val;
+
+  CHECK_PARAM(ti_pulser_ini, "RANDOM_PRESCALE");
+  random_prescale = param_val;
+
+  if(fixed_enable)
+    {
+      tiSoftTrig(1, fixed_number, fixed_number, fixed_range);
+    }
+
+  if(random_enable)
+    {
+      tiSetRandomTrigger(1, random_prescale);
+    }
+
+  return OK;
+}
+
+int32_t
+tiConfigDisablePulser()
+{
+  int32_t param_val = 0, rval = OK;
+  ti_param_map::const_iterator pos;
+
+  int32_t fixed_enable = 0, random_enable = 0;
+
+  CHECK_PARAM(ti_pulser_ini, "FIXED_ENABLE");
+  fixed_enable = param_val;
+
+  CHECK_PARAM(ti_pulser_ini, "RANDOM_ENABLE");
+  random_enable = param_val;
+
+  if(fixed_enable)
+    {
+      tiSoftTrig(1, 0, 0, 0);
+    }
+
+  if(random_enable)
+    {
+      tiDisableRandomTrigger();
+    }
+
+  return OK;
 }
 
 /**
@@ -906,12 +1010,16 @@ writeIni(const char* filename)
 int32_t
 tiConfigFree()
 {
+#ifdef DEBUG
   std::cout << __func__ << ": INFO: here" << std::endl;
+#endif
 
   if(ir == NULL)
     return ERROR;
 
+#ifdef DEBUG
   std::cout << "delete ir" << std::endl;
+#endif
   delete ir;
 
   return 0;

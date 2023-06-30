@@ -9869,7 +9869,7 @@ tiGetHWRegisters(unsigned int *data_buffer, unsigned int maxwords)
  *
  */
 
- void
+void
 tiPrintHWRegisters(int32_t formatFlag)
 {
   unsigned int *data;
