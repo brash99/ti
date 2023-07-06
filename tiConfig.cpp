@@ -649,27 +649,38 @@ param2ti()
 	}
     }
 
-
-#ifdef OLDWAY
-  /* Trigger Rules */
-  for(int32_t irule = 0; irule < 4; irule++)
+  for(int32_t rule = 1; rule <= 4; rule++)
     {
-      if(param.trigger_rules[irule].window > 0)
+      int32_t rule_val = 0, rule_timestep = 0;
+      CHECK_PARAM(ti_rules_ini, "RULE_" + std::to_string(rule));
+      if(param_val >= 0)
 	{
-	  ti_rval = tiSetTriggerHoldoff(irule, param.trigger_rules[irule].window,
-				     param.trigger_rules[irule].timestep);
-	  if(ti_rval != OK)
-	    rval = ERROR;
+	  rule_val = param_val;
+
+	  CHECK_PARAM(ti_rules_ini, "RULE_TIMESTEP_" + std::to_string(rule));
+	  if(param_val >= 0)
+	    {
+	      rule_timestep = param_val;
+
+	      ti_rval = tiSetTriggerHoldoff(rule, rule_val, rule_timestep);
+	      if(ti_rval != OK)
+		rval = ERROR;
+	    }
+
 	}
 
-      if(param.trigger_rules[irule].minimum > 0)
+      if(rule == 1)
+	continue;
+
+      int32_t rule_min = 0;
+      CHECK_PARAM(ti_rules_ini, "RULE_MIN_" + std::to_string(rule));
+      if(param_val >= 0)
 	{
-	  ti_rval = tiSetTriggerHoldoffMin(irule, param.trigger_rules[irule].minimum);
+	  ti_rval = tiSetTriggerHoldoffMin(rule, param_val);
 	  if(ti_rval != OK)
 	    rval = ERROR;
 	}
     }
-#endif // OLDWAY
 
   return rval;
 }
@@ -682,7 +693,8 @@ tiConfigLoadParameters()
 
   parseIni();
 
-  param2ti();
+  if(param2ti() == ERROR)
+    return ERROR;
 
 
   return 0;

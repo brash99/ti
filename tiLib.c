@@ -5680,6 +5680,13 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
       return ERROR;
     }
 
+  if(timestep > 2)
+    {
+      printf("%s: ERROR: Invalid timestep (%d). Must be less than %d.\n",
+	     __FUNCTION__, timestep, 2);
+      return ERROR;
+    }
+
   if(timestep)
     value |= (1<<7);
 
