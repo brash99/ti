@@ -598,96 +598,59 @@ param2ti()
       tiSetFiberSyncDelay(param_val);
     }
 
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_1");
-  if(param_val > 0)
+  for(int32_t inp = 1; inp <= 8; inp++)
     {
-      ti_rval = tiAddSlave(1);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_2");
-  if(param_val > 0)
-    {
-      ti_rval = tiAddSlave(2);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_3");
-  if(param_val > 0)
-    {
-      ti_rval = tiAddSlave(3);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_4");
-  if(param_val > 0)
-    {
-      ti_rval = tiAddSlave(4);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_5");
-  if(param_val > 0)
-    {
-      ti_rval = tiAddSlave(5);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_6");
-  if(param_val > 0)
-    {
-      ti_rval = tiAddSlave(6);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_7");
-  if(param_val > 0)
-    {
-      ti_rval = tiAddSlave(7);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-  CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_8");
-  if(param_val > 0)
-    {
-      ti_rval = tiAddSlave(8);
-      if(ti_rval != OK)
-	rval = ERROR;
-    }
-
-#ifdef OLDWAY
-  /* TS Inputs */
-  uint32_t input_mask = 0;
-  for(int32_t input = 0; input < 6; input++)
-    {
-      if(param.ts_inputs[input].enable > 0)
+      CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_" + std::to_string(inp));
+      if(param_val > 0)
 	{
-	  input_mask |= (1 << input);
-
-	  ti_rval = tiSetTSInputDelay(input + 1, param.ts_inputs[input].delay);
-	  if(rval != OK)
-	    return ERROR;
-
-	  ti_rval = tiSetInputPrescale(input + 1, param.ts_inputs[input].prescale);
-	  if(rval != OK)
-	    return ERROR;
+	  ti_rval = tiAddSlave(inp);
+	  if(ti_rval != OK)
+	    rval = ERROR;
 	}
     }
 
-  if(input_mask != 0)
+
+  uint32_t input_mask = 0;
+  for(int32_t inp = 1; inp <= 6; inp++)
+    {
+      CHECK_PARAM(ti_tsinputs_ini, "ENABLE_TS" + std::to_string(inp));
+      if(param_val != -1)
+	{
+	  if(param_val)
+	    input_mask |= (1 << (inp-1));
+	}
+    }
+  if(input_mask > 0)
     {
       ti_rval = tiEnableTSInput(input_mask);
       if(ti_rval != OK)
 	rval = ERROR;
     }
 
+  for(int32_t inp = 1; inp <= 6; inp++)
+    {
+      CHECK_PARAM(ti_tsinputs_ini, "PRESCALE_TS" + std::to_string(inp));
+      if(param_val > 0)
+	{
+	  ti_rval = tiSetInputPrescale(inp, param_val);
+	  if(ti_rval != OK)
+	    rval = ERROR;
+	}
+    }
+
+  for(int32_t inp = 1; inp <= 6; inp++)
+    {
+      CHECK_PARAM(ti_tsinputs_ini, "DELAY_TS" + std::to_string(inp));
+      if(param_val > 0)
+	{
+	  ti_rval = tiSetTSInputDelay(inp, param_val);
+	  if(ti_rval != OK)
+	    rval = ERROR;
+	}
+    }
+
+
+#ifdef OLDWAY
   /* Trigger Rules */
   for(int32_t irule = 0; irule < 4; irule++)
     {
