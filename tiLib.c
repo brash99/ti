@@ -2323,6 +2323,80 @@ tiSetTriggerSource(int trig)
 }
 
 /**
+ * @ingroup Status
+ * @brief Get the trigger source
+ *
+ * @return integer indicating the trigger source
+ *         - 0: P0
+ *         - 1: HFBR#1
+ *         - 2: Front Panel (TRG)
+ *         - 3: Front Panel TS Inputs
+ *         - 4: TS (rev2)
+ *         - 5: Random
+ *         - 6-9: TS Partition 1-4
+ *         - 10: HFBR#5
+ *         - 11: Pulser Trig 2 then Trig1 after specified delay
+ *
+ */
+int32_t
+tiGetTriggerSource()
+{
+  int32_t rval = -1;
+  /* Decode tiTriggerSource */
+
+  if(tiMaster)
+    {
+      if(tiTriggerSource & TI_TRIGSRC_P0)
+	rval = TI_TRIGGER_P0;
+
+      else if(tiTriggerSource & TI_TRIGSRC_HFBR1)
+	rval = TI_TRIGGER_HFBR1;
+
+      else if(tiTriggerSource & TI_TRIGSRC_HFBR5)
+	rval = TI_TRIGGER_HFBR5;
+
+      else if(tiTriggerSource & TI_TRIGSRC_FPTRG)
+	rval = TI_TRIGGER_FPTRG;
+
+      else if(tiTriggerSource & TI_TRIGSRC_TSINPUTS)
+	rval = TI_TRIGGER_TSINPUTS;
+
+      else if(tiTriggerSource & TI_TRIGSRC_TSREV2)
+	rval = TI_TRIGGER_TSREV2;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PULSER)
+	rval = TI_TRIGGER_PULSER;
+
+      else if(tiTriggerSource & TI_TRIGSRC_TRIG21)
+	rval = TI_TRIGGER_TRIG21;
+    }
+  else
+    {
+      if(tiTriggerSource & TI_TRIGSRC_HFBR1)
+	rval = TI_TRIGGER_HFBR1;
+
+      else if(tiTriggerSource & TI_TRIGSRC_HFBR5)
+	rval = TI_TRIGGER_HFBR5;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_1)
+	rval = TI_TRIGGER_PART_1;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_2)
+	rval = TI_TRIGGER_PART_2;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_3)
+	rval = TI_TRIGGER_PART_3;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_4)
+	rval = TI_TRIGGER_PART_4;
+
+    }
+
+  return rval;
+}
+
+
+/**
  * @ingroup Config
  * @brief Set trigger sources with specified trigmask
  *    This routine is for special use when tiSetTriggerSource(...) does
@@ -2538,6 +2612,39 @@ tiSetSyncSource(unsigned int sync)
 }
 
 /**
+ * @ingroup Status
+ * @brief Get the Sync source mask
+ *
+ * @return bit MASK indicating the sync source
+ *       bit: description
+ *       -  0: P0
+ *       -  1: HFBR1
+ *       -  2: HFBR5
+ *       -  3: FP
+ *       -  4: LOOPBACK
+ *
+ *
+ */
+int32_t
+tiGetSyncSource()
+{
+  int32_t rval = 0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->sync) & TI_SYNC_SOURCEMASK;
+  TIUNLOCK;
+
+  return rval;
+}
+
+
+/**
  * @ingroup Config
  * @brief Set the event format
  *
@@ -2602,6 +2709,51 @@ tiSetEventFormat(int format)
 
 /**
  * @ingroup Config
+ * @brief Get the event format
+ *
+ * @return integer number indicating the event format
+ *          - 0: 32 bit event number only
+ *          - 1: 32 bit event number + 32 bit timestamp
+ *          - 2: 32 bit event number + higher 16 bits of timestamp + higher 16 bits of eventnumber
+ *          - 3: 32 bit event number + 32 bit timestamp
+ *              + higher 16 bits of timestamp + higher 16 bits of eventnumber
+ *
+ */
+int32_t
+tiGetEventFormat()
+{
+  uint32_t formatset = 0;
+  int32_t rval = -1;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+
+  formatset = vmeRead32(&TIp->dataFormat);
+
+  if(formatset & (TI_DATAFORMAT_TIMING_WORD | TI_DATAFORMAT_HIGHERBITS_WORD))
+    rval = 3;
+
+  else if(formatset & TI_DATAFORMAT_HIGHERBITS_WORD)
+    rval = 2;
+
+  else if(formatset & TI_DATAFORMAT_TIMING_WORD)
+    rval = 1;
+
+  else
+    rval = 0;
+
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Config
  * @brief Set whether or not the latched pattern of FP Inputs in block readout
  *
  * @param enable
@@ -2630,6 +2782,36 @@ tiSetFPInputReadout(int enable)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get whether or not the latched pattern of FP Inputs in block readout
+ *
+ * @returns state of input block readout
+ *    - 0: Disabled
+ *    - 1: Enabled
+ *
+ *
+ */
+int32_t
+tiGetFPInputReadout()
+{
+  int32_t rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if (vmeRead32(&TIp->dataFormat) & TI_DATAFORMAT_FPINPUT_READOUT)
+    rval = 1;
+  else
+    rval = 0;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**
@@ -3824,6 +4006,41 @@ tiSetBusySource(unsigned int sourcemask, int rFlag)
 }
 
 /**
+ * @ingroup Status
+ * @brief Get the busy sourcemask
+ *
+ * @return source bitmask
+ *  - 0: SWA
+ *  - 1: SWB
+ *  - 2: P2
+ *  - 3: FP-FTDC
+ *  - 4: FP-FADC
+ *  - 5: FP
+ *  - 6: Unused
+ *  - 7: Loopack
+ *  - 8-15: Fiber 1-8
+ *
+ */
+int32_t
+tiGetBusySource()
+{
+  int32_t rval = 0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->busy) & TI_BUSY_SOURCEMASK;
+  TIUNLOCK;
+
+  return rval;
+
+}
+
+/**
  *  @ingroup MasterConfig
  *  @brief Set the the trigger lock mode.
  *
@@ -4288,6 +4505,28 @@ tiSetSyncResetType(int type)
     tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;
   else
     tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET;
+
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get SyncReset type
+ *
+ * @return Sync Reset Type
+ *    - 0: User programmed width in each TI
+ *    - 1: Fixed 4 microsecond width in each TI
+ *
+ */
+int32_t
+tiGetSyncResetType()
+{
+  int32_t rval = 0;
+
+  if(tiSyncResetType == TI_SYNCCOMMAND_SYNCRESET_4US)
+    rval = 1;
+  else
+    rval = TI_SYNCCOMMAND_SYNCRESET;
 
   return OK;
 }
@@ -5017,6 +5256,38 @@ tiUseBroadcastBufferLevel(int enable)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ *  @ingroup Status
+ *  @brief Get the status of enabling the use of the broadcasted buffer level, instead of the
+ *         value set locally with @tiSetBlockBufferLevel.
+ *
+ *  @return 1: enabled,
+ *          0: disabled,
+ *	    otherwise ERROR
+ *
+ */
+int32_t
+tiGetUseBroadcastBufferLevel()
+{
+  int32_t rreg = 0, rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+
+  TILOCK;
+  rreg = vmeRead32(&TIp->vmeControl);
+  if (rreg & TI_VMECONTROL_USE_LOCAL_BUFFERLEVEL)
+    rval = 0;
+  else
+    rval = 1;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**

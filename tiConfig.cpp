@@ -822,14 +822,11 @@ ti2param()
   else
     ti_general_readback["INSTANT_BLOCKLEVEL_ENABLE"] = rval;
 
-#ifdef DNE
-  // FIXME: DNE
-  ti_rval = tiGetUseBroadcastBlockBufferLevel();
+  ti_rval = tiGetUseBroadcastBufferLevel();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
     ti_general_readback["BROADCAST_BUFFER_LEVEL_ENABLE"] = rval;
-#endif
 
   ti_rval = tiGetBlockLimit();
   if(ti_rval == ERROR)
@@ -837,8 +834,6 @@ ti2param()
   else
     ti_general_readback["BLOCK_LIMIT"] = rval;
 
-#ifdef DNE
-  // FIXME: DNE
   ti_rval = tiGetTriggerSource();
   if(ti_rval == ERROR)
     rval = ERROR;
@@ -857,22 +852,53 @@ ti2param()
   else
     ti_general_readback["SYNC_RESET_TYPE"] = rval;
 
-  ti_rval = tiGetBusySourceMask();
-  ti_general_readback["BUSY_SOURCE_SWA"] = rval;
-  ti_general_readback["BUSY_SOURCE_SWB"] = rval;
-  ti_general_readback["BUSY_SOURCE_FP_TDC"] = rval;
-  ti_general_readback["BUSY_SOURCE_FP_ADC"] = rval;
-  ti_general_readback["BUSY_SOURCE_FP"] = rval;
-  ti_general_readback["BUSY_SOURCE_LOOPBACK"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER1"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER2"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER3"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER4"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER5"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER6"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER7"] = rval;
-  ti_general_readback["BUSY_SOURCE_FIBER8"] = rval;
-#endif
+  ti_rval = tiGetBusySource();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    {
+      if(ti_rval & TI_BUSY_SWA)
+	ti_general_readback["BUSY_SOURCE_SWA"] = 1;
+
+      if(ti_rval & TI_BUSY_SWB)
+	ti_general_readback["BUSY_SOURCE_SWB"] = 1;
+
+      if(ti_rval & TI_BUSY_FP_FTDC)
+	ti_general_readback["BUSY_SOURCE_FP_TDC"] = 1;
+
+      if(ti_rval & TI_BUSY_FP_FADC)
+	ti_general_readback["BUSY_SOURCE_FP_ADC"] = 1;
+
+      if(ti_rval & TI_BUSY_FP)
+	ti_general_readback["BUSY_SOURCE_FP"] = 1;
+
+      if(ti_rval & TI_BUSY_LOOPBACK)
+	ti_general_readback["BUSY_SOURCE_LOOPBACK"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR1)
+	ti_general_readback["BUSY_SOURCE_FIBER1"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR2)
+	ti_general_readback["BUSY_SOURCE_FIBER2"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR3)
+	ti_general_readback["BUSY_SOURCE_FIBER3"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR4)
+	ti_general_readback["BUSY_SOURCE_FIBER4"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR5)
+	ti_general_readback["BUSY_SOURCE_FIBER5"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR6)
+	ti_general_readback["BUSY_SOURCE_FIBER6"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR7)
+	ti_general_readback["BUSY_SOURCE_FIBER7"] = 1;
+
+      if(ti_rval & TI_BUSY_HFBR8)
+	ti_general_readback["BUSY_SOURCE_FIBER8"] = 1;
+    }
 
   ti_rval = tiGetClockSource();
   if(ti_rval == ERROR)
@@ -886,7 +912,6 @@ ti2param()
   else
     ti_general_readback["PRESCALE"] = rval;
 
-#ifdef DNE
   ti_rval = tiGetEventFormat();
   if(ti_rval == ERROR)
     rval = ERROR;
@@ -898,7 +923,6 @@ ti2param()
     rval = ERROR;
   else
     ti_general_readback["FP_INPUT_READOUT_ENABLE"] = rval;
-#endif
 
   return rval;
 }
