@@ -737,6 +737,7 @@ int  tiBusyOnBufferLevel(int enable);
 int  tiUseBroadcastBufferLevel(int enable);
 int  tiEnableTSInput(unsigned int inpMask);
 int  tiDisableTSInput(unsigned int inpMask);
+int32_t tiGetTSInput();
 int  tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigned int set4);
 int  tiSetClockSource(unsigned int source);
 int  tiGetClockSource();

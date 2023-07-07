@@ -5367,6 +5367,36 @@ tiDisableTSInput(unsigned int inpMask)
 }
 
 /**
+ * @ingroup MasterStatus
+ * @brief Return the enable trigger inputs as a bit mask
+ *
+ * @return Enabled input mask
+ *       - 0:  TS#1
+ *       - 1:  TS#2
+ *       - 2:  TS#3
+ *       - 3:  TS#4
+ *       - 4:  TS#5
+ *       - 5:  TS#6
+ *
+ */
+int32_t
+tiGetTSInput()
+{
+  int32_t rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->tsInput) & TI_TSINPUT_MASK;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
  * @ingroup Config
  * @brief Set (or unset) high level for the output ports on the front panel
  *     labelled as O#1-4

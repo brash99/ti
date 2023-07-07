@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <string>
 #include <sstream>
+#include <memory>
 #include "tiConfig.h"
 #include "INIReader.h"
 
@@ -299,7 +300,10 @@ param2ti()
   }									\
   param_val = pos->second;
 
-  /* Write the parameters to the device */
+  /////////////////
+  // GENERAL
+  /////////////////
+
   CHECK_PARAM(ti_general_ini, "CRATE_ID");
   if(param_val > 0)
     {
@@ -359,7 +363,28 @@ param2ti()
   CHECK_PARAM(ti_general_ini, "SYNC_SOURCE");
   if(param_val > 0)
     {
-      ti_rval = tiSetSyncSource(param_val);
+      uint32_t sync_set = 0;
+      // Encode the selection for the routine input
+      switch(param_val)
+	{
+	case 0:
+	  sync_set = TI_SYNC_P0;
+	  break;
+	case 1:
+	  sync_set = TI_SYNC_HFBR1;
+	  break;
+	case 2:
+	  sync_set = TI_SYNC_HFBR5;
+	  break;
+	case 3:
+	  sync_set = TI_SYNC_FP;
+	  break;
+	case 4:
+	default:
+	  sync_set = TI_SYNC_LOOPBACK;
+	}
+
+      ti_rval = tiSetSyncSource(sync_set);
       if(ti_rval != OK)
 	rval = ERROR;
     }
@@ -598,6 +623,10 @@ param2ti()
       tiSetFiberSyncDelay(param_val);
     }
 
+  /////////////////
+  // SLAVES
+  /////////////////
+
   for(int32_t inp = 1; inp <= 8; inp++)
     {
       CHECK_PARAM(ti_slaves_ini, "ENABLE_FIBER_" + std::to_string(inp));
@@ -609,6 +638,9 @@ param2ti()
 	}
     }
 
+  /////////////////
+  // TS INPUTS
+  /////////////////
 
   uint32_t input_mask = 0;
   for(int32_t inp = 1; inp <= 6; inp++)
@@ -648,6 +680,10 @@ param2ti()
 	    rval = ERROR;
 	}
     }
+
+  /////////////////
+  // TRIGGER RULES
+  /////////////////
 
   for(int32_t rule = 1; rule <= 4; rule++)
     {
@@ -709,6 +745,7 @@ tiConfig(const char *filename)
 #endif
 
   ir = new INIReader(filename);
+
   if(ir->ParseError() < 0)
     {
       std::cout << "Can't load: " << filename << std::endl;
@@ -797,61 +834,86 @@ ti2param()
 {
   int32_t rval = OK, ti_rval = OK;
 
+  /////////////////
+  // GENERAL
+  /////////////////
+
   ti_rval = tiGetCrateID(0);
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["CRATE_ID"] = rval;
-
+    ti_general_readback["CRATE_ID"] = ti_rval;
 
   ti_rval = tiGetCurrentBlockLevel();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["BLOCK_LEVEL"] = rval;
+    ti_general_readback["BLOCK_LEVEL"] = ti_rval;
 
   ti_rval = tiGetBlockBufferLevel();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["BLOCK_BUFFER_LEVEL"] = rval;
+    ti_general_readback["BLOCK_BUFFER_LEVEL"] = ti_rval;
 
   ti_rval = tiGetInstantBlockLevelChange();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["INSTANT_BLOCKLEVEL_ENABLE"] = rval;
+    ti_general_readback["INSTANT_BLOCKLEVEL_ENABLE"] = ti_rval;
 
   ti_rval = tiGetUseBroadcastBufferLevel();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["BROADCAST_BUFFER_LEVEL_ENABLE"] = rval;
+    ti_general_readback["BROADCAST_BUFFER_LEVEL_ENABLE"] = ti_rval;
 
   ti_rval = tiGetBlockLimit();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["BLOCK_LIMIT"] = rval;
+    ti_general_readback["BLOCK_LIMIT"] = ti_rval;
 
   ti_rval = tiGetTriggerSource();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["TRIGGER_SOURCE"] = rval;
+    ti_general_readback["TRIGGER_SOURCE"] = ti_rval;
 
   ti_rval = tiGetSyncSource();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["SYNC_SOURCE"] = rval;
+    {
+      int32_t sync_val = -1;
+      // decode the return bits into value for config file
+      if(ti_rval & TI_SYNC_P0)
+	sync_val = 0;
+
+      if(ti_rval & TI_SYNC_HFBR1)
+	sync_val = 1;
+
+      if(ti_rval & TI_SYNC_HFBR5)
+	sync_val = 2;
+
+      if(ti_rval & TI_SYNC_FP)
+	sync_val = 3;
+
+      if(ti_rval & TI_SYNC_LOOPBACK)
+	sync_val = 4;
+
+      ti_general_readback["SYNC_SOURCE"] = sync_val;
+
+    }
 
   ti_rval = tiGetSyncResetType();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["SYNC_RESET_TYPE"] = rval;
+    ti_general_readback["SYNC_RESET_TYPE"] = ti_rval;
 
+  // Slave the slave bits for the slave section
+  int32_t slave_bits = 0;
   ti_rval = tiGetBusySource();
   if(ti_rval == ERROR)
     rval = ERROR;
@@ -876,53 +938,139 @@ ti2param()
 	ti_general_readback["BUSY_SOURCE_LOOPBACK"] = 1;
 
       if(ti_rval & TI_BUSY_HFBR1)
-	ti_general_readback["BUSY_SOURCE_FIBER1"] = 1;
+	{
+	  slave_bits |= (1 << 0);
+	  ti_general_readback["BUSY_SOURCE_FIBER1"] = 1;
+	}
 
       if(ti_rval & TI_BUSY_HFBR2)
-	ti_general_readback["BUSY_SOURCE_FIBER2"] = 1;
+	{
+	  slave_bits |= (1 << 1);
+	  ti_general_readback["BUSY_SOURCE_FIBER2"] = 1;
+	}
 
       if(ti_rval & TI_BUSY_HFBR3)
-	ti_general_readback["BUSY_SOURCE_FIBER3"] = 1;
+	{
+	  slave_bits |= (1 << 2);
+	  ti_general_readback["BUSY_SOURCE_FIBER3"] = 1;
+	}
 
       if(ti_rval & TI_BUSY_HFBR4)
-	ti_general_readback["BUSY_SOURCE_FIBER4"] = 1;
+	{
+	  slave_bits |= (1 << 3);
+	  ti_general_readback["BUSY_SOURCE_FIBER4"] = 1;
+	}
 
       if(ti_rval & TI_BUSY_HFBR5)
-	ti_general_readback["BUSY_SOURCE_FIBER5"] = 1;
+	{
+	  slave_bits |= (1 << 4);
+	  ti_general_readback["BUSY_SOURCE_FIBER5"] = 1;
+	}
 
       if(ti_rval & TI_BUSY_HFBR6)
-	ti_general_readback["BUSY_SOURCE_FIBER6"] = 1;
+	{
+	  slave_bits |= (1 << 5);
+	  ti_general_readback["BUSY_SOURCE_FIBER6"] = 1;
+	}
 
       if(ti_rval & TI_BUSY_HFBR7)
-	ti_general_readback["BUSY_SOURCE_FIBER7"] = 1;
+	{
+	  slave_bits |= (1 << 6);
+	  ti_general_readback["BUSY_SOURCE_FIBER7"] = 1;
+	}
 
       if(ti_rval & TI_BUSY_HFBR8)
-	ti_general_readback["BUSY_SOURCE_FIBER8"] = 1;
+	{
+	  slave_bits |= (1 << 7);
+	  ti_general_readback["BUSY_SOURCE_FIBER8"] = 1;
+	}
     }
 
   ti_rval = tiGetClockSource();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["CLOCK_SOURCE"] = rval;
+    ti_general_readback["CLOCK_SOURCE"] = ti_rval;
 
   ti_rval = tiGetPrescale();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["PRESCALE"] = rval;
+    ti_general_readback["PRESCALE"] = ti_rval;
 
   ti_rval = tiGetEventFormat();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["EVENT_FORMAT"] = rval;
+    ti_general_readback["EVENT_FORMAT"] = ti_rval;
 
   ti_rval = tiGetFPInputReadout();
   if(ti_rval == ERROR)
     rval = ERROR;
   else
-    ti_general_readback["FP_INPUT_READOUT_ENABLE"] = rval;
+    ti_general_readback["FP_INPUT_READOUT_ENABLE"] = ti_rval;
+
+
+  /////////////////
+  // SLAVES
+  /////////////////
+
+  //  loop through the slave bits gathered from the BUSY source mask above
+  for(int32_t ibit = 0; ibit < 8; ibit++)
+    {
+      if(slave_bits & (1 << ibit))
+	{
+	  ti_slaves_readback["ENABLE_FIBER_" + std::to_string(ibit + 1)] = 1;
+	}
+    }
+
+
+  /////////////////
+  // TSINPUTS
+  /////////////////
+  ti_rval = tiGetTSInput();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    {
+      for(int32_t ibit = 0; ibit < 6; ibit++)
+	{
+	  if(ti_rval & (1 << ibit))
+	    {
+	      ti_tsinputs_readback["ENABLE_TS" + std::to_string(ibit + 1)] = 1;
+	    }
+	}
+    }
+
+  for(int32_t inp = 1; inp <= 6; inp++)
+    {
+      ti_rval = tiGetInputPrescale(inp);
+
+      if(ti_rval == ERROR)
+	rval = ERROR;
+      else
+	{
+	  ti_tsinputs_readback["PRESCALE_TS" + std::to_string(inp)] = ti_rval;
+	}
+    }
+
+  for(int32_t inp = 1; inp <= 6; inp++)
+    {
+      ti_rval = tiGetTSInputDelay(inp);
+
+      if(ti_rval == ERROR)
+	rval = ERROR;
+      else
+	{
+	  ti_tsinputs_readback["DELAY_TS" + std::to_string(inp)] = ti_rval;
+	}
+    }
+
+  /////////////////
+  // TRIGGER RULES
+  /////////////////
+
+
 
   return rval;
 }
@@ -933,6 +1081,9 @@ ti2param()
 int32_t
 writeIni(const char* filename)
 {
+  if(ti2param() == ERROR)
+    std::cerr << __func__ << "ERROR: ti2param() returned ERROR" << std::endl;
+
   std::ofstream outFile;
   int32_t error;
 
