@@ -1010,6 +1010,30 @@ ti2param()
   else
     ti_general_readback["FP_INPUT_READOUT_ENABLE"] = ti_rval;
 
+  ti_rval = tiGetGoOutput();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["GO_OUTPUT_ENABLE"] = ti_rval;
+
+  ti_rval = tiGetTriggerWindow();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["TRIGGER_WINDOW"] = ti_rval;
+
+  ti_rval = tiGetTriggerInhibitWindow();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["TRIGGER_INHIBIT_WINDOW"] = ti_rval;
+
+  ti_rval = tiGetTriggerLatchOnLevel();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["TRIGGER_LATCH_ON_LEVEL_ENABLE"] = ti_rval;
+
 
   /////////////////
   // SLAVES
@@ -1045,32 +1069,58 @@ ti2param()
   for(int32_t inp = 1; inp <= 6; inp++)
     {
       ti_rval = tiGetInputPrescale(inp);
-
       if(ti_rval == ERROR)
 	rval = ERROR;
       else
 	{
 	  ti_tsinputs_readback["PRESCALE_TS" + std::to_string(inp)] = ti_rval;
 	}
-    }
 
-  for(int32_t inp = 1; inp <= 6; inp++)
-    {
       ti_rval = tiGetTSInputDelay(inp);
-
       if(ti_rval == ERROR)
 	rval = ERROR;
       else
 	{
 	  ti_tsinputs_readback["DELAY_TS" + std::to_string(inp)] = ti_rval;
 	}
+
     }
 
   /////////////////
   // TRIGGER RULES
   /////////////////
+  int32_t slow_clock = 0;
+  ti_rval = tiGetTriggerHoldoffClock();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    slow_clock = ti_rval;
 
+  for(int32_t irule = 1; irule <=4; irule++)
+    {
+      ti_rval = tiGetTriggerHoldoff(irule);
+      if(ti_rval == ERROR)
+	rval = ERROR;
+      else
+	{
+	  ti_rules_readback["RULE_" + std::to_string(irule)] = ti_rval & (0x7F);
 
+	  int32_t timestep = (ti_rval & (1 << 7)) ? (1 + slow_clock) : 0;
+	  ti_rules_readback["RULE_TIMESTEP_" + std::to_string(irule)] = timestep;
+	}
+
+      if(irule == 1)
+	continue;
+
+      ti_rval = tiGetTriggerHoldoffMin(irule, 0);
+      if(ti_rval == ERROR)
+	rval = ERROR;
+      else
+	{
+	  ti_rules_readback["RULE_MIN_" + std::to_string(irule)] = ti_rval;
+	}
+
+    }
 
   return rval;
 }
@@ -1082,7 +1132,7 @@ int32_t
 writeIni(const char* filename)
 {
   if(ti2param() == ERROR)
-    std::cerr << __func__ << "ERROR: ti2param() returned ERROR" << std::endl;
+    std::cerr << __func__ << ": ERROR: ti2param() returned ERROR" << std::endl;
 
   std::ofstream outFile;
   int32_t error;

@@ -485,7 +485,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
       return OK;
     }
 
-
   /* Reset global library variables */
   tiBlockLevel=1;
   tiNextBlockLevel=1;
@@ -2464,6 +2463,30 @@ tiSetGoOutput(int enable)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return status of flag used to enable GO output
+ *
+ * @return Enable flag
+ *<pre>
+ *     0: Disabled
+ *     1: Enabled
+ *</pre>
+ *
+ *
+ */
+int32_t
+tiGetGoOutput()
+{
+  int32_t rval = 0;
+
+  TILOCK;
+  rval = tiUseGoOutput;
+  TIUNLOCK;
+
+  return rval;
 }
 /**
  * @ingroup Config
@@ -5960,7 +5983,7 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
   unsigned int wval = 0, rval = 0;
   unsigned int maxvalue = 0x7f;
   unsigned int vmeControl = 0;
-  static int slow_clock_previously_switched = 0;
+  static int slow_clock_previously_set = 0;
 
   if(TIp == NULL)
     {
@@ -6014,11 +6037,13 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 
   vmeWrite32(&TIp->triggerRule,wval);
 
-  if(timestep==2)
+  /* Decision to enable the slower clock.
+     No change for timestemp = 0 */
+  if(timestep == 2)
     {
-      if(!(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES))
+      if((vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES) == 0)
 	{
-	  if(slow_clock_previously_switched == 1)
+	  if(slow_clock_previously_set == 1)
 	    {
 	      printf("%s: WARNING: Using slower clock for trigger rules.\n",
 		     __FUNCTION__);
@@ -6026,14 +6051,14 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 	    }
 	  vmeWrite32(&TIp->vmeControl,
 		     vmeControl | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
-	  slow_clock_previously_switched = 1;
 	}
+      slow_clock_previously_set = 1;
     }
-  else
+  else if(timestep == 1)
     {
-      if(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES)
+      if((vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES) == TI_VMECONTROL_SLOWER_TRIGGER_RULES)
 	{
-	  if(slow_clock_previously_switched == 1)
+	  if(slow_clock_previously_set == 1)
 	    {
 	      printf("%s: WARNING: Using faster clock for trigger rules.\n",
 		     __FUNCTION__);
@@ -6041,8 +6066,8 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 	    }
 	  vmeWrite32(&TIp->vmeControl,
 		     vmeControl & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
-	  slow_clock_previously_switched = 1;
 	}
+      slow_clock_previously_set = 1;
     }
   TIUNLOCK;
 
@@ -6107,6 +6132,33 @@ tiGetTriggerHoldoff(int rule)
 
 }
 
+/**
+ * @ingroup Status
+ * @brief Return status of slower clock for trigger rules.
+ *        If Enabled, will slow down the timestep = 1 by a factor of 32
+ *
+ * @return If successful, returns 1 for enabled, 0 for disabled.
+ *         ERROR, otherwise.
+ *
+ */
+int
+tiGetTriggerHoldoffClock()
+{
+  int rval=0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->vmeControl) & TI_VMECONTROL_SLOWER_TRIGGER_RULES) ? 1 : 0;
+  TIUNLOCK;
+
+  return rval;
+}
+
 int
 tiPrintTriggerHoldoff(int dflag)
 {
@@ -6149,7 +6201,7 @@ tiPrintTriggerHoldoff(int dflag)
   else
     printf("\n");
 
-  slowclock = (vmeControl & (1 << 31)) >> 31;
+  slowclock = (vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES) ? 1 : 0;
   for(irule = 0; irule < 4; irule++)
     {
       clockticks = (triggerRule >> (irule*8)) & 0x7F;
