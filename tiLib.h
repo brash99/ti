@@ -391,7 +391,7 @@ struct TI_A24RegStruct
 #define TI_READOUTACK_VTP_MASK   0x0000FF00
 #define TI_READOUTACK_LOCAL_MASK 0x000000FF
 
-/* 0x74 inputPrescale bits and masks */
+/* 0x64 inputPrescale bits and masks */
 #define TI_INPUTPRESCALE_FP1_MASK   0x0000000F
 #define TI_INPUTPRESCALE_FP2_MASK   0x000000F0
 #define TI_INPUTPRESCALE_FP3_MASK   0x00000F00
@@ -399,6 +399,10 @@ struct TI_A24RegStruct
 #define TI_INPUTPRESCALE_FP5_MASK   0x000F0000
 #define TI_INPUTPRESCALE_FP6_MASK   0x00F00000
 #define TI_INPUTPRESCALE_FP_MASK(x) (0xF<<4*((x-1)))
+
+/* 0x74 pulserEvType bits and masks */
+#define TI_PULSEREVTYPE_FIXED_MASK   0x00FF0000
+#define TI_PULSEREVTYPE_RANDOM_MASK  0xFF000000
 
 /* 0x78 syncCommand bits and masks */
 #define TI_SYNCCOMMAND_VME_CLOCKRESET      0x11
@@ -708,9 +712,11 @@ int  tiGetPrescale();
 int  tiSetInputPrescale(int input, int prescale);
 int  tiGetInputPrescale(int input);
 int  tiSetTriggerPulse(int trigger, int delay, int width, int delay_step);
+int32_t tiGetTriggerPulse(int32_t trigger, int32_t *delay, int32_t *width, int32_t *delay_step);
 int  tiSetPromptTriggerWidth(int width);
 int  tiGetPromptTriggerWidth();
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
+int32_t tiGetSyncDelayWidth(int32_t *delay, int32_t *width, int32_t *widthstep);
 void tiTrigLinkReset();
 int  tiSetSyncResetType(int type);
 int32_t tiGetSyncResetType();
@@ -765,7 +771,9 @@ int  tiGetTriggerTable(unsigned int *otable);
 int  tiTriggerTablePredefinedConfig(int mode);
 int  tiDefineEventType(int trigMask, int hwTrig, int evType);
 int  tiDefinePulserEventType(int fixed_type, int random_type);
+int32_t tiGetPulserEventType(int32_t *fixed_type, int32_t *random_type);
 int  tiLoadTriggerTable(int mode);
+int32_t tiGetTriggerTableMode();
 void tiPrintTriggerTable(int showbits);
 int  tiSetTriggerWindow(int window_width);
 int  tiGetTriggerWindow();
@@ -845,7 +853,9 @@ int  tiGetRocEnableMask();
 int  tiReadScalers(volatile unsigned int *data, int latch);
 
 int  tiSetScalerMode(int mode, int control);
+int32_t tiGetScalerMode(int32_t *mode, int32_t *control);
 int  tiSetEvTypeScalers(int enable);
+int32_t tiGetEvTypeScalersFlag();
 void tiClearEvTypeScalers();
 int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
 void tiPrintEvTypeScalers();

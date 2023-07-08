@@ -111,6 +111,7 @@ static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set defaul
 static int          tiFakeTriggerBank=1;
 static int          tiUseGoOutput=1;
 static int          tiUseEvTypeScalers=0;
+static int32_t      tiTriggerTableMode=0;    /* Predefined: 0-3, User: 4 */
 
 static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
@@ -4374,6 +4375,57 @@ tiSetTriggerPulse(int trigger, int delay, int width, int delay_step)
 }
 
 /**
+ *  @ingroup Status
+ *  @brief Return the characteristics of a specified trigger
+ *
+ *  @param trigger
+ *           - 1: set for trigger 1
+ *           - 2: set for trigger 2 (playback trigger)
+ *  @param delay    delay in units of delay_step
+ *  @param width    pulse width in units of 4ns
+ *  @param delay_step step size of the delay
+ *         - 0: 16ns
+ *          !1: 64ns (with an offset of ~4.1 us)
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int32_t
+tiGetTriggerPulse(int32_t trigger, int32_t *delay, int32_t *width, int32_t *delay_step)
+{
+  int32_t rval=0, reg_val = 0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(trigger<1 || trigger>2)
+    {
+      printf("%s: ERROR: Invalid trigger (%d).  Must be 1 or 2.\n",
+	     __FUNCTION__,trigger);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg_val = vmeRead32(&TIp->trigDelay);
+  if(trigger==1)
+    {
+      *delay = (reg_val & TI_TRIGDELAY_TRIG1_DELAY_MASK);
+      *width = (reg_val & TI_TRIGDELAY_TRIG1_WIDTH_MASK) >> 8;
+      *delay_step = (reg_val & TI_TRIGDELAY_TRIG1_64NS_STEP) ? 1 : 0;
+    }
+  if(trigger==2)
+    {
+      *delay = (reg_val & TI_TRIGDELAY_TRIG2_DELAY_MASK) >> 16;
+      *width = (reg_val & TI_TRIGDELAY_TRIG2_WIDTH_MASK) >> 24;
+      *delay_step = (reg_val & TI_TRIGDELAY_TRIG2_64NS_STEP) ? 1 : 0;
+    }
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  *  @ingroup Config
  *  @brief Set the width of the prompt trigger from OT#2
  *
@@ -4480,6 +4532,38 @@ tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep)
   vmeWrite32(&TIp->syncWidth,width);
   TIUNLOCK;
 
+}
+
+/**
+ *  @ingroup Status
+ *  @brief Get the delay time and width of the Sync signal
+ *
+ * @param delay  the delay (latency) set in units of 4ns.
+ * @param width  the width set in units of 4ns.
+ * @param twidth  if this is non-zero, set width in units of 32ns.
+ *
+ */
+int32_t
+tiGetSyncDelayWidth(int32_t *delay, int32_t *width, int32_t *widthstep)
+{
+  int32_t reg_val = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  *delay = vmeRead32(&TIp->syncDelay) & TI_SYNCDELAY_MASK;
+
+  reg_val = vmeRead32(&TIp->syncWidth);
+  *width = reg_val & TI_SYNCWIDTH_MASK;
+  *widthstep = (reg_val & TI_SYNCWIDTH_LONGWIDTH_ENABLE) ? 1 : 0;
+
+  TIUNLOCK;
+
+  return OK;
 }
 
 /**
@@ -6693,6 +6777,34 @@ tiDefinePulserEventType(int fixed_type, int random_type)
 }
 
 /**
+ * @ingroup MasterStatus
+ * @brief Return the event type for the TI Master's fixed and random internal trigger.
+ *
+ * @param fixed_type Fixed Pulser Event Type
+ * @param random_type Pseudo Random Pulser Event Type
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int32_t
+tiGetPulserEventType(int32_t *fixed_type, int32_t *random_type)
+{
+  uint32_t reg_val = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg_val = vmeRead32(&TIp->pulserEvType);
+  *fixed_type = (reg_val & TI_PULSEREVTYPE_FIXED_MASK) >> 16;
+  *random_type = (reg_val & TI_PULSEREVTYPE_RANDOM_MASK) >> 24;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  * @ingroup MasterConfig
  * @brief Load a predefined trigger table (mapping TS inputs to trigger types).
  *
@@ -6747,12 +6859,32 @@ tiLoadTriggerTable(int mode)
     tiTriggerTablePredefinedConfig(mode);
 
   TILOCK;
+  tiTriggerTableMode = mode;
   for(ipat=0; ipat<16; ipat++)
     vmeWrite32(&TIp->trigTable[ipat], tiTrigPatternData[ipat]);
 
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return trigger table mode
+ *
+ * @return 0-3: Predefined modes, 4: User
+ *
+ */
+int32_t
+tiGetTriggerTableMode()
+{
+  int32_t rval = 0;
+
+  TILOCK;
+  rval = tiTriggerTableMode;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**
@@ -9677,6 +9809,42 @@ tiSetScalerMode(int mode, int control)
 }
 
 /**
+ * @ingroup Status
+ * @brief Returns the settings for the scaling of ts inputs
+ *
+ * @param mode:
+ *   -  0: Always count, regardless of trigger source enable
+ *   -  1: Only count when trigger source is enabled.
+ *
+ * @param control:
+ *   -  0: TS inputs scalers count according to 'mode' parameter.
+ *   -  1: TS inputs scalers can be enabled/disabled with @tiEnableTSInput/@tiDisableTSInput
+ *
+ * @return OK if successful, otherwise ERROR
+ *
+ */
+
+int32_t
+tiGetScalerMode(int32_t *mode, int32_t *control)
+{
+  uint32_t reg_val = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg_val = vmeRead32(&TIp->vmeControl);
+  *mode = (reg_val & TI_VMECONTROL_COUNT_IN_GO_ENABLE) ? 1 : 0;
+  *control = (reg_val & TI_VMECONTROL_TS_COUNTER_CONTROL) ? 1 : 0;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  * @ingroup Config
  * @brief Enable/disable recording of scalers associated with the bits in the event type.
  *
@@ -9705,6 +9873,27 @@ tiSetEvTypeScalers(int enable)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return the flag for Enabling/disabling recording of event type scalers
+ *
+ * @return enable flag
+ *   -  0: Scalers Disabled
+ *   -  1: Scalers Enabled
+ *
+ *
+ */
+int32_t
+tiGetEvTypeScalersFlag()
+{
+  int32_t rval = 0;
+  TILOCK;
+  rval = tiUseEvTypeScalers;
+  TIUNLOCK;
+
+  return rval;
 }
 
 static unsigned int evtype_scalers[6];

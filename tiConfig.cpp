@@ -78,6 +78,7 @@ const ti_param_map ti_general_def
 
     { "EVENTTYPE_SCALERS_ENABLE", -1 },
     { "SCALER_MODE", -1 },
+    { "SCALER_MODE_CONTROL", -1 },
     { "SYNCEVENT_INTERVAL", -1 },
 
     { "TRIGGER_TABLE", -1 },
@@ -579,7 +580,12 @@ param2ti()
   CHECK_PARAM(ti_general_ini, "SCALER_MODE");
   if(param_val > 0)
     {
-      ti_rval = tiSetScalerMode(param_val, 0);
+      int32_t control = 0;
+
+      CHECK_PARAM(ti_general_ini, "SCALER_MODE_CONTROL");
+      control = param_val;
+
+      ti_rval = tiSetScalerMode(param_val, control);
       if(ti_rval != OK)
 	rval = ERROR;
 
@@ -1034,6 +1040,80 @@ ti2param()
   else
     ti_general_readback["TRIGGER_LATCH_ON_LEVEL_ENABLE"] = ti_rval;
 
+  int32_t delay = 0, width = 0, delay_step = 0;
+  ti_rval = tiGetTriggerPulse(1, &delay, &width, &delay_step);
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    {
+      ti_general_readback["TRIGGER_OUTPUT_DELAY"] = delay;
+      ti_general_readback["TRIGGER_OUTPUT_WIDTH"] = width;
+      ti_general_readback["TRIGGER_OUTPUT_DELAYSTEP"] = delay_step;
+    }
+
+  ti_rval = tiGetPromptTriggerWidth();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["PROMPT_TRIGGER_WIDTH"] = ti_rval;
+
+  int32_t width_step = 0;
+  delay = 0;
+  width = 0;
+
+  ti_rval = tiGetSyncDelayWidth(&delay, &width, &width_step);
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    {
+      ti_general_readback["SYNCRESET_DELAY"] = delay;
+      ti_general_readback["SYNCRESET_WIDTH"] = width;
+      ti_general_readback["SYNCRESET_WIDTHSTEP"] = width_step;
+    }
+
+  ti_rval = tiGetEvTypeScalersFlag();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["EVENTTYPE_SCALERS_ENABLE"] = ti_rval;
+
+  int32_t mode = 0, control = 0;
+  ti_rval = tiGetScalerMode(&mode, &control);
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    {
+      ti_general_readback["SCALER_MODE"] = mode;
+      ti_general_readback["SCALER_MODE_CONTROL"] = control;
+    }
+
+  ti_rval = tiGetSyncEventInterval();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["SYNCEVENT_INTERVAL"] = ti_rval;
+
+  ti_rval = tiGetTriggerTableMode();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["TRIGGER_TABLE"] = ti_rval;
+
+  int32_t fixed_type= 0, random_type = 0;
+  ti_rval = tiGetPulserEventType(&fixed_type, &random_type);
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    {
+      ti_general_readback["FIXED_PULSER_EVENTTYPE"] = fixed_type;
+      ti_general_readback["RANDOM_PULSER_EVENTTYPE"] = random_type;
+    }
+
+  ti_rval = tiGetFiberDelay();
+  if(ti_rval == ERROR)
+    rval = ERROR;
+  else
+    ti_general_readback["FIBER_SYNC_DELAY"] = ti_rval;
 
   /////////////////
   // SLAVES
