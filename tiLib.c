@@ -9291,7 +9291,8 @@ tiGetAckCount()
 int
 tiGetSWBBusy(int pflag)
 {
-  unsigned int rval=0;
+  int rval = 0;
+  unsigned int rreg = 0;
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -9299,15 +9300,16 @@ tiGetSWBBusy(int pflag)
     }
 
   TILOCK;
-  rval = vmeRead32(&TIp->busy) & (TI_BUSY_SWB<<16);
-
+  rreg = vmeRead32(&TIp->busy);
+  rval = (rreg & TI_BUSY_MONITOR_SWB) ? 1 : 0;
   TIUNLOCK;
 
   if(pflag)
     {
-      printf("%s: SWB %s\n",
+      printf("%s: SWB %s  (0x%08x)\n",
 	     __FUNCTION__,
-	     (rval)?"BUSY":"NOT BUSY");
+	     (rval)?"BUSY":"NOT BUSY",
+	     rreg);
     }
 
   return rval;
