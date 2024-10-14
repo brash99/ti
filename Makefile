@@ -77,7 +77,10 @@ endif
 SRC			= ${BASENAME}Lib.c ${BASENAME}Config.cpp
 HDRS			= ${BASENAME}Lib.h ${BASENAME}Config.h
 OBJ			= $(HDRS:%.h=%.o)
-DEPS			= $(HDRS:%.h=%.d)
+
+DEPDIR			:= .deps
+DEPFLAGS		= -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
+DEPFILES		:= $(OBJ:%.o=$(DEPDIR)/%.d)
 
 ifeq ($(OS),LINUX)
 all: echoarch ${LIBS}
@@ -86,16 +89,18 @@ all: echoarch $(OBJ)
 endif
 
 %.o: %.c
+%.o: %.c $(DEPDIR)/%.d | $(DEPDIR)
 	@echo " CC     $@"
-	${Q}$(CC) $(CFLAGS) $(INCS) -c -o $@ $<
+	${Q}$(CC) $(DEPFLAGS) $(CFLAGS) $(INCS) -fPIC -c -o $@ $<
 
 %.o: %.cpp
+%.o: %.cpp $(DEPDIR)/%.d | $(DEPDIR)
 	@echo " CXX    $@"
-	${Q}$(CXX) $(CFLAGS) -std=c++11 $(INCS) -c -o $@ $<
+	${Q}$(CXX) $(DEPFLAGS) $(CFLAGS) -std=c++11 $(INCS) -fPIC -c -o $@ $<
 
 %.so: $(OBJ)
 	@echo " CC     $@"
-	${Q}$(CC) -shared $(CFLAGS) $(INCS) -o $(@:%.a=%.so) $(OBJ)
+	${Q}$(CC) -shared $(CFLAGS) $(INCS) -o $@ $(OBJ)
 
 %.a: $(OBJ)
 	@echo " AR     $@"
@@ -124,26 +129,15 @@ coda_install: $(LIBS)
 	@echo " CODACP ${BASENAME}Config.h"
 	${Q}cp ${PWD}/${BASENAME}Config.h $(CODA_VME)/include
 
-%.d: %.c
-	@echo " DEP    $@"
-	@set -e; rm -f $@; \
-	$(CC) -MM -shared $(INCS) $< > $@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
-
-%.d: %.cpp
-	@echo " DEP    $@"
-	@set -e; rm -f $@; \
-	$(CXX) -MM -shared $(INCS) $< > $@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
-
--include $(DEPS)
 
 endif
 
+$(DEPDIR): ; @mkdir -p $@
+
+$(DEPFILES):
+include $(wildcard $(DEPFILES))
 clean:
-	@rm -vf ${OBJ} ${DEPS}
+	@rm -vf ${OBJ}
 
 echoarch:
 	@echo "Make for $(OS)-$(ARCH)"
