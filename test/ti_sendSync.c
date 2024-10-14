@@ -1,6 +1,6 @@
 /*
  * File:
- *    tid_sendSync.c 
+ *    tid_sendSync.c
  *
  * Description:
  *    Just send a sync... nothing else
@@ -12,18 +12,9 @@
 #include <stdio.h>
 #include "jvme.h"
 #include "tiLib.h"
-#include "sdLib.h"
-#include "ctpLib.h"
 
-unsigned int blockCount=0;
-extern volatile struct TID_A24RegStruct *TIDp; /* pointer to TID memory map */
-extern volatile        unsigned int     *TIDpd; /* pointer to TID data FIFO */
-extern unsigned int tidRead(volatile unsigned int *addr);
-extern void tidWrite(volatile unsigned int *addr, unsigned int val);
 
-extern int ctpSetPayloadEnableMask(int enableMask);
-
-int 
+int
 main(int argc, char *argv[]) {
 
 /*     int stat; */
@@ -33,12 +24,11 @@ main(int argc, char *argv[]) {
 
     vmeOpenDefaultWindows();
 
-    /* Set the TIR structure pointer */
     tiInit(21<<19,0,1);
 
 /*     printf("Press <Enter> to send the SYNC\n"); */
 /*     getchar(); */
-    tiSyncReset();
+    tiSyncReset(1);
     printf("SENT\n");
 
 
@@ -50,4 +40,3 @@ main(int argc, char *argv[]) {
 
     exit(0);
 }
-

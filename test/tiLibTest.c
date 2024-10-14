@@ -189,12 +189,6 @@ main(int argc, char *argv[]) {
   printf("\nJLAB TI Tests\n");
   printf("----------------------------\n");
 
-  /* remexSetCmsgServer("dafarm28"); */
-  /* remexInit(NULL,1); */
-
-  printf("Size of DMANODE    = %d (0x%x)\n",sizeof(DMANODE),sizeof(DMANODE));
-  printf("Size of DMA_MEM_ID = %d (0x%x)\n",sizeof(DMA_MEM_ID),sizeof(DMA_MEM_ID));
-
   vmeOpenDefaultWindows();
 
   /* Setup Address and data modes for DMA transfers

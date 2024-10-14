@@ -36,7 +36,7 @@ RANLIB                  = ranlib
 INCS			= -I. -I../ -I${LINUXVME_INC} ${CODA_VME_INC}
 CFLAGS			= -lstdc++ -L. -L../ -L${LINUXVME_LIB} ${CODA_LIB} -lrt -ljvme -lsd -lti -lts
 ifeq ($(DEBUG),1)
-	CFLAGS		+= -Wall -g
+	CFLAGS		+= -Wall -g -Wno-unused
 endif
 
 SRC			= $(wildcard *.c)
