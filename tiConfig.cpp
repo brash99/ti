@@ -312,6 +312,11 @@ param2ti()
       if(ti_rval != OK)
 	rval = ERROR;
     }
+  if(rval!=0)
+    {
+      std::cerr << __func__ << ": ERROR writing to Parameters to TI" << std::endl;
+      return rval;
+    }
 
   CHECK_PARAM(ti_general_ini, "BLOCK_LEVEL");
   if(param_val > 0)
