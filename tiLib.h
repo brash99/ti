@@ -20,17 +20,10 @@
 #ifndef TILIB_H
 #define TILIB_H
 
-#ifndef VXWORKS
-#include <pthread.h>
-
-pthread_mutex_t tiISR_mutex=PTHREAD_MUTEX_INITIALIZER;
-#else
-/* #include <intLib.h> */
-extern int intLock();
-extern int intUnlock();
-#endif
 
 #ifdef VXWORKS
+extern int intLock();
+extern int intUnlock();
 int intLockKeya;
 #define INTLOCK {				\
     intLockKeya = intLock();			\
@@ -398,7 +391,7 @@ struct TI_A24RegStruct
 #define TI_READOUTACK_VTP_MASK   0x0000FF00
 #define TI_READOUTACK_LOCAL_MASK 0x000000FF
 
-/* 0x74 inputPrescale bits and masks */
+/* 0x64 inputPrescale bits and masks */
 #define TI_INPUTPRESCALE_FP1_MASK   0x0000000F
 #define TI_INPUTPRESCALE_FP2_MASK   0x000000F0
 #define TI_INPUTPRESCALE_FP3_MASK   0x00000F00
@@ -406,6 +399,10 @@ struct TI_A24RegStruct
 #define TI_INPUTPRESCALE_FP5_MASK   0x000F0000
 #define TI_INPUTPRESCALE_FP6_MASK   0x00F00000
 #define TI_INPUTPRESCALE_FP_MASK(x) (0xF<<4*((x-1)))
+
+/* 0x74 pulserEvType bits and masks */
+#define TI_PULSEREVTYPE_FIXED_MASK   0x00FF0000
+#define TI_PULSEREVTYPE_RANDOM_MASK  0xFF000000
 
 /* 0x78 syncCommand bits and masks */
 #define TI_SYNCCOMMAND_VME_CLOCKRESET      0x11
@@ -668,19 +665,25 @@ int  tiGetPortTrigSrcEnabled(int port);
 int  tiGetSlaveBlocklevel(int port);
 int  tiSetBlockLevel(int blockLevel);
 int  tiBroadcastNextBlockLevel(int blockLevel);
+int32_t tiGetUseBroadcastBufferLevel();
 int  tiGetNextBlockLevel();
 int  tiGetCurrentBlockLevel();
 int  tiSetInstantBlockLevelChange(int enable);
 int  tiGetInstantBlockLevelChange();
 int  tiSetTriggerSource(int trig);
+int32_t tiGetTriggerSource();
 int  tiSetTriggerSourceMask(int trigmask);
 int  tiSetGoOutput(int enable);
+int32_t tiGetGoOutput();
 int  tiEnableTriggerSource();
 int  tiForceSendTriggerSourceEnable();
 int  tiDisableTriggerSource(int fflag);
 int  tiSetSyncSource(unsigned int sync);
+int32_t tiGetSyncSource();
 int  tiSetEventFormat(int format);
+int32_t tiGetEventFormat();
 int  tiSetFPInputReadout(int enable);
+int32_t tiGetFPInputReadout();
 int  tiSoftTrig(int trigger, unsigned int nevents, unsigned int period_inc, int range);
 int  tiSetRandomTrigger(int trigger, int setting);
 int  tiDisableRandomTrigger();
@@ -699,6 +702,7 @@ int  tiDecodeTSrev2Data(volatile unsigned int *data, int data_len,
 int  tiEnableFiber(unsigned int fiber);
 int  tiDisableFiber(unsigned int fiber);
 int  tiSetBusySource(unsigned int sourcemask, int rFlag);
+int32_t tiGetBusySource();
 int  tiSetTriggerLock(int enable);
 int  tiGetTriggerLock();
 void tiEnableBusError();
@@ -708,11 +712,14 @@ int  tiGetPrescale();
 int  tiSetInputPrescale(int input, int prescale);
 int  tiGetInputPrescale(int input);
 int  tiSetTriggerPulse(int trigger, int delay, int width, int delay_step);
+int32_t tiGetTriggerPulse(int32_t trigger, int32_t *delay, int32_t *width, int32_t *delay_step);
 int  tiSetPromptTriggerWidth(int width);
 int  tiGetPromptTriggerWidth();
 void tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep);
+int32_t tiGetSyncDelayWidth(int32_t *delay, int32_t *width, int32_t *widthstep);
 void tiTrigLinkReset();
 int  tiSetSyncResetType(int type);
+int32_t tiGetSyncResetType();
 void tiSyncReset(int bflag);
 void tiResetEB();
 void tiSyncResetResync();
@@ -737,6 +744,7 @@ int  tiBusyOnBufferLevel(int enable);
 int  tiUseBroadcastBufferLevel(int enable);
 int  tiEnableTSInput(unsigned int inpMask);
 int  tiDisableTSInput(unsigned int inpMask);
+int32_t tiGetTSInput();
 int  tiSetOutputPort(unsigned int set1, unsigned int set2, unsigned int set3, unsigned int set4);
 int  tiSetClockSource(unsigned int source);
 int  tiGetClockSource();
@@ -749,6 +757,7 @@ int  tiRemoveSlave(unsigned int fiber);
 int  tiAddSlaveMask(unsigned int fibermask);
 int  tiSetTriggerHoldoff(int rule, unsigned int value, int timestep);
 int  tiGetTriggerHoldoff(int rule);
+int  tiGetTriggerHoldoffClock();
 int  tiPrintTriggerHoldoff(int dflag);
 int  tiSetTriggerHoldoffMin(int rule, unsigned int value);
 int  tiGetTriggerHoldoffMin(int rule, int pflag);
@@ -762,7 +771,9 @@ int  tiGetTriggerTable(unsigned int *otable);
 int  tiTriggerTablePredefinedConfig(int mode);
 int  tiDefineEventType(int trigMask, int hwTrig, int evType);
 int  tiDefinePulserEventType(int fixed_type, int random_type);
+int32_t tiGetPulserEventType(int32_t *fixed_type, int32_t *random_type);
 int  tiLoadTriggerTable(int mode);
+int32_t tiGetTriggerTableMode();
 void tiPrintTriggerTable(int showbits);
 int  tiSetTriggerWindow(int window_width);
 int  tiGetTriggerWindow();
@@ -842,7 +853,9 @@ int  tiGetRocEnableMask();
 int  tiReadScalers(volatile unsigned int *data, int latch);
 
 int  tiSetScalerMode(int mode, int control);
+int32_t tiGetScalerMode(int32_t *mode, int32_t *control);
 int  tiSetEvTypeScalers(int enable);
+int32_t tiGetEvTypeScalersFlag();
 void tiClearEvTypeScalers();
 int  tiScanAndFillEvTypeScalers(volatile unsigned int *data, int nwords);
 void tiPrintEvTypeScalers();

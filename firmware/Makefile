@@ -35,15 +35,16 @@ CC			= $(CROSS_COMPILE)gcc
 AR                      = ar
 RANLIB                  = ranlib
 INCS			= -I. -I../ -I${LINUXVME_INC} ${CODA_VME_INC}
-CFLAGS			= -L. -L../ -L${LINUXVME_LIB} ${CODA_LIB} -lrt -ljvme -lti
+CFLAGS			= -L. -L../ -L${LINUXVME_LIB} ${CODA_LIB} -lstdc++ -lrt -ljvme -lti
 ifeq ($(DEBUG),1)
 	CFLAGS		+= -Wall -g
 endif
 
 SRC			= $(wildcard *.c)
-DEPS			= $(SRC:.c=.d)
-OBJ			= $(SRC:.c=.o)
 PROGS			= $(SRC:.c=)
+DEPDIR			:= .deps
+DEPFLAGS		= -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
+DEPFILES		:= $(SRC:%.c=$(DEPDIR)/%.d)
 
 all: echoarch $(PROGS)
 
@@ -51,15 +52,9 @@ clean distclean:
 	@rm -f $(PROGS) *~ $(OBJS) $(DEPS)
 
 %: %.c
+%: %.c $(DEPDIR)/%.d | $(DEPDIR)
 	@echo " CC     $@"
-	${Q}$(CC) $(CFLAGS) $(INCS) -o $@ $<
-
-%.d: %.c
-	@echo " DEP    $@"
-	@set -e; rm -f $@; \
-	$(CC) -MM -shared $(INCS) $< > $@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1 $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
+	${Q}$(CC) $(DEPFLAGS) $(CFLAGS) $(INCS) -o $@ $<
 
 install: $(PROGS)
 	@echo " CP     ${PROGS}"
@@ -69,7 +64,10 @@ coda_install: $(PROGS)
 	@echo " CODACP ${PROGS}"
 	${Q}cp ${PWD}/$(PROGS) $(CODA_VME_BIN)/
 
--include $(DEPS)
+$(DEPDIR): ; @mkdir -p $@
+
+$(DEPFILES):
+include $(wildcard $(DEPFILES))
 
 .PHONY: all clean distclean
 

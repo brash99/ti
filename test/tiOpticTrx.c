@@ -9,6 +9,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include "jvme.h"
@@ -17,12 +18,12 @@
 extern volatile struct TI_A24RegStruct *TIp;
 void I2CopticTrx();
 
-int 
-main(int argc, char *argv[]) 
+int
+main(int argc, char *argv[])
 {
   int slot;
-  unsigned int sn = 0;
-  
+  uint32_t sn = 0;
+
   if(argc > 1)
     {
       slot = atoi(argv[1]);
@@ -32,7 +33,7 @@ main(int argc, char *argv[])
 	  slot=21;
 	}
     }
-  else 
+  else
     slot=21;
 
   printf("\n");
@@ -53,7 +54,7 @@ main(int argc, char *argv[])
       printf("ERROR: TI-%d is not hardware compatible to use this routine\n",
 	     sn);
     }
-  
+
  CLOSE:
 
   vmeCloseDefaultWindows();
@@ -75,7 +76,7 @@ I2CopticTrx()
   int rxPower[4] = {0,0,0,0}, txBias[4] = {0,0,0,0};
   int txDisable = 0;
   int nreadbytes = 21;
-  unsigned short readbytes[21] =
+  uint16_t readbytes[21] =
     {
       22, 23, /* Temp */
       26, 27, /* Voltage */
@@ -83,17 +84,17 @@ I2CopticTrx()
       42, 43, 44, 45, 46, 47, 48, 49, /* txBias */
       86 /* Tx? Disable */
     };
-  unsigned int ReadVal;
+  uint32_t ReadVal;
   int i, maxtr = 8;
-  unsigned int *i2cOptp = (unsigned int *)((unsigned int)TIp + 0x50000);
-  unsigned int vmeControl_old = 0;
-  
+  uint32_t *i2cOptp = (uint32_t *)((u_long)TIp + 0x50000);
+  uint32_t vmeControl_old = 0;
+
   vmeBusLock();
-  
+
   /* set the device address to 0xA0# */
   vmeControl_old = vmeRead32(&TIp->vmeControl);
   vmeWrite32(&TIp->vmeControl, 0x00000111);
-  
+
   for (itr = 0; itr < maxtr; itr++) // loop over the eight transceivers
     {
       vmeWrite32(&TIp->fiber, 0x1ff - ((1 << itr) & 0xff));
@@ -108,7 +109,7 @@ I2CopticTrx()
 	  if (readbytes[ibyte] == 23) Tempt |= (ReadVal&0xff);
 
 	  if (readbytes[ibyte] == 26) Volt = (ReadVal & 0xff) << 8;
-	  if (readbytes[ibyte] == 27) Volt |= ReadVal&0xff; 
+	  if (readbytes[ibyte] == 27) Volt |= ReadVal&0xff;
 
 	  if (readbytes[ibyte] == 34) rxPower[0] = (ReadVal & 0xff) << 8;
 	  if (readbytes[ibyte] == 35) rxPower[0] |= (ReadVal & 0xff);
@@ -144,7 +145,7 @@ I2CopticTrx()
 	  continue;
 	}
 
-      
+
       /* Convert register values to physical units */
       Volt /= 10; /* mV */
       Tempt /= 256;
@@ -153,7 +154,7 @@ I2CopticTrx()
 	  rxPower[i] /= 10;
 	  txBias[i] *= 2;
 	}
-      
+
       printf("\n   Module Temp : %7d C    Supply Volt : %6d mV \n", Tempt, Volt);
       printf("   tx0 Disable : %7d      tx1 Disable : %6d\n",
 	     txDisable & (1<<0),
@@ -173,4 +174,3 @@ I2CopticTrx()
 
   vmeBusUnlock();
 }
-

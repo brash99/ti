@@ -111,6 +111,7 @@ static int          tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;  /* Set defaul
 static int          tiFakeTriggerBank=1;
 static int          tiUseGoOutput=1;
 static int          tiUseEvTypeScalers=0;
+static int32_t      tiTriggerTableMode=0;    /* Predefined: 0-3, User: 4 */
 
 static unsigned int tiTrigPatternData[16]=   /* Default Trigger Table to be loaded */
   { /* TS#1,2,3,4,5,6 generates Trigger1 (physics trigger),
@@ -484,7 +485,6 @@ tiInit(unsigned int tAddr, unsigned int mode, int iFlag)
     {
       return OK;
     }
-
 
   /* Reset global library variables */
   tiBlockLevel=1;
@@ -2323,6 +2323,80 @@ tiSetTriggerSource(int trig)
 }
 
 /**
+ * @ingroup Status
+ * @brief Get the trigger source
+ *
+ * @return integer indicating the trigger source
+ *         - 0: P0
+ *         - 1: HFBR#1
+ *         - 2: Front Panel (TRG)
+ *         - 3: Front Panel TS Inputs
+ *         - 4: TS (rev2)
+ *         - 5: Random
+ *         - 6-9: TS Partition 1-4
+ *         - 10: HFBR#5
+ *         - 11: Pulser Trig 2 then Trig1 after specified delay
+ *
+ */
+int32_t
+tiGetTriggerSource()
+{
+  int32_t rval = -1;
+  /* Decode tiTriggerSource */
+
+  if(tiMaster)
+    {
+      if(tiTriggerSource & TI_TRIGSRC_P0)
+	rval = TI_TRIGGER_P0;
+
+      else if(tiTriggerSource & TI_TRIGSRC_HFBR1)
+	rval = TI_TRIGGER_HFBR1;
+
+      else if(tiTriggerSource & TI_TRIGSRC_HFBR5)
+	rval = TI_TRIGGER_HFBR5;
+
+      else if(tiTriggerSource & TI_TRIGSRC_FPTRG)
+	rval = TI_TRIGGER_FPTRG;
+
+      else if(tiTriggerSource & TI_TRIGSRC_TSINPUTS)
+	rval = TI_TRIGGER_TSINPUTS;
+
+      else if(tiTriggerSource & TI_TRIGSRC_TSREV2)
+	rval = TI_TRIGGER_TSREV2;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PULSER)
+	rval = TI_TRIGGER_PULSER;
+
+      else if(tiTriggerSource & TI_TRIGSRC_TRIG21)
+	rval = TI_TRIGGER_TRIG21;
+    }
+  else
+    {
+      if(tiTriggerSource & TI_TRIGSRC_HFBR1)
+	rval = TI_TRIGGER_HFBR1;
+
+      else if(tiTriggerSource & TI_TRIGSRC_HFBR5)
+	rval = TI_TRIGGER_HFBR5;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_1)
+	rval = TI_TRIGGER_PART_1;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_2)
+	rval = TI_TRIGGER_PART_2;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_3)
+	rval = TI_TRIGGER_PART_3;
+
+      else if(tiTriggerSource & TI_TRIGSRC_PART_4)
+	rval = TI_TRIGGER_PART_4;
+
+    }
+
+  return rval;
+}
+
+
+/**
  * @ingroup Config
  * @brief Set trigger sources with specified trigmask
  *    This routine is for special use when tiSetTriggerSource(...) does
@@ -2390,6 +2464,30 @@ tiSetGoOutput(int enable)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return status of flag used to enable GO output
+ *
+ * @return Enable flag
+ *<pre>
+ *     0: Disabled
+ *     1: Enabled
+ *</pre>
+ *
+ *
+ */
+int32_t
+tiGetGoOutput()
+{
+  int32_t rval = 0;
+
+  TILOCK;
+  rval = tiUseGoOutput;
+  TIUNLOCK;
+
+  return rval;
 }
 /**
  * @ingroup Config
@@ -2538,6 +2636,39 @@ tiSetSyncSource(unsigned int sync)
 }
 
 /**
+ * @ingroup Status
+ * @brief Get the Sync source mask
+ *
+ * @return bit MASK indicating the sync source
+ *       bit: description
+ *       -  0: P0
+ *       -  1: HFBR1
+ *       -  2: HFBR5
+ *       -  3: FP
+ *       -  4: LOOPBACK
+ *
+ *
+ */
+int32_t
+tiGetSyncSource()
+{
+  int32_t rval = 0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->sync) & TI_SYNC_SOURCEMASK;
+  TIUNLOCK;
+
+  return rval;
+}
+
+
+/**
  * @ingroup Config
  * @brief Set the event format
  *
@@ -2602,6 +2733,51 @@ tiSetEventFormat(int format)
 
 /**
  * @ingroup Config
+ * @brief Get the event format
+ *
+ * @return integer number indicating the event format
+ *          - 0: 32 bit event number only
+ *          - 1: 32 bit event number + 32 bit timestamp
+ *          - 2: 32 bit event number + higher 16 bits of timestamp + higher 16 bits of eventnumber
+ *          - 3: 32 bit event number + 32 bit timestamp
+ *              + higher 16 bits of timestamp + higher 16 bits of eventnumber
+ *
+ */
+int32_t
+tiGetEventFormat()
+{
+  uint32_t formatset = 0;
+  int32_t rval = -1;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+
+  formatset = vmeRead32(&TIp->dataFormat);
+
+  if(formatset & (TI_DATAFORMAT_TIMING_WORD | TI_DATAFORMAT_HIGHERBITS_WORD))
+    rval = 3;
+
+  else if(formatset & TI_DATAFORMAT_HIGHERBITS_WORD)
+    rval = 2;
+
+  else if(formatset & TI_DATAFORMAT_TIMING_WORD)
+    rval = 1;
+
+  else
+    rval = 0;
+
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
+ * @ingroup Config
  * @brief Set whether or not the latched pattern of FP Inputs in block readout
  *
  * @param enable
@@ -2630,6 +2806,36 @@ tiSetFPInputReadout(int enable)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get whether or not the latched pattern of FP Inputs in block readout
+ *
+ * @returns state of input block readout
+ *    - 0: Disabled
+ *    - 1: Enabled
+ *
+ *
+ */
+int32_t
+tiGetFPInputReadout()
+{
+  int32_t rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  if (vmeRead32(&TIp->dataFormat) & TI_DATAFORMAT_FPINPUT_READOUT)
+    rval = 1;
+  else
+    rval = 0;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**
@@ -3824,6 +4030,41 @@ tiSetBusySource(unsigned int sourcemask, int rFlag)
 }
 
 /**
+ * @ingroup Status
+ * @brief Get the busy sourcemask
+ *
+ * @return source bitmask
+ *  - 0: SWA
+ *  - 1: SWB
+ *  - 2: P2
+ *  - 3: FP-FTDC
+ *  - 4: FP-FADC
+ *  - 5: FP
+ *  - 6: Unused
+ *  - 7: Loopack
+ *  - 8-15: Fiber 1-8
+ *
+ */
+int32_t
+tiGetBusySource()
+{
+  int32_t rval = 0;
+
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->busy) & TI_BUSY_SOURCEMASK;
+  TIUNLOCK;
+
+  return rval;
+
+}
+
+/**
  *  @ingroup MasterConfig
  *  @brief Set the the trigger lock mode.
  *
@@ -4134,6 +4375,57 @@ tiSetTriggerPulse(int trigger, int delay, int width, int delay_step)
 }
 
 /**
+ *  @ingroup Status
+ *  @brief Return the characteristics of a specified trigger
+ *
+ *  @param trigger
+ *           - 1: set for trigger 1
+ *           - 2: set for trigger 2 (playback trigger)
+ *  @param delay    delay in units of delay_step
+ *  @param width    pulse width in units of 4ns
+ *  @param delay_step step size of the delay
+ *         - 0: 16ns
+ *          !1: 64ns (with an offset of ~4.1 us)
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int32_t
+tiGetTriggerPulse(int32_t trigger, int32_t *delay, int32_t *width, int32_t *delay_step)
+{
+  int32_t rval=0, reg_val = 0;
+  if(TIp==NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  if(trigger<1 || trigger>2)
+    {
+      printf("%s: ERROR: Invalid trigger (%d).  Must be 1 or 2.\n",
+	     __FUNCTION__,trigger);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg_val = vmeRead32(&TIp->trigDelay);
+  if(trigger==1)
+    {
+      *delay = (reg_val & TI_TRIGDELAY_TRIG1_DELAY_MASK);
+      *width = (reg_val & TI_TRIGDELAY_TRIG1_WIDTH_MASK) >> 8;
+      *delay_step = (reg_val & TI_TRIGDELAY_TRIG1_64NS_STEP) ? 1 : 0;
+    }
+  if(trigger==2)
+    {
+      *delay = (reg_val & TI_TRIGDELAY_TRIG2_DELAY_MASK) >> 16;
+      *width = (reg_val & TI_TRIGDELAY_TRIG2_WIDTH_MASK) >> 24;
+      *delay_step = (reg_val & TI_TRIGDELAY_TRIG2_64NS_STEP) ? 1 : 0;
+    }
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  *  @ingroup Config
  *  @brief Set the width of the prompt trigger from OT#2
  *
@@ -4243,6 +4535,38 @@ tiSetSyncDelayWidth(unsigned int delay, unsigned int width, int widthstep)
 }
 
 /**
+ *  @ingroup Status
+ *  @brief Get the delay time and width of the Sync signal
+ *
+ * @param delay  the delay (latency) set in units of 4ns.
+ * @param width  the width set in units of 4ns.
+ * @param twidth  if this is non-zero, set width in units of 32ns.
+ *
+ */
+int32_t
+tiGetSyncDelayWidth(int32_t *delay, int32_t *width, int32_t *widthstep)
+{
+  int32_t reg_val = 0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TS not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  *delay = vmeRead32(&TIp->syncDelay) & TI_SYNCDELAY_MASK;
+
+  reg_val = vmeRead32(&TIp->syncWidth);
+  *width = reg_val & TI_SYNCWIDTH_MASK;
+  *widthstep = (reg_val & TI_SYNCWIDTH_LONGWIDTH_ENABLE) ? 1 : 0;
+
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  * @ingroup MasterConfig
  * @brief Reset the trigger link.
  */
@@ -4288,6 +4612,28 @@ tiSetSyncResetType(int type)
     tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET_4US;
   else
     tiSyncResetType=TI_SYNCCOMMAND_SYNCRESET;
+
+  return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Get SyncReset type
+ *
+ * @return Sync Reset Type
+ *    - 0: User programmed width in each TI
+ *    - 1: Fixed 4 microsecond width in each TI
+ *
+ */
+int32_t
+tiGetSyncResetType()
+{
+  int32_t rval = 0;
+
+  if(tiSyncResetType == TI_SYNCCOMMAND_SYNCRESET_4US)
+    rval = 1;
+  else
+    rval = TI_SYNCCOMMAND_SYNCRESET;
 
   return OK;
 }
@@ -5020,6 +5366,38 @@ tiUseBroadcastBufferLevel(int enable)
 }
 
 /**
+ *  @ingroup Status
+ *  @brief Get the status of enabling the use of the broadcasted buffer level, instead of the
+ *         value set locally with @tiSetBlockBufferLevel.
+ *
+ *  @return 1: enabled,
+ *          0: disabled,
+ *	    otherwise ERROR
+ *
+ */
+int32_t
+tiGetUseBroadcastBufferLevel()
+{
+  int32_t rreg = 0, rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+
+  TILOCK;
+  rreg = vmeRead32(&TIp->vmeControl);
+  if (rreg & TI_VMECONTROL_USE_LOCAL_BUFFERLEVEL)
+    rval = 0;
+  else
+    rval = 1;
+  TIUNLOCK;
+
+  return rval;
+}
+
+/**
  * @ingroup MasterConfig
  * @brief Enable/Disable trigger inputs labelled TS#1-6 on the Front Panel
  *
@@ -5093,6 +5471,36 @@ tiDisableTSInput(unsigned int inpMask)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup MasterStatus
+ * @brief Return the enable trigger inputs as a bit mask
+ *
+ * @return Enabled input mask
+ *       - 0:  TS#1
+ *       - 1:  TS#2
+ *       - 2:  TS#3
+ *       - 3:  TS#4
+ *       - 4:  TS#5
+ *       - 5:  TS#6
+ *
+ */
+int32_t
+tiGetTSInput()
+{
+  int32_t rval = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = vmeRead32(&TIp->tsInput) & TI_TSINPUT_MASK;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**
@@ -5659,7 +6067,7 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
   unsigned int wval = 0, rval = 0;
   unsigned int maxvalue = 0x7f;
   unsigned int vmeControl = 0;
-  static int slow_clock_previously_switched = 0;
+  static int slow_clock_previously_set = 0;
 
   if(TIp == NULL)
     {
@@ -5677,6 +6085,13 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
     {
       printf("%s: ERROR: Invalid value (%d). Must be less than %d.\n",
 	     __FUNCTION__,value,maxvalue);
+      return ERROR;
+    }
+
+  if(timestep > 2)
+    {
+      printf("%s: ERROR: Invalid timestep (%d). Must be less than %d.\n",
+	     __FUNCTION__, timestep, 2);
       return ERROR;
     }
 
@@ -5706,11 +6121,13 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 
   vmeWrite32(&TIp->triggerRule,wval);
 
-  if(timestep==2)
+  /* Decision to enable the slower clock.
+     No change for timestemp = 0 */
+  if(timestep == 2)
     {
-      if(!(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES))
+      if((vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES) == 0)
 	{
-	  if(slow_clock_previously_switched == 1)
+	  if(slow_clock_previously_set == 1)
 	    {
 	      printf("%s: WARNING: Using slower clock for trigger rules.\n",
 		     __FUNCTION__);
@@ -5718,14 +6135,14 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 	    }
 	  vmeWrite32(&TIp->vmeControl,
 		     vmeControl | TI_VMECONTROL_SLOWER_TRIGGER_RULES);
-	  slow_clock_previously_switched = 1;
 	}
+      slow_clock_previously_set = 1;
     }
-  else
+  else if(timestep == 1)
     {
-      if(vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES)
+      if((vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES) == TI_VMECONTROL_SLOWER_TRIGGER_RULES)
 	{
-	  if(slow_clock_previously_switched == 1)
+	  if(slow_clock_previously_set == 1)
 	    {
 	      printf("%s: WARNING: Using faster clock for trigger rules.\n",
 		     __FUNCTION__);
@@ -5733,8 +6150,8 @@ tiSetTriggerHoldoff(int rule, unsigned int value, int timestep)
 	    }
 	  vmeWrite32(&TIp->vmeControl,
 		     vmeControl & ~TI_VMECONTROL_SLOWER_TRIGGER_RULES);
-	  slow_clock_previously_switched = 1;
 	}
+      slow_clock_previously_set = 1;
     }
   TIUNLOCK;
 
@@ -5799,6 +6216,33 @@ tiGetTriggerHoldoff(int rule)
 
 }
 
+/**
+ * @ingroup Status
+ * @brief Return status of slower clock for trigger rules.
+ *        If Enabled, will slow down the timestep = 1 by a factor of 32
+ *
+ * @return If successful, returns 1 for enabled, 0 for disabled.
+ *         ERROR, otherwise.
+ *
+ */
+int
+tiGetTriggerHoldoffClock()
+{
+  int rval=0;
+
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  rval = (vmeRead32(&TIp->vmeControl) & TI_VMECONTROL_SLOWER_TRIGGER_RULES) ? 1 : 0;
+  TIUNLOCK;
+
+  return rval;
+}
+
 int
 tiPrintTriggerHoldoff(int dflag)
 {
@@ -5841,7 +6285,7 @@ tiPrintTriggerHoldoff(int dflag)
   else
     printf("\n");
 
-  slowclock = (vmeControl & (1 << 31)) >> 31;
+  slowclock = (vmeControl & TI_VMECONTROL_SLOWER_TRIGGER_RULES) ? 1 : 0;
   for(irule = 0; irule < 4; irule++)
     {
       clockticks = (triggerRule >> (irule*8)) & 0x7F;
@@ -6333,6 +6777,34 @@ tiDefinePulserEventType(int fixed_type, int random_type)
 }
 
 /**
+ * @ingroup MasterStatus
+ * @brief Return the event type for the TI Master's fixed and random internal trigger.
+ *
+ * @param fixed_type Fixed Pulser Event Type
+ * @param random_type Pseudo Random Pulser Event Type
+ *
+ * @return OK if successful, otherwise ERROR
+ */
+int32_t
+tiGetPulserEventType(int32_t *fixed_type, int32_t *random_type)
+{
+  uint32_t reg_val = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg_val = vmeRead32(&TIp->pulserEvType);
+  *fixed_type = (reg_val & TI_PULSEREVTYPE_FIXED_MASK) >> 16;
+  *random_type = (reg_val & TI_PULSEREVTYPE_RANDOM_MASK) >> 24;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  * @ingroup MasterConfig
  * @brief Load a predefined trigger table (mapping TS inputs to trigger types).
  *
@@ -6387,12 +6859,32 @@ tiLoadTriggerTable(int mode)
     tiTriggerTablePredefinedConfig(mode);
 
   TILOCK;
+  tiTriggerTableMode = mode;
   for(ipat=0; ipat<16; ipat++)
     vmeWrite32(&TIp->trigTable[ipat], tiTrigPatternData[ipat]);
 
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return trigger table mode
+ *
+ * @return 0-3: Predefined modes, 4: User
+ *
+ */
+int32_t
+tiGetTriggerTableMode()
+{
+  int32_t rval = 0;
+
+  TILOCK;
+  rval = tiTriggerTableMode;
+  TIUNLOCK;
+
+  return rval;
 }
 
 /**
@@ -8799,7 +9291,8 @@ tiGetAckCount()
 int
 tiGetSWBBusy(int pflag)
 {
-  unsigned int rval=0;
+  int rval = 0;
+  unsigned int rreg = 0;
   if(TIp == NULL)
     {
       printf("%s: ERROR: TI not initialized\n",__FUNCTION__);
@@ -8807,15 +9300,16 @@ tiGetSWBBusy(int pflag)
     }
 
   TILOCK;
-  rval = vmeRead32(&TIp->busy) & (TI_BUSY_SWB<<16);
-
+  rreg = vmeRead32(&TIp->busy);
+  rval = (rreg & TI_BUSY_MONITOR_SWB) ? 1 : 0;
   TIUNLOCK;
 
   if(pflag)
     {
-      printf("%s: SWB %s\n",
+      printf("%s: SWB %s  (0x%08x)\n",
 	     __FUNCTION__,
-	     (rval)?"BUSY":"NOT BUSY");
+	     (rval)?"BUSY":"NOT BUSY",
+	     rreg);
     }
 
   return rval;
@@ -9317,6 +9811,42 @@ tiSetScalerMode(int mode, int control)
 }
 
 /**
+ * @ingroup Status
+ * @brief Returns the settings for the scaling of ts inputs
+ *
+ * @param mode:
+ *   -  0: Always count, regardless of trigger source enable
+ *   -  1: Only count when trigger source is enabled.
+ *
+ * @param control:
+ *   -  0: TS inputs scalers count according to 'mode' parameter.
+ *   -  1: TS inputs scalers can be enabled/disabled with @tiEnableTSInput/@tiDisableTSInput
+ *
+ * @return OK if successful, otherwise ERROR
+ *
+ */
+
+int32_t
+tiGetScalerMode(int32_t *mode, int32_t *control)
+{
+  uint32_t reg_val = 0;
+  if(TIp == NULL)
+    {
+      printf("%s: ERROR: TI not initialized\n",
+	     __FUNCTION__);
+      return ERROR;
+    }
+
+  TILOCK;
+  reg_val = vmeRead32(&TIp->vmeControl);
+  *mode = (reg_val & TI_VMECONTROL_COUNT_IN_GO_ENABLE) ? 1 : 0;
+  *control = (reg_val & TI_VMECONTROL_TS_COUNTER_CONTROL) ? 1 : 0;
+  TIUNLOCK;
+
+  return OK;
+}
+
+/**
  * @ingroup Config
  * @brief Enable/disable recording of scalers associated with the bits in the event type.
  *
@@ -9345,6 +9875,27 @@ tiSetEvTypeScalers(int enable)
   TIUNLOCK;
 
   return OK;
+}
+
+/**
+ * @ingroup Status
+ * @brief Return the flag for Enabling/disabling recording of event type scalers
+ *
+ * @return enable flag
+ *   -  0: Scalers Disabled
+ *   -  1: Scalers Enabled
+ *
+ *
+ */
+int32_t
+tiGetEvTypeScalersFlag()
+{
+  int32_t rval = 0;
+  TILOCK;
+  rval = tiUseEvTypeScalers;
+  TIUNLOCK;
+
+  return rval;
 }
 
 static unsigned int evtype_scalers[6];
@@ -9869,7 +10420,7 @@ tiGetHWRegisters(unsigned int *data_buffer, unsigned int maxwords)
  *
  */
 
- void
+void
 tiPrintHWRegisters(int32_t formatFlag)
 {
   unsigned int *data;
