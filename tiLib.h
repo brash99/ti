@@ -1,3 +1,4 @@
+#pragma once
 /*----------------------------------------------------------------------------*
  *  Copyright (c) 2012        Southeastern Universities Research Association, *
  *                            Thomas Jefferson National Accelerator Facility  *
@@ -17,8 +18,6 @@
  *     Supervisor (TI) card
  *
  *----------------------------------------------------------------------------*/
-#ifndef TILIB_H
-#define TILIB_H
 
 
 #ifdef VXWORKS
@@ -866,5 +865,3 @@ int  tiPrintClockConfiguration();
 void tiTriggerStatus(int pflag);
 int  tiGetHWRegisters(unsigned int *data_buffer, unsigned int maxwords);
 void tiPrintHWRegisters(int32_t formatFlag);
-
-#endif /* TILIB_H */

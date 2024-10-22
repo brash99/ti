@@ -5559,8 +5559,9 @@ int
 tiSetClockSource(unsigned int source)
 {
   int rval=OK, iwait = 0, reg = 0, Locked = 0;
-  unsigned int clkset=0;
-  unsigned int clkread=0;
+  uint32_t clkset=0, clkread=0;
+  uint32_t syncresetset = 0, triggerset = 0;
+
   char sClock[20] = "";
 
   if(TIp == NULL)
@@ -5597,6 +5598,13 @@ tiSetClockSource(unsigned int source)
 
 
   TILOCK;
+  /* Disable syncreset and trigger sources */
+  syncresetset = vmeRead32(&TIp->sync) & TI_SYNC_SOURCEMASK;
+  triggerset = vmeRead32(&TIp->trigsrc) & TI_TRIGSRC_SOURCEMASK;
+
+  vmeWrite32(&TIp->sync, 0);
+  vmeWrite32(&TIp->trigsrc, 0);
+
   vmeWrite32(&TIp->clock, clkset);
   taskDelay(10);
   /* Reset DCM (Digital Clock Manager) - 250/200MHz */
@@ -5646,6 +5654,10 @@ tiSetClockSource(unsigned int source)
 	}
       vmeWrite32(&TIp->runningMode,TI_RUNNINGMODE_DISABLE);
     }
+
+  /* Re-enable syncreset and trigger sources */
+  vmeWrite32(&TIp->sync, syncresetset);
+  vmeWrite32(&TIp->trigsrc, triggerset);
 
   TIUNLOCK;
 
